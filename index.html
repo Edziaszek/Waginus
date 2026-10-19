@@ -254,34 +254,12 @@
     .filter-result-box span { font-size: 0.75rem; color: var(--text-muted); display: block; }
     .filter-result-box strong { font-size: 1rem; color: var(--text-main); }
 
-    /* STYLE KALENDARZA TRENINGOWEGO */
-    .calendar-container {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .calendar-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .calendar-month-title {
-      font-weight: bold;
-      font-size: 0.95rem;
-      color: var(--text-main);
-    }
-    .calendar-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 4px;
-      text-align: center;
-    }
-    .calendar-day-head {
-      font-size: 0.75rem;
-      font-weight: bold;
-      color: var(--text-muted);
-      padding: 4px 0;
-    }
+    /* KALENDARZ TRENINGOWY */
+    .calendar-container { display: flex; flex-direction: column; gap: 10px; }
+    .calendar-header { display: flex; justify-content: space-between; align-items: center; }
+    .calendar-month-title { font-weight: bold; font-size: 0.95rem; color: var(--text-main); }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+    .calendar-day-head { font-size: 0.75rem; font-weight: bold; color: var(--text-muted); padding: 4px 0; }
     .calendar-day {
       aspect-ratio: 1;
       display: flex;
@@ -297,24 +275,10 @@
       cursor: default;
       position: relative;
     }
-    .calendar-day.empty {
-      background: transparent;
-      border: none;
-    }
-    .calendar-day.workout-day {
-      background: var(--primary);
-      color: var(--primary-text);
-      cursor: pointer;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-    }
-    .calendar-day.today {
-      border-color: var(--primary);
-    }
-    .workout-badge {
-      font-size: 0.6rem;
-      line-height: 1;
-      margin-top: 2px;
-    }
+    .calendar-day.empty { background: transparent; border: none; }
+    .calendar-day.workout-day { background: var(--primary); color: var(--primary-text); cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
+    .calendar-day.today { border-color: var(--primary); }
+    .workout-badge { font-size: 0.6rem; line-height: 1; margin-top: 2px; }
 
     .edit-list { display: flex; flex-direction: column; gap: 8px; max-height: 350px; overflow-y: auto; }
     .edit-item {
@@ -537,7 +501,7 @@
       </form>
     </div>
 
-    <!-- SEKCJA: KALENDARZ TRENINGOWY -->
+    <!-- KALENDARZ TRENINGOWY -->
     <div class="card">
       <h2>Kalendarz Treningowy</h2>
       <div class="calendar-container">
@@ -821,7 +785,6 @@
   let bodySortDesc = true;
 
   let currentCalendarDate = new Date();
-
   let currentFontSize = parseInt(localStorage.getItem('app_font_size')) || 16;
 
   function formatDate(dateInput) {
@@ -1117,7 +1080,7 @@
       method: 'POST', mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ type: 'weight', date: date, weight: weight, secret: secret })
-    }).then(() => { document.getElementById('weightInput').value = ''; setTimeout(fetchFromGoogle, 1500); });
+    }).then(() => { document.getElementById('weightInput').value = ''; setTimeout(fetchFromGoogle, 800); });
   }
 
   function handleWorkoutFormSubmit(e) {
@@ -1137,7 +1100,7 @@
       method: 'POST', mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ type: 'workout', date: date, exercise: exercise, series: seriesCount, weights: weights, secret: secret })
-    }).then(() => setTimeout(fetchFromGoogle, 1500));
+    }).then(() => setTimeout(fetchFromGoogle, 800));
   }
 
   function handleBodyFormSubmit(e) {
@@ -1151,7 +1114,7 @@
       method: 'POST', mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ type: 'body_measurement', date: date, part: part, size: size, secret: secret })
-    }).then(() => setTimeout(fetchFromGoogle, 1500));
+    }).then(() => setTimeout(fetchFromGoogle, 800));
   }
 
   function renderSettingsLists() {
@@ -1185,17 +1148,17 @@
   function editWeightItem(rowIndex, oldDate, oldWeight) {
     const newDate = prompt("Nowa data (YYYY-MM-DD):", oldDate); if (!newDate) return;
     const newWeight = prompt("Nowa waga (kg):", oldWeight); if (!newWeight || isNaN(parseFloat(newWeight))) return;
-    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'edit_weight', rowIndex: rowIndex, date: newDate, weight: parseFloat(newWeight), secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'edit_weight', rowIndex: rowIndex, date: newDate, weight: parseFloat(newWeight), secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 800));
   }
 
   function deleteWeightItem(rowIndex) {
     if (!confirm("Usunąć wpis?")) return;
-    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'delete_weight', rowIndex: rowIndex, secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'delete_weight', rowIndex: rowIndex, secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 800));
   }
 
   function addExerciseName() {
     const input = document.getElementById('newExerciseInput'); if (!input.value.trim()) return;
-    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'add_exercise', name: input.value.trim(), secret: getSecretKey() }) }).then(() => { input.value = ''; setTimeout(fetchFromGoogle, 1500); });
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'add_exercise', name: input.value.trim(), secret: getSecretKey() }) }).then(() => { input.value = ''; setTimeout(fetchFromGoogle, 800); });
   }
 
   function renderEditExercisesList() {
@@ -1209,17 +1172,17 @@
 
   function editExerciseName(rowIndex, oldName) {
     const newName = prompt("Nowa nazwa:", oldName); if (!newName) return;
-    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'edit_exercise', rowIndex: rowIndex, name: newName.trim(), secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'edit_exercise', rowIndex: rowIndex, name: newName.trim(), secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 800));
   }
 
   function deleteExerciseName(rowIndex) {
     if (!confirm("Usunąć ćwiczenie?")) return;
-    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'delete_exercise', rowIndex: rowIndex, secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'delete_exercise', rowIndex: rowIndex, secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 800));
   }
 
   function addBodyPartName() {
     const input = document.getElementById('newBodyPartInput'); if (!input.value.trim()) return;
-    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'add_body_part', name: input.value.trim(), secret: getSecretKey() }) }).then(() => { input.value = ''; setTimeout(fetchFromGoogle, 1500); });
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'add_body_part', name: input.value.trim(), secret: getSecretKey() }) }).then(() => { input.value = ''; setTimeout(fetchFromGoogle, 800); });
   }
 
   function renderEditBodyPartsList() {
@@ -1233,12 +1196,12 @@
 
   function editBodyPartName(rowIndex, oldName) {
     const newName = prompt("Nowa nazwa obwodu:", oldName); if (!newName) return;
-    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'edit_body_part', rowIndex: rowIndex, name: newName.trim(), secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'edit_body_part', rowIndex: rowIndex, name: newName.trim(), secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 800));
   }
 
   function deleteBodyPartName(rowIndex) {
     if (!confirm("Usunąć obwód?")) return;
-    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'delete_body_part', rowIndex: rowIndex, secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'delete_body_part', rowIndex: rowIndex, secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 800));
   }
 
   function renderEditWorkoutList() {
@@ -1272,12 +1235,12 @@
     const newDate = prompt("Nowa data:", oldDate); if (!newDate) return;
     const newWeightsStr = prompt("Wagi rozdzielone przecinkami:", oldWeightsStr); if (!newWeightsStr) return;
     const weightsArr = newWeightsStr.split(',').map(w => parseFloat(w.trim())).filter(w => !isNaN(w));
-    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'edit_workout', rowIndex: rowIndex, date: newDate, exercise: oldExercise, series: weightsArr.length, weights: weightsArr, secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'edit_workout', rowIndex: rowIndex, date: newDate, exercise: oldExercise, series: weightsArr.length, weights: weightsArr, secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 800));
   }
 
   function deleteWorkoutItem(rowIndex) {
     if (!confirm("Usunąć trening?")) return;
-    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'delete_workout', rowIndex: rowIndex, secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'delete_workout', rowIndex: rowIndex, secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 800));
   }
 
   function renderEditBodyList() {
@@ -1310,12 +1273,12 @@
   function editBodyItem(rowIndex, oldDate, oldPart, oldSize) {
     const newDate = prompt("Nowa data:", oldDate); if (!newDate) return;
     const newSize = prompt("Nowy wymiar (cm):", oldSize); if (!newSize || isNaN(parseFloat(newSize))) return;
-    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'edit_body_measurement', rowIndex: rowIndex, date: newDate, part: oldPart, size: parseFloat(newSize), secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'edit_body_measurement', rowIndex: rowIndex, date: newDate, part: oldPart, size: parseFloat(newSize), secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 800));
   }
 
   function deleteBodyItem(rowIndex) {
     if (!confirm("Usunąć pomiar obwodu?")) return;
-    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'delete_body_measurement', rowIndex: rowIndex, secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'delete_body_measurement', rowIndex: rowIndex, secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 800));
   }
 
   function getAverage(arr) { if (!arr.length) return '-'; return (arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1); }
@@ -1333,7 +1296,6 @@
     renderSettingsLists();
   }
 
-  /* RYSOWANIE KALENDARZA TRENINGOWEGO */
   function prevCalendarMonth() {
     currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
     renderCalendar();
@@ -1359,12 +1321,10 @@
     const monthNames = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
     monthTitle.innerText = `${monthNames[month]} ${year}`;
 
-    // Pierwszy dzień miesiąca i liczba dni
-    const firstDayIndex = new Date(year, month, 1).getDay(); // 0 -> Nd, 1 -> Pn...
-    const adjustedFirstDay = firstDayIndex === 0 ? 6 : firstDayIndex - 1; // Konwersja na Pn -> 0
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    const adjustedFirstDay = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
     const totalDays = new Date(year, month + 1, 0).getDate();
 
-    // Mapowanie dat treningów do obiektu
     const workoutDatesMap = {};
     workoutData.forEach(w => {
       const isoStr = formatDateISO(new Date(w.date));
@@ -1374,14 +1334,12 @@
 
     const todayIso = formatDateISO(new Date());
 
-    // Puste komórki przed 1 dniem miesiąca
     for (let i = 0; i < adjustedFirstDay; i++) {
       const emptyDiv = document.createElement('div');
       emptyDiv.className = 'calendar-day empty';
       grid.appendChild(emptyDiv);
     }
 
-    // Dni miesiąca
     for (let day = 1; day <= totalDays; day++) {
       const d = new Date(year, month, day);
       const isoDate = formatDateISO(d);
