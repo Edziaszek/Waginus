@@ -1,0 +1,1623 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Dziennik Formy i Obwodów</title>
+  <style>
+    :root {
+      --font-size-base: 16px;
+      --bg-color: #f8fafc;
+      --card-bg: #ffffff;
+      --card-border: #e2e8f0;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-text: #ffffff;
+      --input-bg: #ffffff;
+      --input-border: #cbd5e1;
+      --subtab-bg: #e2e8f0;
+      --box-bg: #f1f5f9;
+      --chart-line: #2563eb;
+      --chart-grid: #e2e8f0;
+    }
+
+    [data-theme="dark"] {
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #f97316;
+      --primary-hover: #ea580c;
+      --primary-text: #ffffff;
+      --input-bg: #0f172a;
+      --input-border: #475569;
+      --subtab-bg: #0f172a;
+      --box-bg: #0f172a;
+      --chart-line: #f97316;
+      --chart-grid: #334155;
+    }
+
+    html { font-size: var(--font-size-base); }
+
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    }
+    
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      margin: 0;
+      padding: 12px 12px 80px 12px;
+      display: flex;
+      justify-content: center;
+    }
+    
+    .container {
+      max-width: 500px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-bg);
+      padding: 8px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .top-bar-title { font-weight: bold; font-size: 0.95rem; color: var(--text-main); }
+    .top-controls { display: flex; gap: 6px; align-items: center; }
+    .icon-btn {
+      background: var(--box-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .tab-content { display: none; flex-direction: column; gap: 14px; }
+    .tab-content.active { display: flex; }
+
+    .card {
+      background: var(--card-bg);
+      padding: 14px;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border: 1px solid var(--card-border);
+    }
+    h2 { margin: 0 0 10px 0; font-size: 1.05rem; color: var(--text-main); }
+    #status {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      text-align: center;
+      color: #0f172a;
+    }
+    
+    form { display: flex; flex-direction: column; gap: 10px; }
+    .form-group { display: flex; gap: 8px; }
+    .form-field { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+    label { font-size: 0.8rem; color: var(--text-muted); font-weight: bold; }
+    input, select {
+      padding: 10px;
+      border: 1px solid var(--input-border);
+      border-radius: 6px;
+      font-size: 0.95rem;
+      flex: 1;
+      min-width: 0;
+      background: var(--input-bg);
+      color: var(--text-main);
+    }
+    button.btn-primary {
+      background: var(--primary);
+      color: var(--primary-text);
+      border: none;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+    button.btn-primary:disabled { background: #94a3b8; }
+    button.btn-danger {
+      background: #ef4444;
+      color: white;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    button.btn-secondary {
+      background: var(--box-bg);
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+
+    .subtabs-nav {
+      display: flex;
+      gap: 6px;
+      background: var(--subtab-bg);
+      padding: 4px;
+      border-radius: 8px;
+    }
+    .subtab-btn {
+      flex: 1;
+      padding: 8px 4px;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      text-align: center;
+    }
+    .subtab-btn.active {
+      background: var(--card-bg);
+      color: var(--primary);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    .subtab-content { display: none; flex-direction: column; gap: 14px; }
+    .subtab-content.active { display: flex; }
+
+    .series-grid { display: flex; flex-direction: column; gap: 8px; }
+    .series-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--box-bg);
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+    }
+    .series-label { font-size: 0.85rem; font-weight: bold; width: 60px; color: var(--text-muted); }
+    .step-btn {
+      width: 36px;
+      height: 36px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: var(--text-main);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .series-input { text-align: center; font-weight: bold; }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      text-align: center;
+    }
+    .stat-box { background: var(--box-bg); padding: 10px; border-radius: 8px; }
+    .stat-val { font-size: 1.1rem; font-weight: bold; color: var(--primary); margin-top: 4px; }
+    .stat-lbl { font-size: 0.75rem; color: var(--text-muted); }
+    
+    .btn-group { display: flex; gap: 6px; margin-bottom: 10px; }
+    .btn-group button {
+      flex: 1;
+      padding: 6px 8px;
+      border: 1px solid var(--card-border);
+      background: var(--card-bg);
+      color: var(--text-main);
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .btn-group button.active {
+      background: var(--primary);
+      color: var(--primary-text);
+      border-color: var(--primary);
+      font-weight: bold;
+    }
+    
+    .filter-result-box {
+      background: var(--box-bg);
+      border: 1px solid var(--card-border);
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-around;
+      text-align: center;
+    }
+    .filter-result-box div { flex: 1; }
+    .filter-result-box span { font-size: 0.75rem; color: var(--text-muted); display: block; }
+    .filter-result-box strong { font-size: 1rem; color: var(--text-main); }
+
+    /* STYLE KALENDARZA TRENINGOWEGO */
+    .calendar-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .calendar-month-title {
+      font-weight: bold;
+      font-size: 0.95rem;
+      color: var(--text-main);
+    }
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      text-align: center;
+    }
+    .calendar-day-head {
+      font-size: 0.75rem;
+      font-weight: bold;
+      color: var(--text-muted);
+      padding: 4px 0;
+    }
+    .calendar-day {
+      aspect-ratio: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      background: var(--box-bg);
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: var(--text-main);
+      border: 1px solid transparent;
+      cursor: default;
+      position: relative;
+    }
+    .calendar-day.empty {
+      background: transparent;
+      border: none;
+    }
+    .calendar-day.workout-day {
+      background: var(--primary);
+      color: var(--primary-text);
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+    .calendar-day.today {
+      border-color: var(--primary);
+    }
+    .workout-badge {
+      font-size: 0.6rem;
+      line-height: 1;
+      margin-top: 2px;
+    }
+
+    .edit-list { display: flex; flex-direction: column; gap: 8px; max-height: 350px; overflow-y: auto; }
+    .edit-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      background: var(--box-bg);
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+    }
+    .item-actions { display: flex; gap: 6px; }
+
+    #dataList, #workoutDataList, #bodyDataList {
+      max-height: 250px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .data-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: var(--box-bg);
+      border-radius: 6px;
+      font-size: 0.9rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .accordion-header {
+      font-weight: bold;
+      font-size: 0.88rem;
+      color: var(--primary);
+      background: var(--box-bg);
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+      user-select: none;
+    }
+    .accordion-header:hover { opacity: 0.9; }
+    .accordion-content {
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      padding: 6px 0 6px 8px;
+      border-left: 2px solid var(--primary);
+      margin-left: 6px;
+      margin-bottom: 6px;
+    }
+    .accordion-content.open { display: flex; }
+    .accordion-arrow { font-size: 0.75rem; transition: transform 0.2s ease; }
+
+    .bottom-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 60px;
+      background: var(--card-bg);
+      border-top: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      z-index: 1000;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    }
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-weight: 500;
+      cursor: pointer;
+      gap: 2px;
+    }
+    .nav-item svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .nav-item.active { color: var(--primary); font-weight: bold; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Górny Pasek -->
+  <div class="top-bar">
+    <div class="top-bar-title">📊 Dziennik Formy</div>
+    <div class="top-controls">
+      <button class="icon-btn" onclick="toggleTheme()"><span id="themeIcon">🌙</span></button>
+      <button class="icon-btn" onclick="changeFontSize(-1)">A-</button>
+      <button class="icon-btn" onclick="changeFontSize(1)">A+</button>
+    </div>
+  </div>
+
+  <div id="status">⏳ Inicjalizacja...</div>
+
+  <!-- ZAKŁADKA 1: WAGA -->
+  <div id="tab-weight" class="tab-content active">
+    <div class="card">
+      <h2>Dodaj pomiar wagi</h2>
+      <form id="weightForm">
+        <div class="form-group">
+          <input type="date" id="dateInput" required>
+          <input type="number" id="weightInput" step="0.1" placeholder="Waga (kg)" required>
+        </div>
+        <button type="submit" id="saveBtn" class="btn-primary">Zapisz pomiar</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Podsumowanie (Ostatnie 7 dni)</h2>
+      <div class="stats-grid">
+        <div class="stat-box"><div class="stat-lbl">Ostatnia waga</div><div class="stat-val" id="lastWeight">-</div></div>
+        <div class="stat-box"><div class="stat-lbl">Średnia 7d</div><div class="stat-val" id="avg7d">-</div></div>
+        <div class="stat-box"><div class="stat-lbl">Mediana 7d</div><div class="stat-val" id="med7d">-</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Średnia i Mediana tygodniowa</h2>
+      <div class="btn-group" id="weekFilterGroup">
+        <button data-type="current" class="active">Obecny</button>
+        <button data-type="prev1">Poprzedni</button>
+        <button data-type="prev2">2 tyg. temu</button>
+      </div>
+      <div class="filter-result-box">
+        <div><span>Średnia</span><strong id="weekAvgResult">-</strong></div>
+        <div><span>Mediana</span><strong id="weekMedResult">-</strong></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Średnia i Mediana miesięczna</h2>
+      <div class="btn-group" id="monthFilterGroup">
+        <button data-type="current" class="active">Obecny</button>
+        <button data-type="prev1">Poprzedni</button>
+        <button data-type="prev2">2 mies. temu</button>
+      </div>
+      <div class="filter-result-box">
+        <div><span>Średnia</span><strong id="monthAvgResult">-</strong></div>
+        <div><span>Mediana</span><strong id="monthMedResult">-</strong></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Własny okres czasowy</h2>
+      <div class="form-group">
+        <input type="date" id="customFrom">
+        <input type="date" id="customTo">
+      </div>
+      <div class="filter-result-box">
+        <div><span>Średnia</span><strong id="customAvgResult">-</strong></div>
+        <div><span>Mediana</span><strong id="customMedResult">-</strong></div>
+        <div><span>Pomiary</span><strong id="customCountResult">-</strong></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Wykres wagi</h2>
+      <div class="btn-group" id="chartFilterGroup">
+        <button data-range="7">7d</button>
+        <button data-range="30" class="active">30d</button>
+        <button data-range="90">90d</button>
+        <button data-range="all">Wszystko</button>
+      </div>
+      <canvas id="nativeChart"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>Historia pomiarów wagi</h2>
+      <div id="dataList"></div>
+    </div>
+  </div>
+
+  <!-- ZAKŁADKA 2: TRENINGI -->
+  <div id="tab-workout" class="tab-content">
+    <div class="card">
+      <h2>Dodaj trening</h2>
+      <form id="workoutForm">
+        <div class="form-group">
+          <div class="form-field">
+            <label>Data</label>
+            <input type="date" id="workoutDate" required>
+          </div>
+          <div class="form-field">
+            <label>Serie (1-6)</label>
+            <select id="seriesCount">
+              <option value="1">1 seria</option>
+              <option value="2">2 serie</option>
+              <option value="3" selected>3 serie</option>
+              <option value="4">4 serie</option>
+              <option value="5">5 serii</option>
+              <option value="6">6 serii</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label>Ćwiczenie (z Bazy)</label>
+          <select id="exerciseSelect" required><option value="">⏳ Ładowanie...</option></select>
+        </div>
+
+        <div class="form-field">
+          <label>Ciężar w seriach (kg)</label>
+          <div id="seriesInputsContainer" class="series-grid"></div>
+        </div>
+
+        <button type="submit" id="saveWorkoutBtn" class="btn-primary">Zapisz trening</button>
+      </form>
+    </div>
+
+    <!-- SEKCJA: KALENDARZ TRENINGOWY -->
+    <div class="card">
+      <h2>Kalendarz Treningowy</h2>
+      <div class="calendar-container">
+        <div class="calendar-header">
+          <button class="icon-btn" onclick="prevCalendarMonth()">◄</button>
+          <div id="calendarMonthTitle" class="calendar-month-title">-</div>
+          <button class="icon-btn" onclick="nextCalendarMonth()">►</button>
+        </div>
+        <div class="calendar-grid">
+          <div class="calendar-day-head">Pn</div>
+          <div class="calendar-day-head">Wt</div>
+          <div class="calendar-day-head">Śr</div>
+          <div class="calendar-day-head">Cz</div>
+          <div class="calendar-day-head">Pt</div>
+          <div class="calendar-day-head">Sb</div>
+          <div class="calendar-day-head">Nd</div>
+        </div>
+        <div id="calendarDaysGrid" class="calendar-grid"></div>
+        <div id="calendarSelectedInfo" style="display:none; background:var(--box-bg); padding:10px; border-radius:8px; border:1px solid var(--card-border); font-size:0.85rem; margin-top:6px;"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Statystyki ćwiczenia</h2>
+      <div class="form-field" style="margin-bottom: 12px;">
+        <label>Wybierz ćwiczenie</label>
+        <select id="statExerciseSelect"></select>
+      </div>
+
+      <div class="btn-group" id="workoutPeriodFilterGroup">
+        <button data-period="week" class="active">Tydzień</button>
+        <button data-period="month">Miesiąc</button>
+        <button data-period="3months">3 Miesiące</button>
+      </div>
+      
+      <div class="filter-result-box">
+        <div><span>Średnia waga</span><strong id="workoutAvgResult">-</strong></div>
+        <div><span>Mediana wagi</span><strong id="workoutMedResult">-</strong></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Własny okres (Trening)</h2>
+      <div class="form-group">
+        <input type="date" id="workoutCustomFrom">
+        <input type="date" id="workoutCustomTo">
+      </div>
+      <div class="filter-result-box">
+        <div><span>Średnia</span><strong id="workoutCustomAvgResult">-</strong></div>
+        <div><span>Mediana</span><strong id="workoutCustomMedResult">-</strong></div>
+        <div><span>Treningi</span><strong id="workoutCustomCountResult">-</strong></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Wykres siłowy ćwiczenia</h2>
+      <div class="btn-group" id="workoutChartFilterGroup">
+        <button data-range="7">7d</button>
+        <button data-range="30" class="active">30d</button>
+        <button data-range="90">90d</button>
+        <button data-range="all">Wszystko</button>
+      </div>
+      <canvas id="workoutChart"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>Historia treningów</h2>
+      <div id="workoutDataList"></div>
+    </div>
+  </div>
+
+  <!-- ZAKŁADKA 3: OBWODY CIAŁA -->
+  <div id="tab-body" class="tab-content">
+    <div class="card">
+      <h2>Dodaj pomiar obwodu</h2>
+      <form id="bodyForm">
+        <div class="form-group">
+          <div class="form-field">
+            <label>Data</label>
+            <input type="date" id="bodyDate" required>
+          </div>
+          <div class="form-field">
+            <label>Partia Ciała (z Bazy)</label>
+            <select id="bodySelect" required><option value="">⏳ Ładowanie...</option></select>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label>Wymiar (cm)</label>
+          <div class="series-row">
+            <button type="button" class="step-btn" onclick="adjustBodySize(-0.5)">−</button>
+            <input type="number" id="bodySizeInput" class="series-input" step="0.1" value="80.0" required>
+            <button type="button" class="step-btn" onclick="adjustBodySize(0.5)">+</button>
+          </div>
+        </div>
+
+        <button type="submit" id="saveBodyBtn" class="btn-primary">Zapisz obwód</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Statystyki obwodu</h2>
+      <div class="form-field" style="margin-bottom: 12px;">
+        <label>Wybierz partię ciała</label>
+        <select id="statBodySelect"></select>
+      </div>
+
+      <div class="btn-group" id="bodyPeriodFilterGroup">
+        <button data-period="week" class="active">Tydzień</button>
+        <button data-period="month">Miesiąc</button>
+        <button data-period="3months">3 Miesiące</button>
+      </div>
+      
+      <div class="filter-result-box">
+        <div><span>Średni obwód</span><strong id="bodyAvgResult">-</strong></div>
+        <div><span>Mediana obwodu</span><strong id="bodyMedResult">-</strong></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Własny okres (Obwody)</h2>
+      <div class="form-group">
+        <input type="date" id="bodyCustomFrom">
+        <input type="date" id="bodyCustomTo">
+      </div>
+      <div class="filter-result-box">
+        <div><span>Średnia</span><strong id="bodyCustomAvgResult">-</strong></div>
+        <div><span>Mediana</span><strong id="bodyCustomMedResult">-</strong></div>
+        <div><span>Pomiary</span><strong id="bodyCustomCountResult">-</strong></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Wykres postępu obwodu</h2>
+      <div class="btn-group" id="bodyChartFilterGroup">
+        <button data-range="7">7d</button>
+        <button data-range="30" class="active">30d</button>
+        <button data-range="90">90d</button>
+        <button data-range="all">Wszystko</button>
+      </div>
+      <canvas id="bodyChart"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>Historia obwodów</h2>
+      <div id="bodyDataList"></div>
+    </div>
+  </div>
+
+  <!-- ZAKŁADKA 4: USTAWIENIA -->
+  <div id="tab-settings" class="tab-content">
+    <div class="subtabs-nav">
+      <button class="subtab-btn active" onclick="switchSubTab('weight-settings', this)">Waga</button>
+      <button class="subtab-btn" onclick="switchSubTab('workout-settings', this)">Treningi</button>
+      <button class="subtab-btn" onclick="switchSubTab('body-settings', this)">Obwody</button>
+      <button class="subtab-btn" onclick="switchSubTab('general-settings', this)">Ogólne</button>
+    </div>
+
+    <!-- SUBTAB 1: Waga -->
+    <div id="subtab-weight-settings" class="subtab-content active">
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h2 style="margin: 0;">Edycja wpisów wagi</h2>
+          <button class="btn-secondary" onclick="toggleWeightSort()">Sortuj: <span id="weightSortLabel">Najnowsze</span></button>
+        </div>
+        <div id="editWeightList" class="edit-list"></div>
+      </div>
+    </div>
+
+    <!-- SUBTAB 2: Treningi -->
+    <div id="subtab-workout-settings" class="subtab-content">
+      <div class="card">
+        <h2>Nazwy Ćwiczeń (Baza)</h2>
+        <div class="form-group">
+          <input type="text" id="newExerciseInput" placeholder="Nowe ćwiczenie">
+          <button type="button" class="btn-primary" onclick="addExerciseName()">Dodaj</button>
+        </div>
+        <div id="editExercisesList" class="edit-list" style="margin-top: 12px;"></div>
+      </div>
+
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h2 style="margin: 0;">Edycja Treningów</h2>
+          <button class="btn-secondary" onclick="toggleWorkoutSort()">Sortuj: <span id="workoutSortLabel">Najnowsze</span></button>
+        </div>
+        <div id="editWorkoutList" class="edit-list"></div>
+      </div>
+    </div>
+
+    <!-- SUBTAB 3: Obwody Ciała -->
+    <div id="subtab-body-settings" class="subtab-content">
+      <div class="card">
+        <h2>Nazwy Obwodów (Baza)</h2>
+        <div class="form-group">
+          <input type="text" id="newBodyPartInput" placeholder="Nowy obwód (np. Udo prawe)">
+          <button type="button" class="btn-primary" onclick="addBodyPartName()">Dodaj</button>
+        </div>
+        <div id="editBodyPartsList" class="edit-list" style="margin-top: 12px;"></div>
+      </div>
+
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h2 style="margin: 0;">Edycja Pomiary Obwodów</h2>
+          <button class="btn-secondary" onclick="toggleBodySort()">Sortuj: <span id="bodySortLabel">Najnowsze</span></button>
+        </div>
+        <div id="editBodyList" class="edit-list"></div>
+      </div>
+    </div>
+
+    <!-- SUBTAB 4: Ogólne -->
+    <div id="subtab-general-settings" class="subtab-content">
+      <div class="card">
+        <h2>Wygląd Aplikacji</h2>
+        <div class="form-group" style="margin-bottom: 10px;">
+          <button class="btn-secondary" style="flex:1;" onclick="toggleTheme()">Przełącz Motyw (Jasny/Ciemny)</button>
+        </div>
+        <div class="form-group">
+          <button class="btn-secondary" style="flex:1;" onclick="changeFontSize(-1)">Mniejszy tekst A-</button>
+          <button class="btn-secondary" style="flex:1;" onclick="changeFontSize(1)">Większy tekst A+</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Ochrona Ustawień (PIN)</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0;">PIN chroni zakładkę ustawień przed niepowołanymi kliknięciami.</p>
+        <button class="btn-primary" onclick="changeSettingsPin()">Zmień PIN do Ustawień</button>
+      </div>
+
+      <div class="card">
+        <h2>Bezpieczeństwo Aplikacji</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0;">Usuń zapamiętany klucz dostępu (SECRET_KEY) z pamięci tego urządzenia.</p>
+        <button class="btn-danger" onclick="resetSecretKey()">Wyczyść Zapamiętane Hasło Aplikacji</button>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- DOLNY PASEK NAWIGACJI -->
+<nav class="bottom-nav">
+  <button class="nav-item active" onclick="switchTab('weight', this)">
+    <svg viewBox="0 0 24 24"><path d="M20.4 9A9 9 0 1 0 3.6 9L2 13h20l-1.6-4zM12 13v4m-4 0h8"/></svg>
+    Waga
+  </button>
+  <button class="nav-item" onclick="switchTab('workout', this)">
+    <svg viewBox="0 0 24 24"><path d="M6.5 6.5h11M6.5 17.5h11M4 9v6M20 9v6M18 7v10M6 7v10"/></svg>
+    Treningi
+  </button>
+  <button class="nav-item" onclick="switchTab('body', this)">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/></svg>
+    Obwody
+  </button>
+  <button class="nav-item" onclick="switchTab('settings', this)">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    Ustawienia
+  </button>
+</nav>
+
+<script>
+  // =========================================================================
+  // TUTAJ WKLEJ SWÓJ ADRES URL Z APPS SCRIPT
+  // =========================================================================
+  const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbywiC9BU-D5K3v0ApqGkV5tkv28cqo7bX8AKkTXiXP_jiY3mrmXjYJz-OkOLZqxb4TC/exec";
+
+  let weightData = [];
+  let exercisesList = [];
+  let bodyPartsList = [];
+  let workoutData = [];
+  let bodyMeasurementsData = [];
+
+  let currentChartRange = '30';
+  let currentWorkoutChartRange = '30';
+  let currentBodyChartRange = '30';
+
+  let currentWorkoutPeriod = 'week';
+  let currentBodyPeriod = 'week';
+
+  let weightSortDesc = true;
+  let workoutSortDesc = true;
+  let bodySortDesc = true;
+
+  let currentCalendarDate = new Date();
+
+  let currentFontSize = parseInt(localStorage.getItem('app_font_size')) || 16;
+
+  function formatDate(dateInput) {
+    if (!dateInput) return '';
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return String(dateInput);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+
+  function formatDateISO(dateObj) {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  function initThemeAndFont() {
+    const savedTheme = localStorage.getItem('app_theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    document.getElementById('themeIcon').innerText = savedTheme === 'dark' ? '☀️' : '🌙';
+    document.documentElement.style.setProperty('--font-size-base', `${currentFontSize}px`);
+  }
+
+  function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('app_theme', newTheme);
+    document.getElementById('themeIcon').innerText = newTheme === 'dark' ? '☀️' : '🌙';
+    drawNativeChart(); drawWorkoutChart(); drawBodyChart();
+  }
+
+  function changeFontSize(delta) {
+    currentFontSize = Math.min(22, Math.max(12, currentFontSize + delta));
+    document.documentElement.style.setProperty('--font-size-base', `${currentFontSize}px`);
+    localStorage.setItem('app_font_size', currentFontSize);
+    drawNativeChart(); drawWorkoutChart(); drawBodyChart();
+  }
+
+  function switchTab(tabId, btn) {
+    if (tabId === 'settings') {
+      const savedPin = localStorage.getItem('settings_pin') || '1234';
+      const inputPin = prompt("Wprowadź PIN do Ustawień:");
+      if (inputPin !== savedPin) {
+        alert("Nieprawidłowy PIN!");
+        return;
+      }
+    }
+
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+
+    document.getElementById(`tab-${tabId}`).classList.add('active');
+    btn.classList.add('active');
+
+    if (tabId === 'weight') drawNativeChart();
+    else if (tabId === 'workout') { drawWorkoutChart(); renderCalendar(); }
+    else if (tabId === 'body') drawBodyChart();
+    else if (tabId === 'settings') renderSettingsLists();
+  }
+
+  function switchSubTab(subTabId, btn) {
+    document.querySelectorAll('.subtab-content').forEach(st => st.classList.remove('active'));
+    document.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
+
+    document.getElementById(`subtab-${subTabId}`).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function toggleAccordion(header) {
+    const content = header.nextElementSibling;
+    const arrow = header.querySelector('.accordion-arrow');
+    if (content.classList.contains('open')) {
+      content.classList.remove('open');
+      arrow.innerText = '▶';
+    } else {
+      content.classList.add('open');
+      arrow.innerText = '▼';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    initThemeAndFont();
+
+    document.getElementById('dateInput').valueAsDate = new Date();
+    document.getElementById('workoutDate').valueAsDate = new Date();
+    document.getElementById('bodyDate').valueAsDate = new Date();
+
+    document.getElementById('weightForm').addEventListener('submit', handleWeightFormSubmit);
+    document.getElementById('workoutForm').addEventListener('submit', handleWorkoutFormSubmit);
+    document.getElementById('bodyForm').addEventListener('submit', handleBodyFormSubmit);
+
+    document.getElementById('seriesCount').addEventListener('change', (e) => {
+      renderSeriesInputs(parseInt(e.target.value));
+    });
+    renderSeriesInputs(3);
+
+    document.querySelectorAll('#weekFilterGroup button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('#weekFilterGroup button').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        setWeekFilter(e.target.getAttribute('data-type'));
+      });
+    });
+
+    document.querySelectorAll('#monthFilterGroup button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('#monthFilterGroup button').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        setMonthFilter(e.target.getAttribute('data-type'));
+      });
+    });
+
+    document.querySelectorAll('#chartFilterGroup button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('#chartFilterGroup button').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        currentChartRange = e.target.getAttribute('data-range');
+        drawNativeChart();
+      });
+    });
+
+    document.querySelectorAll('#workoutPeriodFilterGroup button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('#workoutPeriodFilterGroup button').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        currentWorkoutPeriod = e.target.getAttribute('data-period');
+        updateWorkoutStats();
+      });
+    });
+
+    document.querySelectorAll('#workoutChartFilterGroup button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('#workoutChartFilterGroup button').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        currentWorkoutChartRange = e.target.getAttribute('data-range');
+        drawWorkoutChart();
+      });
+    });
+
+    document.querySelectorAll('#bodyPeriodFilterGroup button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('#bodyPeriodFilterGroup button').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        currentBodyPeriod = e.target.getAttribute('data-period');
+        updateBodyStats();
+      });
+    });
+
+    document.querySelectorAll('#bodyChartFilterGroup button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('#bodyChartFilterGroup button').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        currentBodyChartRange = e.target.getAttribute('data-range');
+        drawBodyChart();
+      });
+    });
+
+    document.getElementById('statExerciseSelect').addEventListener('change', () => { updateWorkoutStats(); drawWorkoutChart(); });
+    document.getElementById('statBodySelect').addEventListener('change', () => { updateBodyStats(); drawBodyChart(); });
+
+    document.getElementById('customFrom').addEventListener('change', calculateCustomRange);
+    document.getElementById('customTo').addEventListener('change', calculateCustomRange);
+    document.getElementById('workoutCustomFrom').addEventListener('change', calculateWorkoutCustomRange);
+    document.getElementById('workoutCustomTo').addEventListener('change', calculateWorkoutCustomRange);
+    document.getElementById('bodyCustomFrom').addEventListener('change', calculateBodyCustomRange);
+    document.getElementById('bodyCustomTo').addEventListener('change', calculateBodyCustomRange);
+
+    window.addEventListener('resize', () => { drawNativeChart(); drawWorkoutChart(); drawBodyChart(); });
+
+    fetchFromGoogle();
+  });
+
+  function renderSeriesInputs(count) {
+    const container = document.getElementById('seriesInputsContainer');
+    container.innerHTML = '';
+    for (let i = 1; i <= count; i++) {
+      const row = document.createElement('div');
+      row.className = 'series-row';
+      row.innerHTML = `
+        <span class="series-label">Seria ${i}:</span>
+        <button type="button" class="step-btn" onclick="adjustSeriesWeight(${i}, -2.5)">−</button>
+        <input type="number" id="seriesWeight_${i}" class="series-input" step="0.5" value="30" required>
+        <button type="button" class="step-btn" onclick="adjustSeriesWeight(${i}, 2.5)">+</button>
+      `;
+      container.appendChild(row);
+    }
+  }
+
+  function adjustSeriesWeight(seriesIdx, delta) {
+    const input = document.getElementById(`seriesWeight_${seriesIdx}`);
+    if (input) {
+      let val = parseFloat(input.value) || 0;
+      input.value = Math.max(0, val + delta);
+    }
+  }
+
+  function adjustBodySize(delta) {
+    const input = document.getElementById('bodySizeInput');
+    if (input) {
+      let val = parseFloat(input.value) || 0;
+      input.value = (Math.max(0, val + delta)).toFixed(1);
+    }
+  }
+
+  function getSecretKey() {
+    let savedSecret = localStorage.getItem('app_secret_pass');
+    if (!savedSecret) {
+      savedSecret = prompt("Wprowadź klucz dostępu (wpisujesz tylko raz):");
+      if (savedSecret) localStorage.setItem('app_secret_pass', savedSecret);
+    }
+    return savedSecret;
+  }
+
+  function resetSecretKey() {
+    localStorage.removeItem('app_secret_pass');
+    alert("Hasło aplikacji zostało usunięte z tego urządzenia.");
+  }
+
+  function changeSettingsPin() {
+    const currentPin = localStorage.getItem('settings_pin') || '1234';
+    if (prompt("Podaj obecny PIN:") !== currentPin) {
+      alert("Błędny PIN!"); return;
+    }
+    const newPin = prompt("Wprowadź nowy 4-cyfrowy PIN:");
+    if (newPin && newPin.trim().length >= 4) {
+      localStorage.setItem('settings_pin', newPin.trim());
+      alert("PIN zmieniony!");
+    }
+  }
+
+  function fetchFromGoogle() {
+    const statusEl = document.getElementById('status');
+    statusEl.innerText = "⏳ Pobieranie danych...";
+    statusEl.style.background = "#fef08a"; statusEl.style.color = "#0f172a";
+
+    fetch(GOOGLE_SCRIPT_URL, { method: 'GET', redirect: 'follow' })
+    .then(res => res.json())
+    .then(data => {
+      weightData = data.weight || [];
+      exercisesList = data.exercises || [];
+      bodyPartsList = data.bodyParts || [];
+      workoutData = data.workouts || [];
+      bodyMeasurementsData = data.bodyMeasurements || [];
+
+      weightData.sort((a, b) => new Date(a.date) - new Date(b.date));
+      workoutData.sort((a, b) => new Date(a.date) - new Date(b.date));
+      bodyMeasurementsData.sort((a, b) => new Date(a.date) - new Date(b.date));
+      
+      statusEl.innerText = "🟢 Połączono z Arkuszem Google";
+      statusEl.style.background = "#bbf7d0"; statusEl.style.color = "#0f172a";
+      
+      populateSelects();
+      updateApp();
+    })
+    .catch(err => {
+      console.error(err);
+      statusEl.innerText = "🔴 Błąd połączenia z Arkuszem";
+      statusEl.style.background = "#fecaca"; statusEl.style.color = "#0f172a";
+    });
+  }
+
+  function populateSelects() {
+    const exSelect = document.getElementById('exerciseSelect');
+    const statExSelect = document.getElementById('statExerciseSelect');
+    exSelect.innerHTML = ''; statExSelect.innerHTML = '';
+
+    exercisesList.forEach(item => {
+      const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
+      exSelect.appendChild(opt); statExSelect.appendChild(opt.cloneNode(true));
+    });
+
+    const bodySelect = document.getElementById('bodySelect');
+    const statBodySelect = document.getElementById('statBodySelect');
+    bodySelect.innerHTML = ''; statBodySelect.innerHTML = '';
+
+    bodyPartsList.forEach(item => {
+      const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
+      bodySelect.appendChild(opt); statBodySelect.appendChild(opt.cloneNode(true));
+    });
+  }
+
+  function handleWeightFormSubmit(e) {
+    e.preventDefault();
+    const date = document.getElementById('dateInput').value;
+    const weight = parseFloat(document.getElementById('weightInput').value);
+    const secret = getSecretKey(); if (!secret || !date || isNaN(weight)) return;
+
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'weight', date: date, weight: weight, secret: secret })
+    }).then(() => { document.getElementById('weightInput').value = ''; setTimeout(fetchFromGoogle, 1500); });
+  }
+
+  function handleWorkoutFormSubmit(e) {
+    e.preventDefault();
+    const date = document.getElementById('workoutDate').value;
+    const exercise = document.getElementById('exerciseSelect').value;
+    const seriesCount = parseInt(document.getElementById('seriesCount').value);
+    const secret = getSecretKey(); if (!secret || !date || !exercise) return;
+
+    const weights = [];
+    for (let i = 1; i <= seriesCount; i++) {
+      const input = document.getElementById(`seriesWeight_${i}`);
+      if (input) weights.push(parseFloat(input.value) || 0);
+    }
+
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'workout', date: date, exercise: exercise, series: seriesCount, weights: weights, secret: secret })
+    }).then(() => setTimeout(fetchFromGoogle, 1500));
+  }
+
+  function handleBodyFormSubmit(e) {
+    e.preventDefault();
+    const date = document.getElementById('bodyDate').value;
+    const part = document.getElementById('bodySelect').value;
+    const size = parseFloat(document.getElementById('bodySizeInput').value);
+    const secret = getSecretKey(); if (!secret || !date || !part || isNaN(size)) return;
+
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'body_measurement', date: date, part: part, size: size, secret: secret })
+    }).then(() => setTimeout(fetchFromGoogle, 1500));
+  }
+
+  function renderSettingsLists() {
+    renderEditWeightList();
+    renderEditExercisesList();
+    renderEditWorkoutList();
+    renderEditBodyPartsList();
+    renderEditBodyList();
+  }
+
+  function toggleWeightSort() { weightSortDesc = !weightSortDesc; document.getElementById('weightSortLabel').innerText = weightSortDesc ? "Najnowsze" : "Najstarsze"; renderEditWeightList(); }
+  function toggleWorkoutSort() { workoutSortDesc = !workoutSortDesc; document.getElementById('workoutSortLabel').innerText = workoutSortDesc ? "Najnowsze" : "Najstarsze"; renderEditWorkoutList(); }
+  function toggleBodySort() { bodySortDesc = !bodySortDesc; document.getElementById('bodySortLabel').innerText = bodySortDesc ? "Najnowsze" : "Najstarsze"; renderEditBodyList(); }
+
+  function renderEditWeightList() {
+    const container = document.getElementById('editWeightList'); container.innerHTML = '';
+    let items = [...weightData].sort((a, b) => weightSortDesc ? new Date(b.date) - new Date(a.date) : new Date(a.date) - new Date(b.date));
+    items.forEach(item => {
+      const div = document.createElement('div'); div.className = 'edit-item';
+      const isoDate = new Date(item.date).toISOString().split('T')[0];
+      div.innerHTML = `
+        <div><strong>${formatDate(item.date)}</strong>: ${item.weight.toFixed(1)} kg</div>
+        <div class="item-actions">
+          <button class="btn-secondary" onclick="editWeightItem(${item.rowIndex}, '${isoDate}', ${item.weight})">Edytuj</button>
+          <button class="btn-danger" onclick="deleteWeightItem(${item.rowIndex})">Usuń</button>
+        </div>`;
+      container.appendChild(div);
+    });
+  }
+
+  function editWeightItem(rowIndex, oldDate, oldWeight) {
+    const newDate = prompt("Nowa data (YYYY-MM-DD):", oldDate); if (!newDate) return;
+    const newWeight = prompt("Nowa waga (kg):", oldWeight); if (!newWeight || isNaN(parseFloat(newWeight))) return;
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'edit_weight', rowIndex: rowIndex, date: newDate, weight: parseFloat(newWeight), secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+  }
+
+  function deleteWeightItem(rowIndex) {
+    if (!confirm("Usunąć wpis?")) return;
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'delete_weight', rowIndex: rowIndex, secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+  }
+
+  function addExerciseName() {
+    const input = document.getElementById('newExerciseInput'); if (!input.value.trim()) return;
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'add_exercise', name: input.value.trim(), secret: getSecretKey() }) }).then(() => { input.value = ''; setTimeout(fetchFromGoogle, 1500); });
+  }
+
+  function renderEditExercisesList() {
+    const container = document.getElementById('editExercisesList'); container.innerHTML = '';
+    exercisesList.forEach(item => {
+      const div = document.createElement('div'); div.className = 'edit-item';
+      div.innerHTML = `<div><strong>${item.name}</strong></div><div class="item-actions"><button class="btn-secondary" onclick="editExerciseName(${item.rowIndex}, '${item.name}')">Edytuj</button><button class="btn-danger" onclick="deleteExerciseName(${item.rowIndex})">Usuń</button></div>`;
+      container.appendChild(div);
+    });
+  }
+
+  function editExerciseName(rowIndex, oldName) {
+    const newName = prompt("Nowa nazwa:", oldName); if (!newName) return;
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'edit_exercise', rowIndex: rowIndex, name: newName.trim(), secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+  }
+
+  function deleteExerciseName(rowIndex) {
+    if (!confirm("Usunąć ćwiczenie?")) return;
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'delete_exercise', rowIndex: rowIndex, secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+  }
+
+  function addBodyPartName() {
+    const input = document.getElementById('newBodyPartInput'); if (!input.value.trim()) return;
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'add_body_part', name: input.value.trim(), secret: getSecretKey() }) }).then(() => { input.value = ''; setTimeout(fetchFromGoogle, 1500); });
+  }
+
+  function renderEditBodyPartsList() {
+    const container = document.getElementById('editBodyPartsList'); container.innerHTML = '';
+    bodyPartsList.forEach(item => {
+      const div = document.createElement('div'); div.className = 'edit-item';
+      div.innerHTML = `<div><strong>${item.name}</strong></div><div class="item-actions"><button class="btn-secondary" onclick="editBodyPartName(${item.rowIndex}, '${item.name}')">Edytuj</button><button class="btn-danger" onclick="deleteBodyPartName(${item.rowIndex})">Usuń</button></div>`;
+      container.appendChild(div);
+    });
+  }
+
+  function editBodyPartName(rowIndex, oldName) {
+    const newName = prompt("Nowa nazwa obwodu:", oldName); if (!newName) return;
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'edit_body_part', rowIndex: rowIndex, name: newName.trim(), secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+  }
+
+  function deleteBodyPartName(rowIndex) {
+    if (!confirm("Usunąć obwód?")) return;
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'delete_body_part', rowIndex: rowIndex, secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+  }
+
+  function renderEditWorkoutList() {
+    const container = document.getElementById('editWorkoutList'); container.innerHTML = '';
+    let items = [...workoutData].sort((a, b) => workoutSortDesc ? new Date(b.date) - new Date(a.date) : new Date(a.date) - new Date(b.date));
+    const grouped = {};
+    items.forEach(item => { const k = formatDate(item.date); if (!grouped[k]) grouped[k] = []; grouped[k].push(item); });
+
+    Object.keys(grouped).forEach((dateStr, idx) => {
+      const header = document.createElement('div');
+      header.className = 'accordion-header';
+      header.onclick = () => toggleAccordion(header);
+      header.innerHTML = `<span>📅 ${dateStr} <small style="color:var(--text-muted); font-weight:normal;">(${grouped[dateStr].length} ćwiczenia)</small></span><span class="accordion-arrow">${idx === 0 ? '▼' : '▶'}</span>`;
+      
+      const content = document.createElement('div');
+      content.className = `accordion-content ${idx === 0 ? 'open' : ''}`;
+
+      grouped[dateStr].forEach(item => {
+        const div = document.createElement('div'); div.className = 'edit-item';
+        const isoDate = new Date(item.date).toISOString().split('T')[0];
+        div.innerHTML = `<div><strong>${item.exercise}</strong> <div style="font-size:0.8rem; color:var(--text-muted);">${item.series} ser.: ${item.weights.join(', ')}kg</div></div><div class="item-actions"><button class="btn-secondary" onclick="editWorkoutItem(${item.rowIndex}, '${isoDate}', '${item.exercise}', ${item.series}, '${item.weights.join(',')}')">Edytuj</button><button class="btn-danger" onclick="deleteWorkoutItem(${item.rowIndex})">Usuń</button></div>`;
+        content.appendChild(div);
+      });
+
+      container.appendChild(header);
+      container.appendChild(content);
+    });
+  }
+
+  function editWorkoutItem(rowIndex, oldDate, oldExercise, oldSeries, oldWeightsStr) {
+    const newDate = prompt("Nowa data:", oldDate); if (!newDate) return;
+    const newWeightsStr = prompt("Wagi rozdzielone przecinkami:", oldWeightsStr); if (!newWeightsStr) return;
+    const weightsArr = newWeightsStr.split(',').map(w => parseFloat(w.trim())).filter(w => !isNaN(w));
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'edit_workout', rowIndex: rowIndex, date: newDate, exercise: oldExercise, series: weightsArr.length, weights: weightsArr, secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+  }
+
+  function deleteWorkoutItem(rowIndex) {
+    if (!confirm("Usunąć trening?")) return;
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'delete_workout', rowIndex: rowIndex, secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+  }
+
+  function renderEditBodyList() {
+    const container = document.getElementById('editBodyList'); container.innerHTML = '';
+    let items = [...bodyMeasurementsData].sort((a, b) => bodySortDesc ? new Date(b.date) - new Date(a.date) : new Date(a.date) - new Date(b.date));
+    const grouped = {};
+    items.forEach(item => { const k = formatDate(item.date); if (!grouped[k]) grouped[k] = []; grouped[k].push(item); });
+
+    Object.keys(grouped).forEach((dateStr, idx) => {
+      const header = document.createElement('div');
+      header.className = 'accordion-header';
+      header.onclick = () => toggleAccordion(header);
+      header.innerHTML = `<span>📅 ${dateStr} <small style="color:var(--text-muted); font-weight:normal;">(${grouped[dateStr].length} pomiary)</small></span><span class="accordion-arrow">${idx === 0 ? '▼' : '▶'}</span>`;
+      
+      const content = document.createElement('div');
+      content.className = `accordion-content ${idx === 0 ? 'open' : ''}`;
+
+      grouped[dateStr].forEach(item => {
+        const div = document.createElement('div'); div.className = 'edit-item';
+        const isoDate = new Date(item.date).toISOString().split('T')[0];
+        div.innerHTML = `<div><strong>${item.part}</strong>: ${item.size.toFixed(1)} cm</div><div class="item-actions"><button class="btn-secondary" onclick="editBodyItem(${item.rowIndex}, '${isoDate}', '${item.part}', ${item.size})">Edytuj</button><button class="btn-danger" onclick="deleteBodyItem(${item.rowIndex})">Usuń</button></div>`;
+        content.appendChild(div);
+      });
+
+      container.appendChild(header);
+      container.appendChild(content);
+    });
+  }
+
+  function editBodyItem(rowIndex, oldDate, oldPart, oldSize) {
+    const newDate = prompt("Nowa data:", oldDate); if (!newDate) return;
+    const newSize = prompt("Nowy wymiar (cm):", oldSize); if (!newSize || isNaN(parseFloat(newSize))) return;
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'edit_body_measurement', rowIndex: rowIndex, date: newDate, part: oldPart, size: parseFloat(newSize), secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+  }
+
+  function deleteBodyItem(rowIndex) {
+    if (!confirm("Usunąć pomiar obwodu?")) return;
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'delete_body_measurement', rowIndex: rowIndex, secret: getSecretKey() }) }).then(() => setTimeout(fetchFromGoogle, 1500));
+  }
+
+  function getAverage(arr) { if (!arr.length) return '-'; return (arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1); }
+  function getMedian(arr) {
+    if (!arr.length) return '-';
+    const sorted = [...arr].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return (sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2).toFixed(1);
+  }
+
+  function updateApp() {
+    renderList(); renderStats(); drawNativeChart();
+    renderWorkoutList(); updateWorkoutStats(); drawWorkoutChart(); renderCalendar();
+    renderBodyList(); updateBodyStats(); drawBodyChart();
+    renderSettingsLists();
+  }
+
+  /* RYSOWANIE KALENDARZA TRENINGOWEGO */
+  function prevCalendarMonth() {
+    currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+    renderCalendar();
+  }
+
+  function nextCalendarMonth() {
+    currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+    renderCalendar();
+  }
+
+  function renderCalendar() {
+    const monthTitle = document.getElementById('calendarMonthTitle');
+    const grid = document.getElementById('calendarDaysGrid');
+    const infoBox = document.getElementById('calendarSelectedInfo');
+    if (!grid) return;
+
+    grid.innerHTML = '';
+    infoBox.style.display = 'none';
+
+    const year = currentCalendarDate.getFullYear();
+    const month = currentCalendarDate.getMonth();
+
+    const monthNames = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
+    monthTitle.innerText = `${monthNames[month]} ${year}`;
+
+    // Pierwszy dzień miesiąca i liczba dni
+    const firstDayIndex = new Date(year, month, 1).getDay(); // 0 -> Nd, 1 -> Pn...
+    const adjustedFirstDay = firstDayIndex === 0 ? 6 : firstDayIndex - 1; // Konwersja na Pn -> 0
+    const totalDays = new Date(year, month + 1, 0).getDate();
+
+    // Mapowanie dat treningów do obiektu
+    const workoutDatesMap = {};
+    workoutData.forEach(w => {
+      const isoStr = formatDateISO(new Date(w.date));
+      if (!workoutDatesMap[isoStr]) workoutDatesMap[isoStr] = [];
+      workoutDatesMap[isoStr].push(w);
+    });
+
+    const todayIso = formatDateISO(new Date());
+
+    // Puste komórki przed 1 dniem miesiąca
+    for (let i = 0; i < adjustedFirstDay; i++) {
+      const emptyDiv = document.createElement('div');
+      emptyDiv.className = 'calendar-day empty';
+      grid.appendChild(emptyDiv);
+    }
+
+    // Dni miesiąca
+    for (let day = 1; day <= totalDays; day++) {
+      const d = new Date(year, month, day);
+      const isoDate = formatDateISO(d);
+      const dayDiv = document.createElement('div');
+      dayDiv.className = 'calendar-day';
+      if (isoDate === todayIso) dayDiv.classList.add('today');
+
+      const isWorkout = !!workoutDatesMap[isoDate];
+
+      if (isWorkout) {
+        dayDiv.classList.add('workout-day');
+        dayDiv.innerHTML = `<span>${day}</span><span class="workout-badge">🏋️</span>`;
+        dayDiv.onclick = () => {
+          const list = workoutDatesMap[isoDate];
+          let html = `<strong style="color:var(--primary)">📅 ${formatDate(isoDate)} (Wykonane ćwiczenia):</strong><ul style="margin:6px 0 0 18px; padding:0;">`;
+          list.forEach(item => {
+            html += `<li><strong>${item.exercise}</strong>: ${item.series} ser. (${item.weights.join(', ')} kg)</li>`;
+          });
+          html += `</ul>`;
+          infoBox.innerHTML = html;
+          infoBox.style.display = 'block';
+        };
+      } else {
+        dayDiv.innerText = day;
+      }
+
+      grid.appendChild(dayDiv);
+    }
+  }
+
+  function renderList() {
+    const listEl = document.getElementById('dataList'); listEl.innerHTML = '';
+    [...weightData].reverse().forEach(item => {
+      const div = document.createElement('div'); div.className = 'data-item';
+      div.innerHTML = `<span>${formatDate(item.date)}</span> <strong>${item.weight.toFixed(1)} kg</strong>`;
+      listEl.appendChild(div);
+    });
+  }
+
+  function renderWorkoutList() {
+    const listEl = document.getElementById('workoutDataList'); listEl.innerHTML = '';
+    const grouped = {};
+    [...workoutData].reverse().forEach(item => { const k = formatDate(item.date); if (!grouped[k]) grouped[k] = []; grouped[k].push(item); });
+
+    Object.keys(grouped).forEach((dateStr, idx) => {
+      const header = document.createElement('div');
+      header.className = 'accordion-header';
+      header.onclick = () => toggleAccordion(header);
+      header.innerHTML = `<span>📅 ${dateStr} <small style="color:var(--text-muted); font-weight:normal;">(${grouped[dateStr].length} ćwiczenia)</small></span><span class="accordion-arrow">${idx === 0 ? '▼' : '▶'}</span>`;
+
+      const content = document.createElement('div');
+      content.className = `accordion-content ${idx === 0 ? 'open' : ''}`;
+
+      grouped[dateStr].forEach(item => {
+        const div = document.createElement('div'); div.className = 'data-item';
+        div.innerHTML = `<div><strong>${item.exercise}</strong><div style="font-size:0.8rem; color:var(--text-muted);">Serie: ${item.weights.join(', ')}kg</div></div><strong style="color:var(--primary);">śr. ${item.avgWeight.toFixed(1)} kg</strong>`;
+        content.appendChild(div);
+      });
+
+      listEl.appendChild(header);
+      listEl.appendChild(content);
+    });
+  }
+
+  function renderBodyList() {
+    const listEl = document.getElementById('bodyDataList'); listEl.innerHTML = '';
+    const grouped = {};
+    [...bodyMeasurementsData].reverse().forEach(item => { const k = formatDate(item.date); if (!grouped[k]) grouped[k] = []; grouped[k].push(item); });
+
+    Object.keys(grouped).forEach((dateStr, idx) => {
+      const header = document.createElement('div');
+      header.className = 'accordion-header';
+      header.onclick = () => toggleAccordion(header);
+      header.innerHTML = `<span>📅 ${dateStr} <small style="color:var(--text-muted); font-weight:normal;">(${grouped[dateStr].length} pomiary)</small></span><span class="accordion-arrow">${idx === 0 ? '▼' : '▶'}</span>`;
+
+      const content = document.createElement('div');
+      content.className = `accordion-content ${idx === 0 ? 'open' : ''}`;
+
+      grouped[dateStr].forEach(item => {
+        const div = document.createElement('div'); div.className = 'data-item';
+        div.innerHTML = `<div><strong>${item.part}</strong></div><strong style="color:var(--primary);">${item.size.toFixed(1)} cm</strong>`;
+        content.appendChild(div);
+      });
+
+      listEl.appendChild(header);
+      listEl.appendChild(content);
+    });
+  }
+
+  function renderStats() {
+    if (!weightData.length) return;
+    const now = new Date(), sevenDaysAgo = new Date(); sevenDaysAgo.setDate(now.getDate() - 7);
+    const last7DaysData = weightData.filter(d => new Date(d.date) >= sevenDaysAgo).map(d => d.weight);
+    document.getElementById('avg7d').innerText = getAverage(last7DaysData) + ' kg';
+    document.getElementById('med7d').innerText = getMedian(last7DaysData) + ' kg';
+    document.getElementById('lastWeight').innerText = weightData[weightData.length - 1].weight.toFixed(1) + ' kg';
+  }
+
+  function setWeekFilter(type) {
+    const now = new Date(), day = now.getDay() || 7, monday = new Date(now);
+    monday.setDate(now.getDate() - day + 1); monday.setHours(0,0,0,0);
+    let startDate = new Date(monday), endDate = new Date(monday);
+    endDate.setDate(startDate.getDate() + 6); endDate.setHours(23,59,59,999);
+    if (type === 'prev1') { startDate.setDate(startDate.getDate() - 7); endDate.setDate(endDate.getDate() - 7); }
+    else if (type === 'prev2') { startDate.setDate(startDate.getDate() - 14); endDate.setDate(endDate.getDate() - 14); }
+    const filtered = weightData.filter(d => { const dt = new Date(d.date); return dt >= startDate && dt <= endDate; }).map(d => d.weight);
+    document.getElementById('weekAvgResult').innerText = getAverage(filtered) + ' kg';
+    document.getElementById('weekMedResult').innerText = getMedian(filtered) + ' kg';
+  }
+
+  function setMonthFilter(type) {
+    const now = new Date(); let targetMonth = now.getMonth(), targetYear = now.getFullYear();
+    if (type === 'prev1') targetMonth -= 1; else if (type === 'prev2') targetMonth -= 2;
+    if (targetMonth < 0) { targetMonth += 12; targetYear -= 1; }
+    const filtered = weightData.filter(d => { const dt = new Date(d.date); return dt.getMonth() === targetMonth && dt.getFullYear() === targetYear; }).map(d => d.weight);
+    document.getElementById('monthAvgResult').innerText = getAverage(filtered) + ' kg';
+    document.getElementById('monthMedResult').innerText = getMedian(filtered) + ' kg';
+  }
+
+  function calculateCustomRange() {
+    const fromVal = document.getElementById('customFrom').value, toVal = document.getElementById('customTo').value;
+    if (!fromVal || !toVal) return;
+    const fromDate = new Date(fromVal); fromDate.setHours(0,0,0,0);
+    const toDate = new Date(toVal); toDate.setHours(23,59,59,999);
+    const filtered = weightData.filter(d => { const dt = new Date(d.date); return dt >= fromDate && dt <= toDate; }).map(d => d.weight);
+    document.getElementById('customAvgResult').innerText = getAverage(filtered) + ' kg';
+    document.getElementById('customMedResult').innerText = getMedian(filtered) + ' kg';
+    document.getElementById('customCountResult').innerText = filtered.length;
+  }
+
+  function updateWorkoutStats() {
+    const selectedExercise = document.getElementById('statExerciseSelect').value; if (!selectedExercise) return;
+    const exWorkouts = workoutData.filter(w => w.exercise === selectedExercise);
+    const now = new Date(); let cutoff = new Date();
+    if (currentWorkoutPeriod === 'week') cutoff.setDate(now.getDate() - 7);
+    else if (currentWorkoutPeriod === 'month') cutoff.setMonth(now.getMonth() - 1);
+    else if (currentWorkoutPeriod === '3months') cutoff.setMonth(now.getMonth() - 3);
+    const filtered = exWorkouts.filter(w => new Date(w.date) >= cutoff).map(w => w.avgWeight);
+    document.getElementById('workoutAvgResult').innerText = getAverage(filtered) + ' kg';
+    document.getElementById('workoutMedResult').innerText = getMedian(filtered) + ' kg';
+  }
+
+  function calculateWorkoutCustomRange() {
+    const selectedExercise = document.getElementById('statExerciseSelect').value;
+    const fromVal = document.getElementById('workoutCustomFrom').value, toVal = document.getElementById('workoutCustomTo').value;
+    if (!selectedExercise || !fromVal || !toVal) return;
+    const fromDate = new Date(fromVal); fromDate.setHours(0,0,0,0);
+    const toDate = new Date(toVal); toDate.setHours(23,59,59,999);
+    const filtered = workoutData.filter(w => w.exercise === selectedExercise && new Date(w.date) >= fromDate && new Date(w.date) <= toDate).map(w => w.avgWeight);
+    document.getElementById('workoutCustomAvgResult').innerText = getAverage(filtered) + ' kg';
+    document.getElementById('workoutCustomMedResult').innerText = getMedian(filtered) + ' kg';
+    document.getElementById('workoutCustomCountResult').innerText = filtered.length;
+  }
+
+  function updateBodyStats() {
+    const selectedPart = document.getElementById('statBodySelect').value; if (!selectedPart) return;
+    const partData = bodyMeasurementsData.filter(b => b.part === selectedPart);
+    const now = new Date(); let cutoff = new Date();
+    if (currentBodyPeriod === 'week') cutoff.setDate(now.getDate() - 7);
+    else if (currentBodyPeriod === 'month') cutoff.setMonth(now.getMonth() - 1);
+    else if (currentBodyPeriod === '3months') cutoff.setMonth(now.getMonth() - 3);
+    const filtered = partData.filter(b => new Date(b.date) >= cutoff).map(b => b.size);
+    document.getElementById('bodyAvgResult').innerText = getAverage(filtered) + ' cm';
+    document.getElementById('bodyMedResult').innerText = getMedian(filtered) + ' cm';
+  }
+
+  function calculateBodyCustomRange() {
+    const selectedPart = document.getElementById('statBodySelect').value;
+    const fromVal = document.getElementById('bodyCustomFrom').value, toVal = document.getElementById('bodyCustomTo').value;
+    if (!selectedPart || !fromVal || !toVal) return;
+    const fromDate = new Date(fromVal); fromDate.setHours(0,0,0,0);
+    const toDate = new Date(toVal); toDate.setHours(23,59,59,999);
+    const filtered = bodyMeasurementsData.filter(b => b.part === selectedPart && new Date(b.date) >= fromDate && new Date(b.date) <= toDate).map(b => b.size);
+    document.getElementById('bodyCustomAvgResult').innerText = getAverage(filtered) + ' cm';
+    document.getElementById('bodyCustomMedResult').innerText = getMedian(filtered) + ' cm';
+    document.getElementById('bodyCustomCountResult').innerText = filtered.length;
+  }
+
+  function getCssColor(varName) { return getComputedStyle(document.documentElement).getPropertyValue(varName).trim(); }
+
+  function drawNativeChart() {
+    const canvas = document.getElementById('nativeChart'); if (!canvas || !canvas.parentElement.clientWidth) return;
+    const ctx = canvas.getContext('2d'); canvas.width = canvas.parentElement.clientWidth - 28; canvas.height = 180;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let filtered = [...weightData];
+    if (currentChartRange !== 'all') { const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - parseInt(currentChartRange)); filtered = filtered.filter(d => new Date(d.date) >= cutoff); }
+    if (filtered.length < 2) { ctx.fillStyle = getCssColor('--text-muted'); ctx.font = '14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Za mało pomiarów', canvas.width / 2, canvas.height / 2); return; }
+    renderCanvasChart(ctx, canvas, filtered.map(d => d.weight), 'kg');
+  }
+
+  function drawWorkoutChart() {
+    const canvas = document.getElementById('workoutChart'); if (!canvas || !canvas.parentElement.clientWidth) return;
+    const ctx = canvas.getContext('2d'); canvas.width = canvas.parentElement.clientWidth - 28; canvas.height = 180;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const selected = document.getElementById('statExerciseSelect').value; if (!selected) return;
+    let filtered = workoutData.filter(w => w.exercise === selected);
+    if (currentWorkoutChartRange !== 'all') { const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - parseInt(currentWorkoutChartRange)); filtered = filtered.filter(d => new Date(d.date) >= cutoff); }
+    if (filtered.length < 2) { ctx.fillStyle = getCssColor('--text-muted'); ctx.font = '14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Za mało treningów', canvas.width / 2, canvas.height / 2); return; }
+    renderCanvasChart(ctx, canvas, filtered.map(d => d.avgWeight), 'kg');
+  }
+
+  function drawBodyChart() {
+    const canvas = document.getElementById('bodyChart'); if (!canvas || !canvas.parentElement.clientWidth) return;
+    const ctx = canvas.getContext('2d'); canvas.width = canvas.parentElement.clientWidth - 28; canvas.height = 180;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const selected = document.getElementById('statBodySelect').value; if (!selected) return;
+    let filtered = bodyMeasurementsData.filter(b => b.part === selected);
+    if (currentBodyChartRange !== 'all') { const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - parseInt(currentBodyChartRange)); filtered = filtered.filter(d => new Date(d.date) >= cutoff); }
+    if (filtered.length < 2) { ctx.fillStyle = getCssColor('--text-muted'); ctx.font = '14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Za mało pomiarów obwodu', canvas.width / 2, canvas.height / 2); return; }
+    renderCanvasChart(ctx, canvas, filtered.map(d => d.size), 'cm');
+  }
+
+  function renderCanvasChart(ctx, canvas, values, unit) {
+    const padding = 30;
+    const minW = Math.max(0, Math.min(...values) - 1);
+    const maxW = Math.max(...values) + 1;
+    const getX = (i) => padding + (i / (values.length - 1)) * (canvas.width - 2 * padding);
+    const getY = (val) => canvas.height - padding - ((val - minW) / (maxW - minW)) * (canvas.height - 2 * padding);
+
+    ctx.strokeStyle = getCssColor('--chart-grid'); ctx.lineWidth = 1; ctx.beginPath();
+    ctx.moveTo(padding, getY(minW)); ctx.lineTo(canvas.width - padding, getY(minW));
+    ctx.moveTo(padding, getY(maxW)); ctx.lineTo(canvas.width - padding, getY(maxW)); ctx.stroke();
+
+    ctx.strokeStyle = getCssColor('--primary'); ctx.lineWidth = 3; ctx.beginPath();
+    values.forEach((v, i) => { if (i === 0) ctx.moveTo(getX(i), getY(v)); else ctx.lineTo(getX(i), getY(v)); }); ctx.stroke();
+
+    ctx.fillStyle = getCssColor('--primary');
+    values.forEach((v, i) => {
+      const x = getX(i), y = getY(v);
+      ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+      if (values.length <= 30) {
+        ctx.fillStyle = getCssColor('--text-main'); ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(v.toFixed(1) + unit, x, y - 8); ctx.fillStyle = getCssColor('--primary');
+      }
+    });
+  }
+</script>
+</body>
+</html>
