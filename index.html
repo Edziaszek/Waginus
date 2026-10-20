@@ -51,7 +51,7 @@
       }
     };
 
-    // Uruchomienie aplikacji natychmiast po załadowaniu modułu Firebase
+    // Uruchomienie po załadowaniu modułu Firebase
     if (window.startApp) {
       window.startApp();
     }
@@ -745,7 +745,7 @@
     Obwody
   </button>
   <button class="nav-item" onclick="switchTab('settings', this)">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09A1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     Ustawienia
   </button>
 </nav>
@@ -757,9 +757,18 @@
   let currentCalendarDate = new Date();
   let currentFontSize = parseInt(localStorage.getItem('app_font_size')) || 16;
 
+  function parseLocalDate(dStr) {
+    if (!dStr) return new Date(NaN);
+    const parts = String(dStr).split('T')[0].split('-');
+    if (parts.length === 3) {
+      return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    }
+    return new Date(dStr);
+  }
+
   function formatDate(dIn) {
     if (!dIn) return '';
-    const d = new Date(dIn);
+    const d = parseLocalDate(dIn);
     if (isNaN(d.getTime())) return String(dIn);
     return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
   }
@@ -821,7 +830,6 @@
     if(arrow) arrow.innerText = isOpen ? '▶' : '▼';
   }
 
-  // Bezpośredni autostart aplikacji
   window.startApp = async function() {
     initThemeAndFont();
     const dateInput = document.getElementById('dateInput');
@@ -914,7 +922,7 @@
     if (inp) inp.value = Math.max(0, (parseFloat(inp.value) || 0) + delta).toFixed(1);
   }
 
- async function fetchFromFirebaseFast() {
+  async function fetchFromFirebaseFast() {
     try {
       const statusEl = document.getElementById('status');
       if (statusEl) statusEl.innerText = "⏳ Pobieranie danych z Firebase...";
@@ -930,7 +938,7 @@
         id: item.id,
         date: item.Data || item.date || item.data || '',
         weight: parseFloat(String(item.Waga || item.weight || item.waga || 0).replace(',', '.'))
-      })).filter(item => item.date && !isNaN(item.weight)).sort((a, b) => new Date(a.date) - new Date(b.date));
+      })).filter(item => item.date && !isNaN(item.weight)).sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
 
       exercisesList = cwiczenia.map(item => ({
         id: item.id,
@@ -947,7 +955,7 @@
         date: item.Data || item.date || '',
         part: item.Partia || item.part || item.name || '',
         size: parseFloat(String(item.Wymiar || item.size || item.wymiar || 0).replace(',', '.'))
-      })).filter(item => item.date && item.part && !isNaN(item.size)).sort((a, b) => new Date(a.date) - new Date(b.date));
+      })).filter(item => item.date && item.part && !isNaN(item.size)).sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
 
       workoutData = treningi.map(item => {
         const rawWeights = item.Wagi || item.weights || [];
@@ -961,7 +969,7 @@
           weights: weights,
           avgWeight: avg
         };
-      }).filter(item => item.date && item.exercise).sort((a, b) => new Date(a.date) - new Date(b.date));
+      }).filter(item => item.date && item.exercise).sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
 
       if (statusEl) {
         statusEl.innerText = "🟢 Połączono z Firebase (Baza aktywna)";
@@ -971,7 +979,7 @@
       populateSelects();
       updateApp();
 
-      // Automatyczne przeliczenie obecnego tygodnia i miesiąca na start
+      // Automatyczne przeliczenie obecnych stanów na start
       setWeekFilter('current');
       setMonthFilter('current');
       updateWorkoutStats();
@@ -986,6 +994,7 @@
       }
     }
   }
+
   function populateSelects() {
     ['exerciseSelect', 'statExerciseSelect'].forEach(id => {
       const el = document.getElementById(id);
@@ -1018,7 +1027,7 @@
 
     document.getElementById('weightInput').value = '';
     weightData.push({ date, weight });
-    weightData.sort((a, b) => new Date(a.date) - new Date(b.date));
+    weightData.sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
     updateApp();
 
     await window.firebaseFunctions.addData('Waga', { Data: date, Waga: weight });
@@ -1040,7 +1049,7 @@
     const avgWeight = weights.length ? weights.reduce((a, b) => a + b, 0) / weights.length : 0;
 
     workoutData.push({ date, exercise, series: seriesCount, weights, avgWeight });
-    workoutData.sort((a, b) => new Date(a.date) - new Date(b.date));
+    workoutData.sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
     updateApp();
 
     await window.firebaseFunctions.addData('Treningi', { Data: date, Cwiczenie: exercise, Serie: seriesCount, Wagi: weights });
@@ -1055,7 +1064,7 @@
     if (!date || !part || isNaN(size)) return;
 
     bodyMeasurementsData.push({ date, part, size });
-    bodyMeasurementsData.sort((a, b) => new Date(a.date) - new Date(b.date));
+    bodyMeasurementsData.sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
     updateApp();
 
     await window.firebaseFunctions.addData('Obwody', { Data: date, Partia: part, Wymiar: size });
@@ -1089,7 +1098,7 @@
   function renderStats() {
     if (!weightData.length) return;
     const now = new Date(), sevenDaysAgo = new Date(); sevenDaysAgo.setDate(now.getDate() - 7);
-    const last7 = weightData.filter(d => new Date(d.date) >= sevenDaysAgo).map(d => d.weight);
+    const last7 = weightData.filter(d => parseLocalDate(d.date) >= sevenDaysAgo).map(d => d.weight);
     const avg7d = document.getElementById('avg7d');
     const med7d = document.getElementById('med7d');
     const lastWeight = document.getElementById('lastWeight');
@@ -1105,7 +1114,12 @@
     end.setDate(start.getDate() + 6); end.setHours(23,59,59,999);
     if (type === 'prev1') { start.setDate(start.getDate() - 7); end.setDate(end.getDate() - 7); }
     else if (type === 'prev2') { start.setDate(start.getDate() - 14); end.setDate(end.getDate() - 14); }
-    const filtered = weightData.filter(d => { const dt = new Date(d.date); return dt >= start && dt <= end; }).map(d => d.weight);
+    
+    const filtered = weightData.filter(d => { 
+      const dt = parseLocalDate(d.date); 
+      return dt >= start && dt <= end; 
+    }).map(d => d.weight);
+
     const wAvg = document.getElementById('weekAvgResult');
     const wMed = document.getElementById('weekMedResult');
     if (wAvg) wAvg.innerText = getAverage(filtered) + ' kg';
@@ -1116,7 +1130,12 @@
     const now = new Date(); let m = now.getMonth(), y = now.getFullYear();
     if (type === 'prev1') m -= 1; else if (type === 'prev2') m -= 2;
     if (m < 0) { m += 12; y -= 1; }
-    const filtered = weightData.filter(d => { const dt = new Date(d.date); return dt.getMonth() === m && dt.getFullYear() === y; }).map(d => d.weight);
+    
+    const filtered = weightData.filter(d => { 
+      const dt = parseLocalDate(d.date); 
+      return dt.getMonth() === m && dt.getFullYear() === y; 
+    }).map(d => d.weight);
+
     const mAvg = document.getElementById('monthAvgResult');
     const mMed = document.getElementById('monthMedResult');
     if (mAvg) mAvg.innerText = getAverage(filtered) + ' kg';
@@ -1126,8 +1145,8 @@
   function calculateCustomRange() {
     const f = document.getElementById('customFrom').value, t = document.getElementById('customTo').value;
     if (!f || !t) return;
-    const from = new Date(f), to = new Date(t); from.setHours(0,0,0,0); to.setHours(23,59,59,999);
-    const filtered = weightData.filter(d => { const dt = new Date(d.date); return dt >= from && dt <= to; }).map(d => d.weight);
+    const from = parseLocalDate(f), to = parseLocalDate(t); from.setHours(0,0,0,0); to.setHours(23,59,59,999);
+    const filtered = weightData.filter(d => { const dt = parseLocalDate(d.date); return dt >= from && dt <= to; }).map(d => d.weight);
     const cAvg = document.getElementById('customAvgResult');
     const cMed = document.getElementById('customMedResult');
     const cCnt = document.getElementById('customCountResult');
@@ -1137,8 +1156,8 @@
   }
 
   function updateWorkoutStats() {
-    const sel = document.getElementById('statExerciseSelect').value; if (!sel) return;
-    const filtered = workoutData.filter(w => w.exercise === sel).map(w => w.avgWeight);
+    const sel = document.getElementById('statExerciseSelect'); if (!sel || !sel.value) return;
+    const filtered = workoutData.filter(w => w.exercise === sel.value).map(w => w.avgWeight);
     const wAvg = document.getElementById('workoutAvgResult');
     const wMed = document.getElementById('workoutMedResult');
     if (wAvg) wAvg.innerText = getAverage(filtered) + ' kg';
@@ -1146,8 +1165,8 @@
   }
 
   function updateBodyStats() {
-    const sel = document.getElementById('statBodySelect').value; if (!sel) return;
-    const filtered = bodyMeasurementsData.filter(b => b.part === sel).map(b => b.size);
+    const sel = document.getElementById('statBodySelect'); if (!sel || !sel.value) return;
+    const filtered = bodyMeasurementsData.filter(b => b.part === sel.value).map(b => b.size);
     const bAvg = document.getElementById('bodyAvgResult');
     const bMed = document.getElementById('bodyMedResult');
     if (bAvg) bAvg.innerText = getAverage(filtered) + ' cm';
@@ -1164,7 +1183,7 @@
     const firstDay = (new Date(y, m, 1).getDay() || 7) - 1;
     const totalDays = new Date(y, m + 1, 0).getDate();
     const map = {};
-    workoutData.forEach(w => { if(w.date) { const iso = formatDateISO(new Date(w.date)); if(!map[iso]) map[iso] = []; map[iso].push(w); } });
+    workoutData.forEach(w => { if(w.date) { const iso = formatDateISO(parseLocalDate(w.date)); if(!map[iso]) map[iso] = []; map[iso].push(w); } });
 
     for (let i = 0; i < firstDay; i++) {
       const ed = document.createElement('div'); ed.className = 'calendar-day empty'; grid.appendChild(ed);
