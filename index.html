@@ -538,7 +538,7 @@
 
         <div class="form-field">
           <label>Ćwiczenie (z Bazy)</label>
-          <select id="exerciseSelect" required><option value="">Brak ćwiczeń w bazie...</option></select>
+          <select id="exerciseSelect" required><option value="">Pobieranie ćwiczeń...</option></select>
         </div>
 
         <div class="form-field">
@@ -617,7 +617,7 @@
           </div>
           <div class="form-field">
             <label>Partia Ciała (z Bazy)</label>
-            <select id="bodySelect" required><option value="">Brak parti w bazie...</option></select>
+            <select id="bodySelect" required><option value="">Pobieranie obwodów...</option></select>
           </div>
         </div>
 
@@ -939,25 +939,33 @@
         weight: parseFloat(String(item.Waga || item.weight || item.waga || 0).replace(',', '.'))
       })).filter(item => item.date && !isNaN(item.weight)).sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
 
-      // Poprawione czytanie nazw ćwiczeń (z uwzględnieniem różnych wariantów nazw pól)
+      // 1. ŁADOWANIE ĆWICZEŃ: wybieramy tylko wpisy, gdzie 'Nazwa' nie jest pusta
       exercisesList = cwiczenia.map(item => ({
         id: item.id,
-        name: item.Cwiczenie || item.name || item.Name || item.exercise || item.Nazwa || ''
+        name: (item.Nazwa && item.Nazwa.trim() !== "") ? item.Nazwa.trim() : (item.Cwiczenie || item.exercise || '')
       })).filter(item => item.name);
 
-      bodyPartsList = obwody.map(item => ({
-        id: item.id,
-        name: item.Partia || item.name || item.Name || item.part || item.Nazwa || ''
-      })).filter(item => item.name);
+      // 2. ŁADOWANIE PARTII OBWODÓW: wyciągamy obwody z ObwodyBaza w kolekcji Cwiczenia ORAZ z kolekcji Obwody
+      const setBody = new Set();
+      cwiczenia.forEach(item => {
+        if (item.ObwodyBaza && item.ObwodyBaza.trim() !== "") setBody.add(item.ObwodyBaza.trim());
+      });
+      obwody.forEach(item => {
+        const p = item.Partia || item.part || item.Part || item.name;
+        if (p && String(p).trim() !== "") setBody.add(String(p).trim());
+      });
 
+      bodyPartsList = Array.from(setBody).map((name, idx) => ({ id: `part_${idx}`, name }));
+
+      // 3. ŁADOWANIE POMIARÓW OBWODÓW
       bodyMeasurementsData = obwody.map(item => ({
         id: item.id,
         date: item.Data || item.date || '',
-        part: item.Partia || item.part || item.name || '',
+        part: item.Partia || item.part || item.Part || item.name || '',
         size: parseFloat(String(item.Wymiar || item.size || item.wymiar || 0).replace(',', '.'))
       })).filter(item => item.date && item.part && !isNaN(item.size)).sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
 
-      // Elastyczne mapowanie treningów i ich serii
+      // 4. ŁADOWANIE TRENINGÓW
       workoutData = treningi.map(item => {
         const rawWeights = item.Wagi || item.weights || item.Serie_Wagi || [];
         let weights = [];
@@ -970,7 +978,7 @@
         return {
           id: item.id,
           date: item.Data || item.date || '',
-          exercise: item.Cwiczenie || item.exercise || '',
+          exercise: item.Cwiczenie || item.Nazwa || item.exercise || '',
           series: parseInt(item.Serie || item.series || weights.length || 0),
           weights: weights,
           avgWeight: avg
@@ -1006,7 +1014,7 @@
       if(el) {
         el.innerHTML = '';
         if (exercisesList.length === 0) {
-          const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'Brak ćwiczeń (Dodaj w Ustawieniach)';
+          const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'Brak ćwiczeń w bazie';
           el.appendChild(opt);
         } else {
           exercisesList.forEach(item => {
@@ -1022,7 +1030,7 @@
       if(el) {
         el.innerHTML = '';
         if (bodyPartsList.length === 0) {
-          const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'Brak partii (Dodaj w Ustawieniach)';
+          const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'Brak obwodów w bazie';
           el.appendChild(opt);
         } else {
           bodyPartsList.forEach(item => {
@@ -1039,7 +1047,7 @@
     if (!input || !input.value.trim()) return;
     const name = input.value.trim();
     input.value = '';
-    await window.firebaseFunctions.addData('Cwiczenia', { Cwiczenie: name });
+    await window.firebaseFunctions.addData('Cwiczenia', { Nazwa: name, ObwodyBaza: "" });
     fetchFromFirebaseFast();
   }
 
@@ -1048,7 +1056,7 @@
     if (!input || !input.value.trim()) return;
     const name = input.value.trim();
     input.value = '';
-    await window.firebaseFunctions.addData('Obwody', { Partia: name });
+    await window.firebaseFunctions.addData('Cwiczenia', { Nazwa: "", ObwodyBaza: name });
     fetchFromFirebaseFast();
   }
 
