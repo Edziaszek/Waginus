@@ -914,7 +914,7 @@
     if (inp) inp.value = Math.max(0, (parseFloat(inp.value) || 0) + delta).toFixed(1);
   }
 
-  async function fetchFromFirebaseFast() {
+ async function fetchFromFirebaseFast() {
     try {
       const statusEl = document.getElementById('status');
       if (statusEl) statusEl.innerText = "⏳ Pobieranie danych z Firebase...";
@@ -970,6 +970,13 @@
 
       populateSelects();
       updateApp();
+
+      // Automatyczne przeliczenie obecnego tygodnia i miesiąca na start
+      setWeekFilter('current');
+      setMonthFilter('current');
+      updateWorkoutStats();
+      updateBodyStats();
+
     } catch (err) {
       console.error(err);
       const statusEl = document.getElementById('status');
@@ -979,7 +986,6 @@
       }
     }
   }
-
   function populateSelects() {
     ['exerciseSelect', 'statExerciseSelect'].forEach(id => {
       const el = document.getElementById(id);
