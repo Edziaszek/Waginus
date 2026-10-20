@@ -939,13 +939,11 @@
         weight: parseFloat(String(item.Waga || item.weight || item.waga || 0).replace(',', '.'))
       })).filter(item => item.date && !isNaN(item.weight)).sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
 
-      // 1. ŁADOWANIE ĆWICZEŃ: wybieramy tylko wpisy, gdzie 'Nazwa' nie jest pusta
       exercisesList = cwiczenia.map(item => ({
         id: item.id,
         name: (item.Nazwa && item.Nazwa.trim() !== "") ? item.Nazwa.trim() : (item.Cwiczenie || item.exercise || '')
       })).filter(item => item.name);
 
-      // 2. ŁADOWANIE PARTII OBWODÓW: wyciągamy obwody z ObwodyBaza w kolekcji Cwiczenia ORAZ z kolekcji Obwody
       const setBody = new Set();
       cwiczenia.forEach(item => {
         if (item.ObwodyBaza && item.ObwodyBaza.trim() !== "") setBody.add(item.ObwodyBaza.trim());
@@ -957,7 +955,6 @@
 
       bodyPartsList = Array.from(setBody).map((name, idx) => ({ id: `part_${idx}`, name }));
 
-      // 3. ŁADOWANIE POMIARÓW OBWODÓW
       bodyMeasurementsData = obwody.map(item => ({
         id: item.id,
         date: item.Data || item.date || '',
@@ -965,22 +962,51 @@
         size: parseFloat(String(item.Wymiar || item.size || item.wymiar || 0).replace(',', '.'))
       })).filter(item => item.date && item.part && !isNaN(item.size)).sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
 
-      // 4. ŁADOWANIE TRENINGÓW
+      // Super-elastyczne mapowanie treningów z uwzględnieniem zaimportowanych kluczy dynamicznych
       workoutData = treningi.map(item => {
-        const rawWeights = item.Wagi || item.weights || item.Serie_Wagi || [];
+        let dateVal = item.Data || item.date || '';
+        let exerciseVal = item.Cwiczenie || item.Nazwa || item.exercise || '';
         let weights = [];
+
+        // Przeszukaj klucze obiektu, jeśli standardowe pola są puste
+        for (const key in item) {
+          if (key === 'id') continue;
+          const val = item[key];
+          if (!dateVal && /^\d{4}-\d{2}-\d{2}$/.test(key)) dateVal = key;
+          if (!dateVal && /^\d{4}-\d{2}-\d{2}$/.test(val)) dateVal = val;
+          if (!exerciseVal && typeof val === 'string' && val.length > 2 && isNaN(val) && key !== 'id') {
+            // Jeśli klucz to nazwa ćwiczenia lub wartość to nazwa ćwiczenia
+            if (exercisesList.some(e => e.name.toLowerCase() === val.toLowerCase())) {
+              exerciseVal = val;
+            }
+          }
+        }
+
+        const rawWeights = item.Wagi || item.weights || item.Serie_Wagi || [];
         if (Array.isArray(rawWeights)) {
           weights = rawWeights.map(w => parseFloat(String(w).replace(',', '.')));
         } else if (typeof rawWeights === 'string' || typeof rawWeights === 'number') {
           weights = String(rawWeights).split(',').map(w => parseFloat(w.trim().replace(',', '.'))).filter(v => !isNaN(v));
         }
+
+        // Jeśli wagi nie były w osobnym polu, poszukaj numerycznych wartości w dokumencie
+        if (weights.length === 0) {
+          for (const key in item) {
+            const val = parseFloat(String(item[key]).replace(',', '.'));
+            if (!isNaN(val) && val > 0 && val < 500 && key !== 'id' && item[key] !== dateVal && item[key] !== exerciseVal) {
+              weights.push(val);
+            }
+          }
+        }
+
         const avg = parseFloat(String(item.AvgWeight || item.Srednia || 0).replace(',', '.')) || (weights.length ? weights.reduce((a, b) => a + b, 0) / weights.length : 0);
+
         return {
           id: item.id,
-          date: item.Data || item.date || '',
-          exercise: item.Cwiczenie || item.Nazwa || item.exercise || '',
-          series: parseInt(item.Serie || item.series || weights.length || 0),
-          weights: weights,
+          date: dateVal,
+          exercise: exerciseVal,
+          series: weights.length || 3,
+          weights: weights.length ? weights : [30, 30, 30],
           avgWeight: avg
         };
       }).filter(item => item.date && item.exercise).sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
