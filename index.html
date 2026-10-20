@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Dziennik Formy (Firebase)</title>
   
-  <!-- Firebase SDKs -->
+  <!-- Firebase SDKs z Twoją konfiguracją -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
     import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
@@ -51,7 +51,6 @@
       }
     };
 
-    // Informujemy stronę, że Firebase jest gotowy
     window.dispatchEvent(new Event('firebase-ready'));
   </script>
 
@@ -895,11 +894,10 @@
     if (inp) inp.value = Math.max(0, (parseFloat(inp.value) || 0) + delta).toFixed(1);
   }
 
-  // Pobieranie danych elastyczne pod względem wielkości liter w nagłówkach JSON
   async function fetchFromFirebaseFast() {
     try {
       const statusEl = document.getElementById('status');
-      statusEl.innerText = "⏳ Pobieranie danych...";
+      statusEl.innerText = "⏳ Pobieranie danych z Firebase...";
 
       const [waga, cwiczenia, obwody, treningi] = await Promise.all([
         window.firebaseFunctions.getData('Waga'),
@@ -908,7 +906,6 @@
         window.firebaseFunctions.getData('Treningi')
       ]);
 
-      // Normalizacja pól z obsługą wielkich i małych liter
       weightData = waga.map(item => ({
         id: item.id,
         date: item.date || item.Date || item.data || '',
@@ -945,14 +942,14 @@
         };
       }).filter(item => item.date && item.exercise).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-      statusEl.innerText = "🟢 Połączono z Firebase";
+      statusEl.innerText = "🟢 Połączono z Firebase (Baza aktywna)";
       statusEl.style.background = "#bbf7d0";
 
       populateSelects();
       updateApp();
     } catch (err) {
       console.error(err);
-      document.getElementById('status').innerText = "🔴 Błąd połączenia";
+      document.getElementById('status').innerText = "🔴 Błąd połączenia z Firebase";
       document.getElementById('status').style.background = "#fecaca";
     }
   }
