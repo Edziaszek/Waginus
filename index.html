@@ -842,4 +842,355 @@
     }));
     document.querySelectorAll('#chartFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
       document.querySelectorAll('#chartFilterGroup button').forEach(b => b.classList.remove('active'));
-      e.target.classList
+      e.target.classList.add('active'); currentChartRange = e.target.getAttribute('data-range'); drawNativeChart();
+    }));
+    document.querySelectorAll('#workoutPeriodFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
+      document.querySelectorAll('#workoutPeriodFilterGroup button').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active'); currentWorkoutPeriod = e.target.getAttribute('data-period'); updateWorkoutStats();
+    }));
+    document.querySelectorAll('#workoutChartFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
+      document.querySelectorAll('#workoutChartFilterGroup button').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active'); currentWorkoutChartRange = e.target.getAttribute('data-range'); drawWorkoutChart();
+    }));
+    document.querySelectorAll('#bodyPeriodFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
+      document.querySelectorAll('#bodyPeriodFilterGroup button').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active'); currentBodyPeriod = e.target.getAttribute('data-period'); updateBodyStats();
+    }));
+    document.querySelectorAll('#bodyChartFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
+      document.querySelectorAll('#bodyChartFilterGroup button').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active'); currentBodyChartRange = e.target.getAttribute('data-range'); drawBodyChart();
+    }));
+
+    document.getElementById('statExerciseSelect').addEventListener('change', () => { updateWorkoutStats(); drawWorkoutChart(); });
+    document.getElementById('statBodySelect').addEventListener('change', () => { updateBodyStats(); drawBodyChart(); });
+    document.getElementById('customFrom').addEventListener('change', calculateCustomRange);
+    document.getElementById('customTo').addEventListener('change', calculateCustomRange);
+  }
+
+  function renderSeriesInputs(count) {
+    const container = document.getElementById('seriesInputsContainer');
+    container.innerHTML = '';
+    for (let i = 1; i <= count; i++) {
+      const row = document.createElement('div');
+      row.className = 'series-row';
+      row.innerHTML = `<span class="series-label">Seria ${i}:</span>
+        <button type="button" class="step-btn" onclick="adjustSeriesWeight(${i}, -2.5)">−</button>
+        <input type="number" id="seriesWeight_${i}" class="series-input" step="0.5" value="30" required>
+        <button type="button" class="step-btn" onclick="adjustSeriesWeight(${i}, 2.5)">+</button>`;
+      container.appendChild(row);
+    }
+  }
+
+  function adjustSeriesWeight(idx, delta) {
+    const inp = document.getElementById(`seriesWeight_${idx}`);
+    if (inp) inp.value = Math.max(0, (parseFloat(inp.value) || 0) + delta);
+  }
+
+  function adjustBodySize(delta) {
+    const inp = document.getElementById('bodySizeInput');
+    if (inp) inp.value = Math.max(0, (parseFloat(inp.value) || 0) + delta).toFixed(1);
+  }
+
+  // Błyskawiczne pobieranie równoległe
+  async function fetchFromFirebaseFast() {
+    try {
+      const [waga, cwiczenia, obwody, treningi] = await Promise.all([
+        window.firebaseFunctions.getData('Waga'),
+        window.firebaseFunctions.getData('Cwiczenia'),
+        window.firebaseFunctions.getData('Obwody'),
+        window.firebaseFunctions.getData('Treningi')
+      ]);
+
+      weightData = waga.sort((a, b) => new Date(a.date) - new Date(b.date));
+      exercisesList = cwiczenia;
+      bodyPartsList = obwody;
+      workoutData = treningi.sort((a, b) => new Date(a.date) - new Date(b.date));
+      bodyMeasurementsData = obwody.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      populateSelects();
+      updateApp();
+    } catch (err) {
+      console.error(err);
+      document.getElementById('status').innerText = "🔴 Błąd ładowania danych";
+      document.getElementById('status').style.background = "#fecaca";
+    }
+  }
+
+  function populateSelects() {
+    ['exerciseSelect', 'statExerciseSelect'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) {
+        el.innerHTML = '';
+        exercisesList.forEach(item => {
+          const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
+          el.appendChild(opt);
+        });
+      }
+    });
+
+    ['bodySelect', 'statBodySelect'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) {
+        el.innerHTML = '';
+        bodyPartsList.filter(p => p.name).forEach(item => {
+          const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
+          el.appendChild(opt);
+        });
+      }
+    });
+  }
+
+  // NATYCHMIASTOWY ZAPIS (Optimistic UI)
+  async function handleWeightFormSubmit(e) {
+    e.preventDefault();
+    const date = document.getElementById('dateInput').value;
+    const weight = parseFloat(document.getElementById('weightInput').value);
+    if (!date || isNaN(weight)) return;
+
+    document.getElementById('weightInput').value = '';
+    // Dodaj lokalnie od razu
+    weightData.push({ date, weight });
+    weightData.sort((a, b) => new Date(a.date) - new Date(b.date));
+    updateApp();
+
+    // Zapis w tle
+    await window.firebaseFunctions.addData('Waga', { date, weight });
+    fetchFromFirebaseFast();
+  }
+
+  async function handleWorkoutFormSubmit(e) {
+    e.preventDefault();
+    const date = document.getElementById('workoutDate').value;
+    const exercise = document.getElementById('exerciseSelect').value;
+    const seriesCount = parseInt(document.getElementById('seriesCount').value);
+    if (!date || !exercise) return;
+
+    const weights = [];
+    for (let i = 1; i <= seriesCount; i++) {
+      const inp = document.getElementById(`seriesWeight_${i}`);
+      if (inp) weights.push(parseFloat(inp.value) || 0);
+    }
+    const avgWeight = weights.length ? weights.reduce((a, b) => a + b, 0) / weights.length : 0;
+
+    workoutData.push({ date, exercise, series: seriesCount, weights, avgWeight });
+    workoutData.sort((a, b) => new Date(a.date) - new Date(b.date));
+    updateApp();
+
+    await window.firebaseFunctions.addData('Treningi', { date, exercise, series: seriesCount, weights, avgWeight });
+    fetchFromFirebaseFast();
+  }
+
+  async function handleBodyFormSubmit(e) {
+    e.preventDefault();
+    const date = document.getElementById('bodyDate').value;
+    const part = document.getElementById('bodySelect').value;
+    const size = parseFloat(document.getElementById('bodySizeInput').value);
+    if (!date || !part || isNaN(size)) return;
+
+    bodyMeasurementsData.push({ date, part, size });
+    bodyMeasurementsData.sort((a, b) => new Date(a.date) - new Date(b.date));
+    updateApp();
+
+    await window.firebaseFunctions.addData('Obwody', { date, part, size });
+    fetchFromFirebaseFast();
+  }
+
+  function updateApp() {
+    renderList(); renderStats(); drawNativeChart();
+    renderWorkoutList(); updateWorkoutStats(); drawWorkoutChart(); renderCalendar();
+    renderBodyList(); updateBodyStats(); drawBodyChart();
+    renderSettingsLists();
+  }
+
+  function getAverage(arr) { return arr.length ? (arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1) : '-'; }
+  function getMedian(arr) {
+    if (!arr.length) return '-';
+    const s = [...arr].sort((a, b) => a - b), m = Math.floor(s.length / 2);
+    return (s.length % 2 !== 0 ? s[m] : (s[m - 1] + s[m]) / 2).toFixed(1);
+  }
+
+  function renderList() {
+    const listEl = document.getElementById('dataList'); listEl.innerHTML = '';
+    [...weightData].reverse().forEach(item => {
+      const div = document.createElement('div'); div.className = 'data-item';
+      div.innerHTML = `<span>${formatDate(item.date)}</span> <strong>${item.weight.toFixed(1)} kg</strong>`;
+      listEl.appendChild(div);
+    });
+  }
+
+  function renderStats() {
+    if (!weightData.length) return;
+    const now = new Date(), sevenDaysAgo = new Date(); sevenDaysAgo.setDate(now.getDate() - 7);
+    const last7 = weightData.filter(d => new Date(d.date) >= sevenDaysAgo).map(d => d.weight).filter(v => !isNaN(v));
+    document.getElementById('avg7d').innerText = getAverage(last7) + ' kg';
+    document.getElementById('med7d').innerText = getMedian(last7) + ' kg';
+    document.getElementById('lastWeight').innerText = weightData[weightData.length - 1].weight.toFixed(1) + ' kg';
+  }
+
+  function setWeekFilter(type) {
+    const now = new Date(), day = now.getDay() || 7, monday = new Date(now);
+    monday.setDate(now.getDate() - day + 1); monday.setHours(0,0,0,0);
+    let start = new Date(monday), end = new Date(monday);
+    end.setDate(start.getDate() + 6); end.setHours(23,59,59,999);
+    if (type === 'prev1') { start.setDate(start.getDate() - 7); end.setDate(end.getDate() - 7); }
+    else if (type === 'prev2') { start.setDate(start.getDate() - 14); end.setDate(end.getDate() - 14); }
+    const filtered = weightData.filter(d => { const dt = new Date(d.date); return dt >= start && dt <= end; }).map(d => d.weight);
+    document.getElementById('weekAvgResult').innerText = getAverage(filtered) + ' kg';
+    document.getElementById('weekMedResult').innerText = getMedian(filtered) + ' kg';
+  }
+
+  function setMonthFilter(type) {
+    const now = new Date(); let m = now.getMonth(), y = now.getFullYear();
+    if (type === 'prev1') m -= 1; else if (type === 'prev2') m -= 2;
+    if (m < 0) { m += 12; y -= 1; }
+    const filtered = weightData.filter(d => { const dt = new Date(d.date); return dt.getMonth() === m && dt.getFullYear() === y; }).map(d => d.weight);
+    document.getElementById('monthAvgResult').innerText = getAverage(filtered) + ' kg';
+    document.getElementById('monthMedResult').innerText = getMedian(filtered) + ' kg';
+  }
+
+  function calculateCustomRange() {
+    const f = document.getElementById('customFrom').value, t = document.getElementById('customTo').value;
+    if (!f || !t) return;
+    const from = new Date(f), to = new Date(t); from.setHours(0,0,0,0); to.setHours(23,59,59,999);
+    const filtered = weightData.filter(d => { const dt = new Date(d.date); return dt >= from && dt <= to; }).map(d => d.weight);
+    document.getElementById('customAvgResult').innerText = getAverage(filtered) + ' kg';
+    document.getElementById('customMedResult').innerText = getMedian(filtered) + ' kg';
+    document.getElementById('customCountResult').innerText = filtered.length;
+  }
+
+  function updateWorkoutStats() {
+    const sel = document.getElementById('statExerciseSelect').value; if (!sel) return;
+    const filtered = workoutData.filter(w => w.exercise === sel).map(w => w.avgWeight);
+    document.getElementById('workoutAvgResult').innerText = getAverage(filtered) + ' kg';
+    document.getElementById('workoutMedResult').innerText = getMedian(filtered) + ' kg';
+  }
+
+  function updateBodyStats() {
+    const sel = document.getElementById('statBodySelect').value; if (!sel) return;
+    const filtered = bodyMeasurementsData.filter(b => b.part === sel).map(b => b.size);
+    document.getElementById('bodyAvgResult').innerText = getAverage(filtered) + ' cm';
+    document.getElementById('bodyMedResult').innerText = getMedian(filtered) + ' cm';
+  }
+
+  function renderCalendar() {
+    const title = document.getElementById('calendarMonthTitle'), grid = document.getElementById('calendarDaysGrid'), info = document.getElementById('calendarSelectedInfo');
+    if (!grid) return;
+    grid.innerHTML = ''; info.style.display = 'none';
+    const y = currentCalendarDate.getFullYear(), m = currentCalendarDate.getMonth();
+    title.innerText = `${["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"][m]} ${y}`;
+    
+    const firstDay = (new Date(y, m, 1).getDay() || 7) - 1;
+    const totalDays = new Date(y, m + 1, 0).getDate();
+    const map = {};
+    workoutData.forEach(w => { if(w.date) { const iso = formatDateISO(new Date(w.date)); if(!map[iso]) map[iso] = []; map[iso].push(w); } });
+
+    for (let i = 0; i < firstDay; i++) {
+      const ed = document.createElement('div'); ed.className = 'calendar-day empty'; grid.appendChild(ed);
+    }
+    for (let day = 1; day <= totalDays; day++) {
+      const iso = formatDateISO(new Date(y, m, day));
+      const dayDiv = document.createElement('div'); dayDiv.className = 'calendar-day';
+      if (iso === formatDateISO(new Date())) dayDiv.classList.add('today');
+      if (map[iso]) {
+        dayDiv.classList.add('workout-day');
+        dayDiv.innerHTML = `<span>${day}</span><span class="workout-badge">🏋️</span>`;
+        dayDiv.onclick = () => {
+          let html = `<strong style="color:var(--primary)">📅 ${formatDate(iso)}:</strong><ul style="margin:4px 0 0 16px; padding:0;">`;
+          map[iso].forEach(i => html += `<li>${i.exercise}: ${(i.weights || []).join(', ')} kg</li>`);
+          info.innerHTML = html + `</ul>`; info.style.display = 'block';
+        };
+      } else { dayDiv.innerText = day; }
+      grid.appendChild(dayDiv);
+    }
+  }
+
+  function prevCalendarMonth() { currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1); renderCalendar(); }
+  function nextCalendarMonth() { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1); renderCalendar(); }
+
+  function renderWorkoutList() {
+    const list = document.getElementById('workoutDataList'); list.innerHTML = '';
+    const grouped = {};
+    workoutData.forEach(w => { if(w.date) { const k = formatDate(w.date); if(!grouped[k]) grouped[k] = []; grouped[k].push(w); } });
+    Object.keys(grouped).reverse().forEach((dt, idx) => {
+      const head = document.createElement('div'); head.className = 'accordion-header';
+      head.onclick = () => toggleAccordion(head);
+      head.innerHTML = `<span>📅 ${dt} (${grouped[dt].length})</span><span class="accordion-arrow">${idx===0?'▼':'▶'}</span>`;
+      const content = document.createElement('div'); content.className = `accordion-content ${idx===0?'open':''}`;
+      grouped[dt].forEach(i => {
+        const d = document.createElement('div'); d.className = 'data-item';
+        d.innerHTML = `<div><strong>${i.exercise}</strong><br><small>${(i.weights||[]).join(', ')} kg</small></div><strong>śr. ${(i.avgWeight||0).toFixed(1)} kg</strong>`;
+        content.appendChild(d);
+      });
+      list.appendChild(head); list.appendChild(content);
+    });
+  }
+
+  function renderBodyList() {
+    const list = document.getElementById('bodyDataList'); list.innerHTML = '';
+    const grouped = {};
+    bodyMeasurementsData.forEach(b => { if(b.date) { const k = formatDate(b.date); if(!grouped[k]) grouped[k] = []; grouped[k].push(b); } });
+    Object.keys(grouped).reverse().forEach((dt, idx) => {
+      const head = document.createElement('div'); head.className = 'accordion-header';
+      head.onclick = () => toggleAccordion(head);
+      head.innerHTML = `<span>📅 ${dt} (${grouped[dt].length})</span><span class="accordion-arrow">${idx===0?'▼':'▶'}</span>`;
+      const content = document.createElement('div'); content.className = `accordion-content ${idx===0?'open':''}`;
+      grouped[dt].forEach(i => {
+        const d = document.createElement('div'); d.className = 'data-item';
+        d.innerHTML = `<span>${i.part}</span><strong>${i.size.toFixed(1)} cm</strong>`;
+        content.appendChild(d);
+      });
+      list.appendChild(head); list.appendChild(content);
+    });
+  }
+
+  function renderSettingsLists() {
+    const wList = document.getElementById('editWeightList'); wList.innerHTML = '';
+    [...weightData].reverse().forEach(i => {
+      const d = document.createElement('div'); d.className = 'edit-item';
+      d.innerHTML = `<span>${formatDate(i.date)}: ${i.weight} kg</span><button class="btn-danger" onclick="deleteRecord('Waga','${i.id}')">Usuń</button>`;
+      wList.appendChild(d);
+    });
+  }
+
+  async function deleteRecord(coll, id) {
+    if(!confirm("Usunąć?")) return;
+    await window.firebaseFunctions.deleteData(coll, id);
+    fetchFromFirebaseFast();
+  }
+
+  function getCssColor(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+  function drawNativeChart() { drawChart('nativeChart', weightData.map(d => d.weight), currentChartRange, 'kg'); }
+  function drawWorkoutChart() {
+    const sel = document.getElementById('statExerciseSelect').value;
+    drawChart('workoutChart', workoutData.filter(w => w.exercise === sel).map(w => w.avgWeight), currentWorkoutChartRange, 'kg');
+  }
+  function drawBodyChart() {
+    const sel = document.getElementById('statBodySelect').value;
+    drawChart('bodyChart', bodyMeasurementsData.filter(b => b.part === sel).map(b => b.size), currentBodyChartRange, 'cm');
+  }
+
+  function drawChart(canvasId, values, range, unit) {
+    const canvas = document.getElementById(canvasId); if (!canvas || !canvas.parentElement.clientWidth) return;
+    const ctx = canvas.getContext('2d'); canvas.width = canvas.parentElement.clientWidth - 28; canvas.height = 180;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let vals = [...values].filter(v => !isNaN(v));
+    if (range !== 'all' && vals.length > parseInt(range)) vals = vals.slice(-parseInt(range));
+    if (vals.length < 2) {
+      ctx.fillStyle = getCssColor('--text-muted'); ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('Za mało danych', canvas.width / 2, canvas.height / 2); return;
+    }
+    const pad = 30, min = Math.max(0, Math.min(...vals) - 1), max = Math.max(...vals) + 1;
+    const getX = i => pad + (i / (vals.length - 1)) * (canvas.width - 2 * pad);
+    const getY = v => canvas.height - pad - ((v - min) / (max - min)) * (canvas.height - 2 * pad);
+
+    ctx.strokeStyle = getCssColor('--primary'); ctx.lineWidth = 3; ctx.beginPath();
+    vals.forEach((v, i) => i === 0 ? ctx.moveTo(getX(i), getY(v)) : ctx.lineTo(getX(i), getY(v))); ctx.stroke();
+    ctx.fillStyle = getCssColor('--primary');
+    vals.forEach((v, i) => {
+      ctx.beginPath(); ctx.arc(getX(i), getY(v), 3.5, 0, Math.PI * 2); ctx.fill();
+    });
+  }
+</script>
+</body>
+</html>
