@@ -51,7 +51,10 @@
       }
     };
 
-    window.dispatchEvent(new Event('firebase-ready'));
+    // Uruchomienie aplikacji natychmiast po załadowaniu modułu Firebase
+    if (window.startApp) {
+      window.startApp();
+    }
   </script>
 
   <style>
@@ -742,7 +745,7 @@
     Obwody
   </button>
   <button class="nav-item" onclick="switchTab('settings', this)">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09A1.65 1.65 0 0 0-1.51 1z"/></svg>
     Ustawienia
   </button>
 </nav>
@@ -768,7 +771,8 @@
   function initThemeAndFont() {
     const th = localStorage.getItem('app_theme') || 'light';
     document.documentElement.setAttribute('data-theme', th);
-    document.getElementById('themeIcon').innerText = th === 'dark' ? '☀️' : '🌙';
+    const themeIcon = document.getElementById('themeIcon');
+    if (themeIcon) themeIcon.innerText = th === 'dark' ? '☀️' : '🌙';
     document.documentElement.style.setProperty('--font-size-base', `${currentFontSize}px`);
   }
 
@@ -817,22 +821,32 @@
     if(arrow) arrow.innerText = isOpen ? '▶' : '▼';
   }
 
-  window.addEventListener('firebase-ready', () => {
+  // Bezpośredni autostart aplikacji
+  window.startApp = async function() {
     initThemeAndFont();
-    document.getElementById('dateInput').valueAsDate = new Date();
-    document.getElementById('workoutDate').valueAsDate = new Date();
-    document.getElementById('bodyDate').valueAsDate = new Date();
+    const dateInput = document.getElementById('dateInput');
+    const workoutDate = document.getElementById('workoutDate');
+    const bodyDate = document.getElementById('bodyDate');
+    if (dateInput) dateInput.valueAsDate = new Date();
+    if (workoutDate) workoutDate.valueAsDate = new Date();
+    if (bodyDate) bodyDate.valueAsDate = new Date();
 
-    document.getElementById('weightForm').addEventListener('submit', handleWeightFormSubmit);
-    document.getElementById('workoutForm').addEventListener('submit', handleWorkoutFormSubmit);
-    document.getElementById('bodyForm').addEventListener('submit', handleBodyFormSubmit);
+    const weightForm = document.getElementById('weightForm');
+    const workoutForm = document.getElementById('workoutForm');
+    const bodyForm = document.getElementById('bodyForm');
+    const seriesCount = document.getElementById('seriesCount');
 
-    document.getElementById('seriesCount').addEventListener('change', (e) => renderSeriesInputs(parseInt(e.target.value)));
+    if (weightForm) weightForm.addEventListener('submit', handleWeightFormSubmit);
+    if (workoutForm) workoutForm.addEventListener('submit', handleWorkoutFormSubmit);
+    if (bodyForm) bodyForm.addEventListener('submit', handleBodyFormSubmit);
+    if (seriesCount) {
+      seriesCount.addEventListener('change', (e) => renderSeriesInputs(parseInt(e.target.value)));
+    }
     renderSeriesInputs(3);
 
     setupFilters();
-    fetchFromFirebaseFast();
-  });
+    await fetchFromFirebaseFast();
+  };
 
   function setupFilters() {
     document.querySelectorAll('#weekFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
@@ -864,14 +878,20 @@
       e.target.classList.add('active'); currentBodyChartRange = e.target.getAttribute('data-range'); drawBodyChart();
     }));
 
-    document.getElementById('statExerciseSelect').addEventListener('change', () => { updateWorkoutStats(); drawWorkoutChart(); });
-    document.getElementById('statBodySelect').addEventListener('change', () => { updateBodyStats(); drawBodyChart(); });
-    document.getElementById('customFrom').addEventListener('change', calculateCustomRange);
-    document.getElementById('customTo').addEventListener('change', calculateCustomRange);
+    const statEx = document.getElementById('statExerciseSelect');
+    const statBody = document.getElementById('statBodySelect');
+    const cFrom = document.getElementById('customFrom');
+    const cTo = document.getElementById('customTo');
+
+    if (statEx) statEx.addEventListener('change', () => { updateWorkoutStats(); drawWorkoutChart(); });
+    if (statBody) statBody.addEventListener('change', () => { updateBodyStats(); drawBodyChart(); });
+    if (cFrom) cFrom.addEventListener('change', calculateCustomRange);
+    if (cTo) cTo.addEventListener('change', calculateCustomRange);
   }
 
   function renderSeriesInputs(count) {
     const container = document.getElementById('seriesInputsContainer');
+    if (!container) return;
     container.innerHTML = '';
     for (let i = 1; i <= count; i++) {
       const row = document.createElement('div');
@@ -897,7 +917,7 @@
   async function fetchFromFirebaseFast() {
     try {
       const statusEl = document.getElementById('status');
-      statusEl.innerText = "⏳ Pobieranie danych z Firebase...";
+      if (statusEl) statusEl.innerText = "⏳ Pobieranie danych z Firebase...";
 
       const [waga, cwiczenia, obwody, treningi] = await Promise.all([
         window.firebaseFunctions.getData('Waga'),
@@ -906,7 +926,6 @@
         window.firebaseFunctions.getData('Treningi')
       ]);
 
-      // Poprawione mapowanie na polskie klucze z bazy (Data, Waga, Cwiczenie itp.)
       weightData = waga.map(item => ({
         id: item.id,
         date: item.Data || item.date || item.data || '',
@@ -944,15 +963,20 @@
         };
       }).filter(item => item.date && item.exercise).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-      statusEl.innerText = "🟢 Połączono z Firebase (Baza aktywna)";
-      statusEl.style.background = "#bbf7d0";
+      if (statusEl) {
+        statusEl.innerText = "🟢 Połączono z Firebase (Baza aktywna)";
+        statusEl.style.background = "#bbf7d0";
+      }
 
       populateSelects();
       updateApp();
     } catch (err) {
       console.error(err);
-      document.getElementById('status').innerText = "🔴 Błąd połączenia z Firebase";
-      document.getElementById('status').style.background = "#fecaca";
+      const statusEl = document.getElementById('status');
+      if (statusEl) {
+        statusEl.innerText = "🔴 Błąd połączenia z Firebase";
+        statusEl.style.background = "#fecaca";
+      }
     }
   }
 
@@ -1060,9 +1084,12 @@
     if (!weightData.length) return;
     const now = new Date(), sevenDaysAgo = new Date(); sevenDaysAgo.setDate(now.getDate() - 7);
     const last7 = weightData.filter(d => new Date(d.date) >= sevenDaysAgo).map(d => d.weight);
-    document.getElementById('avg7d').innerText = getAverage(last7) + ' kg';
-    document.getElementById('med7d').innerText = getMedian(last7) + ' kg';
-    document.getElementById('lastWeight').innerText = weightData[weightData.length - 1].weight.toFixed(1) + ' kg';
+    const avg7d = document.getElementById('avg7d');
+    const med7d = document.getElementById('med7d');
+    const lastWeight = document.getElementById('lastWeight');
+    if (avg7d) avg7d.innerText = getAverage(last7) + ' kg';
+    if (med7d) med7d.innerText = getMedian(last7) + ' kg';
+    if (lastWeight) lastWeight.innerText = weightData[weightData.length - 1].weight.toFixed(1) + ' kg';
   }
 
   function setWeekFilter(type) {
@@ -1073,8 +1100,10 @@
     if (type === 'prev1') { start.setDate(start.getDate() - 7); end.setDate(end.getDate() - 7); }
     else if (type === 'prev2') { start.setDate(start.getDate() - 14); end.setDate(end.getDate() - 14); }
     const filtered = weightData.filter(d => { const dt = new Date(d.date); return dt >= start && dt <= end; }).map(d => d.weight);
-    document.getElementById('weekAvgResult').innerText = getAverage(filtered) + ' kg';
-    document.getElementById('weekMedResult').innerText = getMedian(filtered) + ' kg';
+    const wAvg = document.getElementById('weekAvgResult');
+    const wMed = document.getElementById('weekMedResult');
+    if (wAvg) wAvg.innerText = getAverage(filtered) + ' kg';
+    if (wMed) wMed.innerText = getMedian(filtered) + ' kg';
   }
 
   function setMonthFilter(type) {
@@ -1082,8 +1111,10 @@
     if (type === 'prev1') m -= 1; else if (type === 'prev2') m -= 2;
     if (m < 0) { m += 12; y -= 1; }
     const filtered = weightData.filter(d => { const dt = new Date(d.date); return dt.getMonth() === m && dt.getFullYear() === y; }).map(d => d.weight);
-    document.getElementById('monthAvgResult').innerText = getAverage(filtered) + ' kg';
-    document.getElementById('monthMedResult').innerText = getMedian(filtered) + ' kg';
+    const mAvg = document.getElementById('monthAvgResult');
+    const mMed = document.getElementById('monthMedResult');
+    if (mAvg) mAvg.innerText = getAverage(filtered) + ' kg';
+    if (mMed) mMed.innerText = getMedian(filtered) + ' kg';
   }
 
   function calculateCustomRange() {
@@ -1091,23 +1122,30 @@
     if (!f || !t) return;
     const from = new Date(f), to = new Date(t); from.setHours(0,0,0,0); to.setHours(23,59,59,999);
     const filtered = weightData.filter(d => { const dt = new Date(d.date); return dt >= from && dt <= to; }).map(d => d.weight);
-    document.getElementById('customAvgResult').innerText = getAverage(filtered) + ' kg';
-    document.getElementById('customMedResult').innerText = getMedian(filtered) + ' kg';
-    document.getElementById('customCountResult').innerText = filtered.length;
+    const cAvg = document.getElementById('customAvgResult');
+    const cMed = document.getElementById('customMedResult');
+    const cCnt = document.getElementById('customCountResult');
+    if (cAvg) cAvg.innerText = getAverage(filtered) + ' kg';
+    if (cMed) cMed.innerText = getMedian(filtered) + ' kg';
+    if (cCnt) cCnt.innerText = filtered.length;
   }
 
   function updateWorkoutStats() {
     const sel = document.getElementById('statExerciseSelect').value; if (!sel) return;
     const filtered = workoutData.filter(w => w.exercise === sel).map(w => w.avgWeight);
-    document.getElementById('workoutAvgResult').innerText = getAverage(filtered) + ' kg';
-    document.getElementById('workoutMedResult').innerText = getMedian(filtered) + ' kg';
+    const wAvg = document.getElementById('workoutAvgResult');
+    const wMed = document.getElementById('workoutMedResult');
+    if (wAvg) wAvg.innerText = getAverage(filtered) + ' kg';
+    if (wMed) wMed.innerText = getMedian(filtered) + ' kg';
   }
 
   function updateBodyStats() {
     const sel = document.getElementById('statBodySelect').value; if (!sel) return;
     const filtered = bodyMeasurementsData.filter(b => b.part === sel).map(b => b.size);
-    document.getElementById('bodyAvgResult').innerText = getAverage(filtered) + ' cm';
-    document.getElementById('bodyMedResult').innerText = getMedian(filtered) + ' cm';
+    const bAvg = document.getElementById('bodyAvgResult');
+    const bMed = document.getElementById('bodyMedResult');
+    if (bAvg) bAvg.innerText = getAverage(filtered) + ' cm';
+    if (bMed) bMed.innerText = getMedian(filtered) + ' cm';
   }
 
   function renderCalendar() {
@@ -1203,12 +1241,14 @@
 
   function drawNativeChart() { drawChart('nativeChart', weightData.map(d => d.weight), currentChartRange, 'kg'); }
   function drawWorkoutChart() {
-    const sel = document.getElementById('statExerciseSelect').value;
-    drawChart('workoutChart', workoutData.filter(w => w.exercise === sel).map(w => w.avgWeight), currentWorkoutChartRange, 'kg');
+    const sel = document.getElementById('statExerciseSelect');
+    if (!sel || !sel.value) return;
+    drawChart('workoutChart', workoutData.filter(w => w.exercise === sel.value).map(w => w.avgWeight), currentWorkoutChartRange, 'kg');
   }
   function drawBodyChart() {
-    const sel = document.getElementById('statBodySelect').value;
-    drawChart('bodyChart', bodyMeasurementsData.filter(b => b.part === sel).map(b => b.size), currentBodyChartRange, 'cm');
+    const sel = document.getElementById('statBodySelect');
+    if (!sel || !sel.value) return;
+    drawChart('bodyChart', bodyMeasurementsData.filter(b => b.part === sel.value).map(b => b.size), currentBodyChartRange, 'cm');
   }
 
   function drawChart(canvasId, values, range, unit) {
