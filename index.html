@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Dziennik Formy i Obwodów (Firebase)</title>
+  <title>Dziennik Formy i Obwodów (Turbo Firebase)</title>
   
   <!-- Firebase SDKs -->
   <script type="module">
@@ -46,7 +46,6 @@
       }
     };
 
-    // Automatyczne pobranie danych po załadowaniu skryptu Firebase
     window.dispatchEvent(new Event('firebase-ready'));
   </script>
 
@@ -92,7 +91,6 @@
       box-sizing: border-box;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       -webkit-tap-highlight-color: transparent;
-      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
     }
     
     body {
@@ -150,12 +148,13 @@
     }
     h2 { margin: 0 0 10px 0; font-size: 1.05rem; color: var(--text-main); }
     #status {
-      padding: 8px 12px;
+      padding: 6px 10px;
       border-radius: 6px;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       font-weight: bold;
       text-align: center;
       color: #0f172a;
+      background: #bbf7d0;
     }
     
     form { display: flex; flex-direction: column; gap: 10px; }
@@ -182,7 +181,6 @@
       font-size: 0.95rem;
       cursor: pointer;
     }
-    button.btn-primary:disabled { background: #94a3b8; }
     button.btn-danger {
       background: #ef4444;
       color: white;
@@ -300,7 +298,7 @@
     .filter-result-box span { font-size: 0.75rem; color: var(--text-muted); display: block; }
     .filter-result-box strong { font-size: 1rem; color: var(--text-main); }
 
-    /* KALENDARZ TRENINGOWY */
+    /* KALENDARZ */
     .calendar-container { display: flex; flex-direction: column; gap: 10px; }
     .calendar-header { display: flex; justify-content: space-between; align-items: center; }
     .calendar-month-title { font-weight: bold; font-size: 0.95rem; color: var(--text-main); }
@@ -372,7 +370,6 @@
       margin-top: 4px;
       user-select: none;
     }
-    .accordion-header:hover { opacity: 0.9; }
     .accordion-content {
       display: none;
       flex-direction: column;
@@ -383,7 +380,7 @@
       margin-bottom: 6px;
     }
     .accordion-content.open { display: flex; }
-    .accordion-arrow { font-size: 0.75rem; transition: transform 0.2s ease; }
+    .accordion-arrow { font-size: 0.75rem; }
 
     .bottom-nav {
       position: fixed;
@@ -420,9 +417,8 @@
 
 <div class="container">
 
-  <!-- Górny Pasek -->
   <div class="top-bar">
-    <div class="top-bar-title">📊 Dziennik Formy (Firebase)</div>
+    <div class="top-bar-title">⚡ Turbo Dziennik</div>
     <div class="top-controls">
       <button class="icon-btn" onclick="toggleTheme()"><span id="themeIcon">🌙</span></button>
       <button class="icon-btn" onclick="changeFontSize(-1)">A-</button>
@@ -430,7 +426,7 @@
     </div>
   </div>
 
-  <div id="status">⏳ Łączenie z Firebase...</div>
+  <div id="status">🟢 Połączono z Firebase</div>
 
   <!-- ZAKŁADKA 1: WAGA -->
   <div id="tab-weight" class="tab-content active">
@@ -441,7 +437,7 @@
           <input type="date" id="dateInput" required>
           <input type="number" id="weightInput" step="0.1" placeholder="Waga (kg)" required>
         </div>
-        <button type="submit" id="saveBtn" class="btn-primary">Zapisz pomiar</button>
+        <button type="submit" class="btn-primary">Zapisz pomiar</button>
       </form>
     </div>
 
@@ -535,7 +531,7 @@
 
         <div class="form-field">
           <label>Ćwiczenie (z Bazy)</label>
-          <select id="exerciseSelect" required><option value="">⏳ Ładowanie...</option></select>
+          <select id="exerciseSelect" required><option value="">Ładowanie...</option></select>
         </div>
 
         <div class="form-field">
@@ -543,11 +539,10 @@
           <div id="seriesInputsContainer" class="series-grid"></div>
         </div>
 
-        <button type="submit" id="saveWorkoutBtn" class="btn-primary">Zapisz trening</button>
+        <button type="submit" class="btn-primary">Zapisz trening</button>
       </form>
     </div>
 
-    <!-- KALENDARZ TRENINGOWY -->
     <div class="card">
       <h2>Kalendarz Treningowy</h2>
       <div class="calendar-container">
@@ -557,12 +552,9 @@
           <button class="icon-btn" onclick="nextCalendarMonth()">►</button>
         </div>
         <div class="calendar-grid">
-          <div class="calendar-day-head">Pn</div>
-          <div class="calendar-day-head">Wt</div>
-          <div class="calendar-day-head">Śr</div>
-          <div class="calendar-day-head">Cz</div>
-          <div class="calendar-day-head">Pt</div>
-          <div class="calendar-day-head">Sb</div>
+          <div class="calendar-day-head">Pn</div><div class="calendar-day-head">Wt</div>
+          <div class="calendar-day-head">Śr</div><div class="calendar-day-head">Cz</div>
+          <div class="calendar-day-head">Pt</div><div class="calendar-day-head">Sb</div>
           <div class="calendar-day-head">Nd</div>
         </div>
         <div id="calendarDaysGrid" class="calendar-grid"></div>
@@ -590,19 +582,6 @@
     </div>
 
     <div class="card">
-      <h2>Własny okres (Trening)</h2>
-      <div class="form-group">
-        <input type="date" id="workoutCustomFrom">
-        <input type="date" id="workoutCustomTo">
-      </div>
-      <div class="filter-result-box">
-        <div><span>Średnia</span><strong id="workoutCustomAvgResult">-</strong></div>
-        <div><span>Mediana</span><strong id="workoutCustomMedResult">-</strong></div>
-        <div><span>Treningi</span><strong id="workoutCustomCountResult">-</strong></div>
-      </div>
-    </div>
-
-    <div class="card">
       <h2>Wykres siłowy ćwiczenia</h2>
       <div class="btn-group" id="workoutChartFilterGroup">
         <button data-range="7">7d</button>
@@ -619,7 +598,7 @@
     </div>
   </div>
 
-  <!-- ZAKŁADKA 3: OBWODY CIAŁA -->
+  <!-- ZAKŁADKA 3: OBWODY -->
   <div id="tab-body" class="tab-content">
     <div class="card">
       <h2>Dodaj pomiar obwodu</h2>
@@ -631,7 +610,7 @@
           </div>
           <div class="form-field">
             <label>Partia Ciała (z Bazy)</label>
-            <select id="bodySelect" required><option value="">⏳ Ładowanie...</option></select>
+            <select id="bodySelect" required><option value="">Ładowanie...</option></select>
           </div>
         </div>
 
@@ -644,7 +623,7 @@
           </div>
         </div>
 
-        <button type="submit" id="saveBodyBtn" class="btn-primary">Zapisz obwód</button>
+        <button type="submit" class="btn-primary">Zapisz obwód</button>
       </form>
     </div>
 
@@ -664,19 +643,6 @@
       <div class="filter-result-box">
         <div><span>Średni obwód</span><strong id="bodyAvgResult">-</strong></div>
         <div><span>Mediana obwodu</span><strong id="bodyMedResult">-</strong></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Własny okres (Obwody)</h2>
-      <div class="form-group">
-        <input type="date" id="bodyCustomFrom">
-        <input type="date" id="bodyCustomTo">
-      </div>
-      <div class="filter-result-box">
-        <div><span>Średnia</span><strong id="bodyCustomAvgResult">-</strong></div>
-        <div><span>Mediana</span><strong id="bodyCustomMedResult">-</strong></div>
-        <div><span>Pomiary</span><strong id="bodyCustomCountResult">-</strong></div>
       </div>
     </div>
 
@@ -706,7 +672,174 @@
       <button class="subtab-btn" onclick="switchSubTab('general-settings', this)">Ogólne</button>
     </div>
 
-    <!-- SUBTAB 1: Waga -->
     <div id="subtab-weight-settings" class="subtab-content active">
       <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h2>Edycja wpisów wagi</h2>
+        <div id="editWeightList" class="edit-list"></div>
+      </div>
+    </div>
+
+    <div id="subtab-workout-settings" class="subtab-content">
+      <div class="card">
+        <h2>Nazwy Ćwiczeń (Baza)</h2>
+        <div class="form-group">
+          <input type="text" id="newExerciseInput" placeholder="Nowe ćwiczenie">
+          <button type="button" class="btn-primary" onclick="addExerciseName()">Dodaj</button>
+        </div>
+        <div id="editExercisesList" class="edit-list" style="margin-top: 12px;"></div>
+      </div>
+      <div class="card">
+        <h2>Edycja Treningów</h2>
+        <div id="editWorkoutList" class="edit-list"></div>
+      </div>
+    </div>
+
+    <div id="subtab-body-settings" class="subtab-content">
+      <div class="card">
+        <h2>Nazwy Obwodów (Baza)</h2>
+        <div class="form-group">
+          <input type="text" id="newBodyPartInput" placeholder="Nowy obwód">
+          <button type="button" class="btn-primary" onclick="addBodyPartName()">Dodaj</button>
+        </div>
+        <div id="editBodyPartsList" class="edit-list" style="margin-top: 12px;"></div>
+      </div>
+      <div class="card">
+        <h2>Edycja Pomiary Obwodów</h2>
+        <div id="editBodyList" class="edit-list"></div>
+      </div>
+    </div>
+
+    <div id="subtab-general-settings" class="subtab-content">
+      <div class="card">
+        <h2>Wygląd Aplikacji</h2>
+        <button class="btn-secondary" style="width:100%; margin-bottom: 10px;" onclick="toggleTheme()">Przełącz Motyw (Jasny/Ciemny)</button>
+        <div class="form-group">
+          <button class="btn-secondary" style="flex:1;" onclick="changeFontSize(-1)">Tekst A-</button>
+          <button class="btn-secondary" style="flex:1;" onclick="changeFontSize(1)">Tekst A+</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-item active" onclick="switchTab('weight', this)">
+    <svg viewBox="0 0 24 24"><path d="M20.4 9A9 9 0 1 0 3.6 9L2 13h20l-1.6-4zM12 13v4m-4 0h8"/></svg>
+    Waga
+  </button>
+  <button class="nav-item" onclick="switchTab('workout', this)">
+    <svg viewBox="0 0 24 24"><path d="M6.5 6.5h11M6.5 17.5h11M4 9v6M20 9v6M18 7v10M6 7v10"/></svg>
+    Treningi
+  </button>
+  <button class="nav-item" onclick="switchTab('body', this)">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/></svg>
+    Obwody
+  </button>
+  <button class="nav-item" onclick="switchTab('settings', this)">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    Ustawienia
+  </button>
+</nav>
+
+<script>
+  let weightData = [], exercisesList = [], bodyPartsList = [], workoutData = [], bodyMeasurementsData = [];
+  let currentChartRange = '30', currentWorkoutChartRange = '30', currentBodyChartRange = '30';
+  let currentWorkoutPeriod = 'week', currentBodyPeriod = 'week';
+  let currentCalendarDate = new Date();
+  let currentFontSize = parseInt(localStorage.getItem('app_font_size')) || 16;
+
+  function formatDate(dIn) {
+    if (!dIn) return '';
+    const d = new Date(dIn);
+    if (isNaN(d.getTime())) return String(dIn);
+    return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+  }
+
+  function formatDateISO(dObj) {
+    return `${dObj.getFullYear()}-${String(dObj.getMonth() + 1).padStart(2, '0')}-${String(dObj.getDate()).padStart(2, '0')}`;
+  }
+
+  function initThemeAndFont() {
+    const th = localStorage.getItem('app_theme') || 'light';
+    document.documentElement.setAttribute('data-theme', th);
+    document.getElementById('themeIcon').innerText = th === 'dark' ? '☀️' : '🌙';
+    document.documentElement.style.setProperty('--font-size-base', `${currentFontSize}px`);
+  }
+
+  function toggleTheme() {
+    const th = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', th);
+    localStorage.setItem('app_theme', th);
+    document.getElementById('themeIcon').innerText = th === 'dark' ? '☀️' : '🌙';
+    drawNativeChart(); drawWorkoutChart(); drawBodyChart();
+  }
+
+  function changeFontSize(delta) {
+    currentFontSize = Math.min(22, Math.max(12, currentFontSize + delta));
+    document.documentElement.style.setProperty('--font-size-base', `${currentFontSize}px`);
+    localStorage.setItem('app_font_size', currentFontSize);
+    drawNativeChart(); drawWorkoutChart(); drawBodyChart();
+  }
+
+  function switchTab(tabId, btn) {
+    if (tabId === 'settings') {
+      const pin = localStorage.getItem('settings_pin') || '1234';
+      if (prompt("PIN do Ustawień:") !== pin) { alert("Błędny PIN!"); return; }
+    }
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    document.getElementById(`tab-${tabId}`).classList.add('active');
+    btn.classList.add('active');
+    if (tabId === 'weight') drawNativeChart();
+    else if (tabId === 'workout') { drawWorkoutChart(); renderCalendar(); }
+    else if (tabId === 'body') drawBodyChart();
+    else if (tabId === 'settings') renderSettingsLists();
+  }
+
+  function switchSubTab(subId, btn) {
+    document.querySelectorAll('.subtab-content').forEach(st => st.classList.remove('active'));
+    document.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`subtab-${subId}`).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function toggleAccordion(header) {
+    const content = header.nextElementSibling;
+    const arrow = header.querySelector('.accordion-arrow');
+    const isOpen = content.classList.contains('open');
+    content.classList.toggle('open', !isOpen);
+    if(arrow) arrow.innerText = isOpen ? '▶' : '▼';
+  }
+
+  window.addEventListener('firebase-ready', () => {
+    initThemeAndFont();
+    document.getElementById('dateInput').valueAsDate = new Date();
+    document.getElementById('workoutDate').valueAsDate = new Date();
+    document.getElementById('bodyDate').valueAsDate = new Date();
+
+    document.getElementById('weightForm').addEventListener('submit', handleWeightFormSubmit);
+    document.getElementById('workoutForm').addEventListener('submit', handleWorkoutFormSubmit);
+    document.getElementById('bodyForm').addEventListener('submit', handleBodyFormSubmit);
+
+    document.getElementById('seriesCount').addEventListener('change', (e) => renderSeriesInputs(parseInt(e.target.value)));
+    renderSeriesInputs(3);
+
+    // Filtry podpięcia eventów
+    setupFilters();
+    fetchFromFirebaseFast();
+  });
+
+  function setupFilters() {
+    document.querySelectorAll('#weekFilterGroup button').forEach(b => b.click()); // inicjalizacja
+    document.querySelectorAll('#weekFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
+      document.querySelectorAll('#weekFilterGroup button').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active'); setWeekFilter(e.target.getAttribute('data-type'));
+    }));
+    document.querySelectorAll('#monthFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
+      document.querySelectorAll('#monthFilterGroup button').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active'); setMonthFilter(e.target.getAttribute('data-type'));
+    }));
+    document.querySelectorAll('#chartFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
+      document.querySelectorAll('#chartFilterGroup button').forEach(b => b.classList.remove('active'));
+      e.target.classList
