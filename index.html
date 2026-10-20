@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Dziennik Formy (Firebase)</title>
   
-  <!-- Firebase SDKs z Twoją konfiguracją -->
+  <!-- Firebase SDKs -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
     import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
@@ -906,38 +906,40 @@
         window.firebaseFunctions.getData('Treningi')
       ]);
 
+      // Poprawione mapowanie na polskie klucze z bazy (Data, Waga, Cwiczenie itp.)
       weightData = waga.map(item => ({
         id: item.id,
-        date: item.date || item.Date || item.data || '',
-        weight: parseFloat(item.weight || item.Weight || item.waga || 0)
+        date: item.Data || item.date || item.data || '',
+        weight: parseFloat(String(item.Waga || item.weight || item.waga || 0).replace(',', '.'))
       })).filter(item => item.date && !isNaN(item.weight)).sort((a, b) => new Date(a.date) - new Date(b.date));
 
       exercisesList = cwiczenia.map(item => ({
         id: item.id,
-        name: item.name || item.Name || item.cwiczenie || item.exercise || ''
+        name: item.Cwiczenie || item.name || item.Name || item.cwiczenie || ''
       })).filter(item => item.name);
 
       bodyPartsList = obwody.map(item => ({
         id: item.id,
-        name: item.name || item.Name || item.part || item.Part || ''
+        name: item.Partia || item.name || item.Name || item.part || ''
       })).filter(item => item.name);
 
       bodyMeasurementsData = obwody.map(item => ({
         id: item.id,
-        date: item.date || item.Date || '',
-        part: item.part || item.Part || item.name || '',
-        size: parseFloat(item.size || item.Size || item.wymiar || 0)
+        date: item.Data || item.date || '',
+        part: item.Partia || item.part || item.name || '',
+        size: parseFloat(String(item.Wymiar || item.size || item.wymiar || 0).replace(',', '.'))
       })).filter(item => item.date && item.part && !isNaN(item.size)).sort((a, b) => new Date(a.date) - new Date(b.date));
 
       workoutData = treningi.map(item => {
-        const weights = item.weights || item.Weights || [];
-        const avg = parseFloat(item.avgWeight || item.AvgWeight || 0) || (weights.length ? weights.reduce((a, b) => a + b, 0) / weights.length : 0);
+        const rawWeights = item.Wagi || item.weights || [];
+        const weights = Array.isArray(rawWeights) ? rawWeights.map(w => parseFloat(String(w).replace(',', '.'))) : String(rawWeights).split(',').map(w => parseFloat(w.trim().replace(',', '.'))).filter(v => !isNaN(v));
+        const avg = parseFloat(String(item.AvgWeight || 0).replace(',', '.')) || (weights.length ? weights.reduce((a, b) => a + b, 0) / weights.length : 0);
         return {
           id: item.id,
-          date: item.date || item.Date || '',
-          exercise: item.exercise || item.Exercise || item.cwiczenie || '',
-          series: parseInt(item.series || item.Series || weights.length || 0),
-          weights: Array.isArray(weights) ? weights : String(weights).split(',').map(Number),
+          date: item.Data || item.date || '',
+          exercise: item.Cwiczenie || item.exercise || '',
+          series: parseInt(item.Serie || item.series || weights.length || 0),
+          weights: weights,
           avgWeight: avg
         };
       }).filter(item => item.date && item.exercise).sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -989,7 +991,7 @@
     weightData.sort((a, b) => new Date(a.date) - new Date(b.date));
     updateApp();
 
-    await window.firebaseFunctions.addData('Waga', { date, weight });
+    await window.firebaseFunctions.addData('Waga', { Data: date, Waga: weight });
     fetchFromFirebaseFast();
   }
 
@@ -1011,7 +1013,7 @@
     workoutData.sort((a, b) => new Date(a.date) - new Date(b.date));
     updateApp();
 
-    await window.firebaseFunctions.addData('Treningi', { date, exercise, series: seriesCount, weights, avgWeight });
+    await window.firebaseFunctions.addData('Treningi', { Data: date, Cwiczenie: exercise, Serie: seriesCount, Wagi: weights });
     fetchFromFirebaseFast();
   }
 
@@ -1026,7 +1028,7 @@
     bodyMeasurementsData.sort((a, b) => new Date(a.date) - new Date(b.date));
     updateApp();
 
-    await window.firebaseFunctions.addData('Obwody', { date, part, size });
+    await window.firebaseFunctions.addData('Obwody', { Data: date, Partia: part, Wymiar: size });
     fetchFromFirebaseFast();
   }
 
@@ -1045,7 +1047,8 @@
   }
 
   function renderList() {
-    const listEl = document.getElementById('dataList'); listEl.innerHTML = '';
+    const listEl = document.getElementById('dataList'); if(!listEl) return;
+    listEl.innerHTML = '';
     [...weightData].reverse().forEach(item => {
       const div = document.createElement('div'); div.className = 'data-item';
       div.innerHTML = `<span>${formatDate(item.date)}</span> <strong>${item.weight.toFixed(1)} kg</strong>`;
@@ -1143,7 +1146,8 @@
   function nextCalendarMonth() { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1); renderCalendar(); }
 
   function renderWorkoutList() {
-    const list = document.getElementById('workoutDataList'); list.innerHTML = '';
+    const list = document.getElementById('workoutDataList'); if(!list) return;
+    list.innerHTML = '';
     const grouped = {};
     workoutData.forEach(w => { if(w.date) { const k = formatDate(w.date); if(!grouped[k]) grouped[k] = []; grouped[k].push(w); } });
     Object.keys(grouped).reverse().forEach((dt, idx) => {
@@ -1161,7 +1165,8 @@
   }
 
   function renderBodyList() {
-    const list = document.getElementById('bodyDataList'); list.innerHTML = '';
+    const list = document.getElementById('bodyDataList'); if(!list) return;
+    list.innerHTML = '';
     const grouped = {};
     bodyMeasurementsData.forEach(b => { if(b.date) { const k = formatDate(b.date); if(!grouped[k]) grouped[k] = []; grouped[k].push(b); } });
     Object.keys(grouped).reverse().forEach((dt, idx) => {
@@ -1179,7 +1184,8 @@
   }
 
   function renderSettingsLists() {
-    const wList = document.getElementById('editWeightList'); wList.innerHTML = '';
+    const wList = document.getElementById('editWeightList'); if(!wList) return;
+    wList.innerHTML = '';
     [...weightData].reverse().forEach(i => {
       const d = document.createElement('div'); d.className = 'edit-item';
       d.innerHTML = `<span>${formatDate(i.date)}: ${i.weight} kg</span><button class="btn-danger" onclick="deleteRecord('Waga','${i.id}')">Usuń</button>`;
