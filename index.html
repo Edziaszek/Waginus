@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Dziennik Formy i Obwodów (Turbo Firebase)</title>
+  <title>Dziennik Formy (Firebase)</title>
   
   <!-- Firebase SDKs -->
   <script type="module">
@@ -26,12 +26,17 @@
     window.db = db;
     window.firebaseFunctions = {
       async getData(collectionName) {
-        const querySnapshot = await getDocs(collection(db, collectionName));
-        let data = [];
-        querySnapshot.forEach((document) => {
-          data.push({ id: document.id, ...document.data() });
-        });
-        return data;
+        try {
+          const querySnapshot = await getDocs(collection(db, collectionName));
+          let data = [];
+          querySnapshot.forEach((document) => {
+            data.push({ id: document.id, ...document.data() });
+          });
+          return data;
+        } catch (e) {
+          console.error("Błąd pobierania kolekcji " + collectionName, e);
+          return [];
+        }
       },
       async addData(collectionName, item) {
         const docRef = await addDoc(collection(db, collectionName), item);
@@ -46,6 +51,7 @@
       }
     };
 
+    // Informujemy stronę, że Firebase jest gotowy
     window.dispatchEvent(new Event('firebase-ready'));
   </script>
 
@@ -154,7 +160,7 @@
       font-weight: bold;
       text-align: center;
       color: #0f172a;
-      background: #bbf7d0;
+      background: #fef08a;
     }
     
     form { display: flex; flex-direction: column; gap: 10px; }
@@ -418,7 +424,7 @@
 <div class="container">
 
   <div class="top-bar">
-    <div class="top-bar-title">⚡ Turbo Dziennik</div>
+    <div class="top-bar-title">📊 Dziennik Formy</div>
     <div class="top-controls">
       <button class="icon-btn" onclick="toggleTheme()"><span id="themeIcon">🌙</span></button>
       <button class="icon-btn" onclick="changeFontSize(-1)">A-</button>
@@ -426,7 +432,7 @@
     </div>
   </div>
 
-  <div id="status">🟢 Połączono z Firebase</div>
+  <div id="status">⏳ Łączenie z Firebase...</div>
 
   <!-- ZAKŁADKA 1: WAGA -->
   <div id="tab-weight" class="tab-content active">
@@ -825,13 +831,11 @@
     document.getElementById('seriesCount').addEventListener('change', (e) => renderSeriesInputs(parseInt(e.target.value)));
     renderSeriesInputs(3);
 
-    // Filtry podpięcia eventów
     setupFilters();
     fetchFromFirebaseFast();
   });
 
   function setupFilters() {
-    document.querySelectorAll('#weekFilterGroup button').forEach(b => b.click()); // inicjalizacja
     document.querySelectorAll('#weekFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
       document.querySelectorAll('#weekFilterGroup button').forEach(b => b.classList.remove('active'));
       e.target.classList.add('active'); setWeekFilter(e.target.getAttribute('data-type'));
@@ -891,9 +895,12 @@
     if (inp) inp.value = Math.max(0, (parseFloat(inp.value) || 0) + delta).toFixed(1);
   }
 
-  // Błyskawiczne pobieranie równoległe
+  // Pobieranie danych elastyczne pod względem wielkości liter w nagłówkach JSON
   async function fetchFromFirebaseFast() {
     try {
+      const statusEl = document.getElementById('status');
+      statusEl.innerText = "⏳ Pobieranie danych...";
+
       const [waga, cwiczenia, obwody, treningi] = await Promise.all([
         window.firebaseFunctions.getData('Waga'),
         window.firebaseFunctions.getData('Cwiczenia'),
@@ -901,17 +908,51 @@
         window.firebaseFunctions.getData('Treningi')
       ]);
 
-      weightData = waga.sort((a, b) => new Date(a.date) - new Date(b.date));
-      exercisesList = cwiczenia;
-      bodyPartsList = obwody;
-      workoutData = treningi.sort((a, b) => new Date(a.date) - new Date(b.date));
-      bodyMeasurementsData = obwody.sort((a, b) => new Date(a.date) - new Date(b.date));
+      // Normalizacja pól z obsługą wielkich i małych liter
+      weightData = waga.map(item => ({
+        id: item.id,
+        date: item.date || item.Date || item.data || '',
+        weight: parseFloat(item.weight || item.Weight || item.waga || 0)
+      })).filter(item => item.date && !isNaN(item.weight)).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      exercisesList = cwiczenia.map(item => ({
+        id: item.id,
+        name: item.name || item.Name || item.cwiczenie || item.exercise || ''
+      })).filter(item => item.name);
+
+      bodyPartsList = obwody.map(item => ({
+        id: item.id,
+        name: item.name || item.Name || item.part || item.Part || ''
+      })).filter(item => item.name);
+
+      bodyMeasurementsData = obwody.map(item => ({
+        id: item.id,
+        date: item.date || item.Date || '',
+        part: item.part || item.Part || item.name || '',
+        size: parseFloat(item.size || item.Size || item.wymiar || 0)
+      })).filter(item => item.date && item.part && !isNaN(item.size)).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      workoutData = treningi.map(item => {
+        const weights = item.weights || item.Weights || [];
+        const avg = parseFloat(item.avgWeight || item.AvgWeight || 0) || (weights.length ? weights.reduce((a, b) => a + b, 0) / weights.length : 0);
+        return {
+          id: item.id,
+          date: item.date || item.Date || '',
+          exercise: item.exercise || item.Exercise || item.cwiczenie || '',
+          series: parseInt(item.series || item.Series || weights.length || 0),
+          weights: Array.isArray(weights) ? weights : String(weights).split(',').map(Number),
+          avgWeight: avg
+        };
+      }).filter(item => item.date && item.exercise).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      statusEl.innerText = "🟢 Połączono z Firebase";
+      statusEl.style.background = "#bbf7d0";
 
       populateSelects();
       updateApp();
     } catch (err) {
       console.error(err);
-      document.getElementById('status').innerText = "🔴 Błąd ładowania danych";
+      document.getElementById('status').innerText = "🔴 Błąd połączenia";
       document.getElementById('status').style.background = "#fecaca";
     }
   }
@@ -932,7 +973,7 @@
       const el = document.getElementById(id);
       if(el) {
         el.innerHTML = '';
-        bodyPartsList.filter(p => p.name).forEach(item => {
+        bodyPartsList.forEach(item => {
           const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
           el.appendChild(opt);
         });
@@ -940,7 +981,6 @@
     });
   }
 
-  // NATYCHMIASTOWY ZAPIS (Optimistic UI)
   async function handleWeightFormSubmit(e) {
     e.preventDefault();
     const date = document.getElementById('dateInput').value;
@@ -948,12 +988,10 @@
     if (!date || isNaN(weight)) return;
 
     document.getElementById('weightInput').value = '';
-    // Dodaj lokalnie od razu
     weightData.push({ date, weight });
     weightData.sort((a, b) => new Date(a.date) - new Date(b.date));
     updateApp();
 
-    // Zapis w tle
     await window.firebaseFunctions.addData('Waga', { date, weight });
     fetchFromFirebaseFast();
   }
@@ -1021,7 +1059,7 @@
   function renderStats() {
     if (!weightData.length) return;
     const now = new Date(), sevenDaysAgo = new Date(); sevenDaysAgo.setDate(now.getDate() - 7);
-    const last7 = weightData.filter(d => new Date(d.date) >= sevenDaysAgo).map(d => d.weight).filter(v => !isNaN(v));
+    const last7 = weightData.filter(d => new Date(d.date) >= sevenDaysAgo).map(d => d.weight);
     document.getElementById('avg7d').innerText = getAverage(last7) + ' kg';
     document.getElementById('med7d').innerText = getMedian(last7) + ' kg';
     document.getElementById('lastWeight').innerText = weightData[weightData.length - 1].weight.toFixed(1) + ' kg';
