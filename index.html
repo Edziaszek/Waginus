@@ -51,7 +51,6 @@
       }
     };
 
-    // Uruchomienie po załadowaniu modułu Firebase
     if (window.startApp) {
       window.startApp();
     }
@@ -539,7 +538,7 @@
 
         <div class="form-field">
           <label>Ćwiczenie (z Bazy)</label>
-          <select id="exerciseSelect" required><option value="">Ładowanie...</option></select>
+          <select id="exerciseSelect" required><option value="">Brak ćwiczeń w bazie...</option></select>
         </div>
 
         <div class="form-field">
@@ -618,7 +617,7 @@
           </div>
           <div class="form-field">
             <label>Partia Ciała (z Bazy)</label>
-            <select id="bodySelect" required><option value="">Ładowanie...</option></select>
+            <select id="bodySelect" required><option value="">Brak parti w bazie...</option></select>
           </div>
         </div>
 
@@ -940,14 +939,15 @@
         weight: parseFloat(String(item.Waga || item.weight || item.waga || 0).replace(',', '.'))
       })).filter(item => item.date && !isNaN(item.weight)).sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
 
+      // Poprawione czytanie nazw ćwiczeń (z uwzględnieniem różnych wariantów nazw pól)
       exercisesList = cwiczenia.map(item => ({
         id: item.id,
-        name: item.Cwiczenie || item.name || item.Name || item.cwiczenie || ''
+        name: item.Cwiczenie || item.name || item.Name || item.exercise || item.Nazwa || ''
       })).filter(item => item.name);
 
       bodyPartsList = obwody.map(item => ({
         id: item.id,
-        name: item.Partia || item.name || item.Name || item.part || ''
+        name: item.Partia || item.name || item.Name || item.part || item.Nazwa || ''
       })).filter(item => item.name);
 
       bodyMeasurementsData = obwody.map(item => ({
@@ -957,10 +957,16 @@
         size: parseFloat(String(item.Wymiar || item.size || item.wymiar || 0).replace(',', '.'))
       })).filter(item => item.date && item.part && !isNaN(item.size)).sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
 
+      // Elastyczne mapowanie treningów i ich serii
       workoutData = treningi.map(item => {
-        const rawWeights = item.Wagi || item.weights || [];
-        const weights = Array.isArray(rawWeights) ? rawWeights.map(w => parseFloat(String(w).replace(',', '.'))) : String(rawWeights).split(',').map(w => parseFloat(w.trim().replace(',', '.'))).filter(v => !isNaN(v));
-        const avg = parseFloat(String(item.AvgWeight || 0).replace(',', '.')) || (weights.length ? weights.reduce((a, b) => a + b, 0) / weights.length : 0);
+        const rawWeights = item.Wagi || item.weights || item.Serie_Wagi || [];
+        let weights = [];
+        if (Array.isArray(rawWeights)) {
+          weights = rawWeights.map(w => parseFloat(String(w).replace(',', '.')));
+        } else if (typeof rawWeights === 'string' || typeof rawWeights === 'number') {
+          weights = String(rawWeights).split(',').map(w => parseFloat(w.trim().replace(',', '.'))).filter(v => !isNaN(v));
+        }
+        const avg = parseFloat(String(item.AvgWeight || item.Srednia || 0).replace(',', '.')) || (weights.length ? weights.reduce((a, b) => a + b, 0) / weights.length : 0);
         return {
           id: item.id,
           date: item.Data || item.date || '',
@@ -979,7 +985,6 @@
       populateSelects();
       updateApp();
 
-      // Automatyczne przeliczenie obecnych stanów na start
       setWeekFilter('current');
       setMonthFilter('current');
       updateWorkoutStats();
@@ -1000,10 +1005,15 @@
       const el = document.getElementById(id);
       if(el) {
         el.innerHTML = '';
-        exercisesList.forEach(item => {
-          const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
+        if (exercisesList.length === 0) {
+          const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'Brak ćwiczeń (Dodaj w Ustawieniach)';
           el.appendChild(opt);
-        });
+        } else {
+          exercisesList.forEach(item => {
+            const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
+            el.appendChild(opt);
+          });
+        }
       }
     });
 
@@ -1011,12 +1021,35 @@
       const el = document.getElementById(id);
       if(el) {
         el.innerHTML = '';
-        bodyPartsList.forEach(item => {
-          const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
+        if (bodyPartsList.length === 0) {
+          const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'Brak partii (Dodaj w Ustawieniach)';
           el.appendChild(opt);
-        });
+        } else {
+          bodyPartsList.forEach(item => {
+            const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
+            el.appendChild(opt);
+          });
+        }
       }
     });
+  }
+
+  async function addExerciseName() {
+    const input = document.getElementById('newExerciseInput');
+    if (!input || !input.value.trim()) return;
+    const name = input.value.trim();
+    input.value = '';
+    await window.firebaseFunctions.addData('Cwiczenia', { Cwiczenie: name });
+    fetchFromFirebaseFast();
+  }
+
+  async function addBodyPartName() {
+    const input = document.getElementById('newBodyPartInput');
+    if (!input || !input.value.trim()) return;
+    const name = input.value.trim();
+    input.value = '';
+    await window.firebaseFunctions.addData('Obwody', { Partia: name });
+    fetchFromFirebaseFast();
   }
 
   async function handleWeightFormSubmit(e) {
@@ -1247,17 +1280,45 @@
   }
 
   function renderSettingsLists() {
-    const wList = document.getElementById('editWeightList'); if(!wList) return;
-    wList.innerHTML = '';
-    [...weightData].reverse().forEach(i => {
-      const d = document.createElement('div'); d.className = 'edit-item';
-      d.innerHTML = `<span>${formatDate(i.date)}: ${i.weight} kg</span><button class="btn-danger" onclick="deleteRecord('Waga','${i.id}')">Usuń</button>`;
-      wList.appendChild(d);
-    });
+    const wList = document.getElementById('editWeightList'); if(wList) {
+      wList.innerHTML = '';
+      [...weightData].reverse().forEach(i => {
+        const d = document.createElement('div'); d.className = 'edit-item';
+        d.innerHTML = `<span>${formatDate(i.date)}: ${i.weight} kg</span><button class="btn-danger" onclick="deleteRecord('Waga','${i.id}')">Usuń</button>`;
+        wList.appendChild(d);
+      });
+    }
+
+    const exList = document.getElementById('editExercisesList'); if(exList) {
+      exList.innerHTML = '';
+      exercisesList.forEach(i => {
+        const d = document.createElement('div'); d.className = 'edit-item';
+        d.innerHTML = `<span>${i.name}</span><button class="btn-danger" onclick="deleteRecord('Cwiczenia','${i.id}')">Usuń</button>`;
+        exList.appendChild(d);
+      });
+    }
+
+    const bpList = document.getElementById('editBodyPartsList'); if(bpList) {
+      bpList.innerHTML = '';
+      bodyPartsList.forEach(i => {
+        const d = document.createElement('div'); d.className = 'edit-item';
+        d.innerHTML = `<span>${i.name}</span><button class="btn-danger" onclick="deleteRecord('Obwody','${i.id}')">Usuń</button>`;
+        bpList.appendChild(d);
+      });
+    }
+
+    const woList = document.getElementById('editWorkoutList'); if(woList) {
+      woList.innerHTML = '';
+      [...workoutData].reverse().forEach(i => {
+        const d = document.createElement('div'); d.className = 'edit-item';
+        d.innerHTML = `<span>${formatDate(i.date)} - ${i.exercise}</span><button class="btn-danger" onclick="deleteRecord('Treningi','${i.id}')">Usuń</button>`;
+        woList.appendChild(d);
+      });
+    }
   }
 
   async function deleteRecord(coll, id) {
-    if(!confirm("Usunąć?")) return;
+    if(!confirm("Usunąć wpis?")) return;
     await window.firebaseFunctions.deleteData(coll, id);
     fetchFromFirebaseFast();
   }
