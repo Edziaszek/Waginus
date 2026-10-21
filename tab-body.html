@@ -1,0 +1,61 @@
+<div class="card">
+  <h2>Dodaj pomiar obwodu</h2>
+  <form id="bodyForm">
+    <div class="form-group">
+      <div class="form-field">
+        <label>Data</label>
+        <input type="date" id="bodyDate" required>
+      </div>
+      <div class="form-field">
+        <label>Partia Ciała (z Bazy)</label>
+        <select id="bodySelect" required><option value="">Pobieranie obwodów...</option></select>
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label>Wymiar (cm)</label>
+      <div class="series-row">
+        <button type="button" class="step-btn" onclick="adjustBodySize(-0.5)">−</button>
+        <input type="number" id="bodySizeInput" class="series-input" step="0.1" value="80.0" required>
+        <button type="button" class="step-btn" onclick="adjustBodySize(0.5)">+</button>
+      </div>
+    </div>
+
+    <button type="submit" class="btn-primary">Zapisz obwód</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Statystyki obwodu</h2>
+  <div class="form-field" style="margin-bottom: 12px;">
+    <label>Wybierz partię ciała</label>
+    <select id="statBodySelect"></select>
+  </div>
+
+  <div class="btn-group" id="bodyPeriodFilterGroup">
+    <button data-period="week" class="active">Tydzień</button>
+    <button data-period="month">Miesiąc</button>
+    <button data-period="3months">3 Miesiące</button>
+  </div>
+  
+  <div class="filter-result-box">
+    <div><span>Średni obwód</span><strong id="bodyAvgResult">-</strong></div>
+    <div><span>Mediana obwodu</span><strong id="bodyMedResult">-</strong></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Wykres postępu obwodu</h2>
+  <div class="btn-group" id="bodyChartFilterGroup">
+    <button data-range="7">7d</button>
+    <button data-range="30" class="active">30d</button>
+    <button data-range="90">90d</button>
+    <button data-range="all">Wszystko</button>
+  </div>
+  <canvas id="bodyChart"></canvas>
+</div>
+
+<div class="card">
+  <h2>Historia obwodów</h2>
+  <div id="bodyDataList"></div>
+</div>
