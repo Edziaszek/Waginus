@@ -37,7 +37,7 @@
     <div id="editBodyPartsList" class="edit-list" style="margin-top: 12px;"></div>
   </div>
   <div class="card">
-    <h2>Edycja Pomiary Obwodów</h2>
+    <h2>Edycja Pomiarów Obwodów</h2>
     <div id="editBodyList" class="edit-list"></div>
   </div>
 </div>
@@ -46,9 +46,17 @@
   <div class="card">
     <h2>Wygląd Aplikacji</h2>
     <button class="btn-secondary" style="width:100%; margin-bottom: 10px;" onclick="toggleTheme()">Przełącz Motyw (Jasny/Ciemny)</button>
-    <div class="form-group">
+    <div class="form-group" style="margin-bottom: 15px;">
       <button class="btn-secondary" style="flex:1;" onclick="changeFontSize(-1)">Tekst A-</button>
       <button class="btn-secondary" style="flex:1;" onclick="changeFontSize(1)">Tekst A+</button>
     </div>
+
+    <h2>Zabezpieczenie PIN</h2>
+    <div class="form-field" style="margin-bottom: 8px;">
+      <label>Nowy PIN (domyślnie 1234)</label>
+      <input type="password" id="newPinInput" placeholder="Wpisz 4 cyfry" maxlength="4">
+    </div>
+    <button class="btn-primary" style="width:100%; margin-bottom: 8px;" onclick="saveNewPin()">Zapisz nowy PIN</button>
+    <button class="btn-danger" style="width:100%;" onclick="clearPinProtection()">Usuń PIN / Wyloguj z sesji</button>
   </div>
 </div>
