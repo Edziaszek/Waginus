@@ -1,0 +1,74 @@
+<div class="card">
+  <h2>Dodaj pomiar wagi</h2>
+  <form id="weightForm">
+    <div class="form-group">
+      <input type="date" id="dateInput" required>
+      <input type="number" id="weightInput" step="0.1" placeholder="Waga (kg)" required>
+    </div>
+    <button type="submit" class="btn-primary">Zapisz pomiar</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Podsumowanie (Ostatnie 7 dni)</h2>
+  <div class="stats-grid">
+    <div class="stat-box"><div class="stat-lbl">Ostatnia waga</div><div class="stat-val" id="lastWeight">-</div></div>
+    <div class="stat-box"><div class="stat-lbl">Średnia 7d</div><div class="stat-val" id="avg7d">-</div></div>
+    <div class="stat-box"><div class="stat-lbl">Mediana 7d</div><div class="stat-val" id="med7d">-</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Średnia i Mediana tygodniowa</h2>
+  <div class="btn-group" id="weekFilterGroup">
+    <button data-type="current" class="active">Obecny</button>
+    <button data-type="prev1">Poprzedni</button>
+    <button data-type="prev2">2 tyg. temu</button>
+  </div>
+  <div class="filter-result-box">
+    <div><span>Średnia</span><strong id="weekAvgResult">-</strong></div>
+    <div><span>Mediana</span><strong id="weekMedResult">-</strong></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Średnia i Mediana miesięczna</h2>
+  <div class="btn-group" id="monthFilterGroup">
+    <button data-type="current" class="active">Obecny</button>
+    <button data-type="prev1">Poprzedni</button>
+    <button data-type="prev2">2 mies. temu</button>
+  </div>
+  <div class="filter-result-box">
+    <div><span>Średnia</span><strong id="monthAvgResult">-</strong></div>
+    <div><span>Mediana</span><strong id="monthMedResult">-</strong></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Własny okres czasowy</h2>
+  <div class="form-group">
+    <input type="date" id="customFrom">
+    <input type="date" id="customTo">
+  </div>
+  <div class="filter-result-box">
+    <div><span>Średnia</span><strong id="customAvgResult">-</strong></div>
+    <div><span>Mediana</span><strong id="customMedResult">-</strong></div>
+    <div><span>Pomiary</span><strong id="customCountResult">-</strong></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Wykres wagi</h2>
+  <div class="btn-group" id="chartFilterGroup">
+    <button data-range="7">7d</button>
+    <button data-range="30" class="active">30d</button>
+    <button data-range="90">90d</button>
+    <button data-range="all">Wszystko</button>
+  </div>
+  <canvas id="nativeChart"></canvas>
+</div>
+
+<div class="card">
+  <h2>Historia pomiarów wagi</h2>
+  <div id="dataList"></div>
+</div>
