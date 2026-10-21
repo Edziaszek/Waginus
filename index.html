@@ -658,21 +658,42 @@
   }
 
   function renderBodyList() {
-    const list = document.getElementById('bodyDataList'); if(!list) return;
+    const list = document.getElementById('bodyDataList'); 
+    if (!list) return;
     list.innerHTML = '';
+    
+    if (!bodyMeasurementsData.length) {
+      list.innerHTML = '<div style="text-align:center; padding:10px; color:var(--text-muted);">Brak pomiarów obwodów</div>';
+      return;
+    }
+
     const grouped = {};
-    bodyMeasurementsData.forEach(b => { if(b.date) { const k = formatDate(b.date); if(!grouped[k]) grouped[k] = []; grouped[k].push(b); } });
+    bodyMeasurementsData.forEach(b => { 
+      if (b.date) { 
+        const k = formatDate(b.date); 
+        if (!grouped[k]) grouped[k] = []; 
+        grouped[k].push(b); 
+      } 
+    });
+
     Object.keys(grouped).reverse().forEach((dt, idx) => {
-      const head = document.createElement('div'); head.className = 'accordion-header';
+      const head = document.createElement('div'); 
+      head.className = 'accordion-header';
       head.onclick = () => toggleAccordion(head);
-      head.innerHTML = `<span>📅 ${dt} (${grouped[dt].length})</span><span class="accordion-arrow">${idx===0?'▼':'▶'}</span>`;
-      const content = document.createElement('div'); content.className = `accordion-content ${idx===0?'open':''}`;
+      head.innerHTML = `<span>📅 ${dt} (${grouped[dt].length})</span><span class="accordion-arrow">${idx === 0 ? '▼' : '▶'}</span>`;
+      
+      const content = document.createElement('div'); 
+      content.className = `accordion-content ${idx === 0 ? 'open' : ''}`;
+      
       grouped[dt].forEach(i => {
-        const d = document.createElement('div'); d.className = 'data-item';
+        const d = document.createElement('div'); 
+        d.className = 'data-item';
         d.innerHTML = `<span>${i.part}</span><strong>${i.size.toFixed(1)} cm</strong>`;
         content.appendChild(d);
       });
-      list.appendChild(head); list.appendChild(content);
+      
+      list.appendChild(head); 
+      list.appendChild(content);
     });
   }
 
