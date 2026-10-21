@@ -1,0 +1,88 @@
+<div class="card">
+  <h2>Dodaj trening</h2>
+  <form id="workoutForm">
+    <div class="form-group">
+      <div class="form-field">
+        <label>Data</label>
+        <input type="date" id="workoutDate" required>
+      </div>
+      <div class="form-field">
+        <label>Serie (1-6)</label>
+        <select id="seriesCount">
+          <option value="1">1 seria</option>
+          <option value="2">2 serie</option>
+          <option value="3" selected>3 serie</option>
+          <option value="4">4 serie</option>
+          <option value="5">5 serii</option>
+          <option value="6">6 serii</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label>Ćwiczenie (z Bazy)</label>
+      <select id="exerciseSelect" required><option value="">Pobieranie ćwiczeń...</option></select>
+    </div>
+
+    <div class="form-field">
+      <label>Ciężar w seriach (kg)</label>
+      <div id="seriesInputsContainer" class="series-grid"></div>
+    </div>
+
+    <button type="submit" class="btn-primary">Zapisz trening</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Kalendarz Treningowy</h2>
+  <div class="calendar-container">
+    <div class="calendar-header">
+      <button class="icon-btn" onclick="prevCalendarMonth()">◄</button>
+      <div id="calendarMonthTitle" class="calendar-month-title">-</div>
+      <button class="icon-btn" onclick="nextCalendarMonth()">►</button>
+    </div>
+    <div class="calendar-grid">
+      <div class="calendar-day-head">Pn</div><div class="calendar-day-head">Wt</div>
+      <div class="calendar-day-head">Śr</div><div class="calendar-day-head">Cz</div>
+      <div class="calendar-day-head">Pt</div><div class="calendar-day-head">Sb</div>
+      <div class="calendar-day-head">Nd</div>
+    </div>
+    <div id="calendarDaysGrid" class="calendar-grid"></div>
+    <div id="calendarSelectedInfo" style="display:none; background:var(--box-bg); padding:10px; border-radius:8px; border:1px solid var(--card-border); font-size:0.85rem; margin-top:6px;"></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Statystyki ćwiczenia</h2>
+  <div class="form-field" style="margin-bottom: 12px;">
+    <label>Wybierz ćwiczenie</label>
+    <select id="statExerciseSelect"></select>
+  </div>
+
+  <div class="btn-group" id="workoutPeriodFilterGroup">
+    <button data-period="week" class="active">Tydzień</button>
+    <button data-period="month">Miesiąc</button>
+    <button data-period="3months">3 Miesiące</button>
+  </div>
+  
+  <div class="filter-result-box">
+    <div><span>Średnia waga</span><strong id="workoutAvgResult">-</strong></div>
+    <div><span>Mediana waga</span><strong id="workoutMedResult">-</strong></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Wykres siłowy ćwiczenia</h2>
+  <div class="btn-group" id="workoutChartFilterGroup">
+    <button data-range="7">7d</button>
+    <button data-range="30" class="active">30d</button>
+    <button data-range="90">90d</button>
+    <button data-range="all">Wszystko</button>
+  </div>
+  <canvas id="workoutChart"></canvas>
+</div>
+
+<div class="card">
+  <h2>Historia treningów</h2>
+  <div id="workoutDataList"></div>
+</div>
