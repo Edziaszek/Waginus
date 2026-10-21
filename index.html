@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
-  <meta name="googlebot" content="noindex, nofollow">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Dziennik Formy (Firebase)</title>
-  
+
+  <!-- Ochrona przed botami, spambotami i wyszukiwarkami -->
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <meta name="googlebot" content="noindex, nofollow">
+
   <link rel="stylesheet" href="style.css">
   <script type="module" src="firebase-config.js"></script>
 </head>
@@ -126,14 +128,6 @@
   }
 
   function switchTab(tabId, btn) {
-    if (tabId === 'settings') {
-      const pin = localStorage.getItem('settings_pin') || '1234';
-      if (sessionStorage.getItem('pin_authenticated') !== 'true') {
-        const entered = prompt("PIN do Ustawień:");
-        if (entered !== pin) { alert("Błędny PIN!"); return; }
-        sessionStorage.setItem('pin_authenticated', 'true');
-      }
-    }
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
     document.getElementById(`tab-${tabId}`).classList.add('active');
@@ -160,6 +154,17 @@
   }
 
   window.startApp = async function() {
+    // Zabezpieczenie strony PIN-em przy pierwszym otwarciu w sesji
+    const savedPin = localStorage.getItem('settings_pin') || '1234';
+    if (sessionStorage.getItem('app_authenticated') !== 'true') {
+      const entered = prompt("Wprowadź PIN dostępowy:");
+      if (entered !== savedPin) {
+        document.body.innerHTML = '<div style="text-align:center; padding:50px; font-family:sans-serif;"><h2>⛔ Brak dostępu</h2><p>Wprowadzono nieprawidłowy PIN.</p></div>';
+        return;
+      }
+      sessionStorage.setItem('app_authenticated', 'true');
+    }
+
     initThemeAndFont();
     await loadTabContent();
 
@@ -859,8 +864,8 @@
 
   function clearPinProtection() {
     localStorage.removeItem('settings_pin');
-    sessionStorage.removeItem('pin_authenticated');
-    alert("Zabezpieczenie PIN zostało usunięte (przywrócono domyślny PIN 1234).");
+    sessionStorage.removeItem('app_authenticated');
+    alert("Zabezpieczenie PIN zostało zresetowane do domyślnego (1234), a wylogowanie z sesji wyczyszczone.");
   }
 
   function getCssColor(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
