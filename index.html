@@ -702,6 +702,7 @@
   }
 
   function renderSettingsLists() {
+    // 1. Podzakładka Wagi
     const wList = document.getElementById('editWeightList'); 
     if(wList) {
       wList.innerHTML = '';
@@ -727,6 +728,7 @@
       });
     }
 
+    // 2. Podzakładka Ćwiczeń w bazie
     const exList = document.getElementById('editExercisesList'); 
     if(exList) {
       exList.innerHTML = '';
@@ -738,6 +740,7 @@
       });
     }
 
+    // 3. Podzakładka Obwodów w bazie
     const bpList = document.getElementById('editBodyPartsList'); 
     if(bpList) {
       bpList.innerHTML = '';
@@ -749,6 +752,7 @@
       });
     }
 
+    // 4. Podzakładka Treningów z natywną edycją wierszową
     const woList = document.getElementById('editWorkoutList'); 
     if(woList) {
       woList.innerHTML = '';
@@ -766,14 +770,21 @@
             </div>
           </div>
           <div id="edit_workout_${i.id}" style="display:none; margin-top:8px; gap:6px; flex-direction:column;">
-            <input type="date" id="edit_wo_date_${i.id}" value="${i.date}">
-            <input type="text" id="edit_wo_weights_${i.id}" value="${(i.weights||[]).join(', ')}" placeholder="Wagi po przecinku">
+            <div class="form-field">
+              <label>Data</label>
+              <input type="date" id="edit_wo_date_${i.id}" value="${i.date}">
+            </div>
+            <div class="form-field">
+              <label>Ciężary w seriach (po przecinku, np. 30, 32.5, 35)</label>
+              <input type="text" id="edit_wo_weights_${i.id}" value="${(i.weights||[]).join(', ')}">
+            </div>
             <button class="btn-primary" onclick="saveEditedWorkout('${i.id}', '${i.exercise}')">Zapisz zmianę</button>
           </div>`;
         woList.appendChild(d);
       });
     }
 
+    // 5. Podzakładka Pomiarów Obwodów
     const bList = document.getElementById('editBodyList'); 
     if(bList) {
       bList.innerHTML = '';
