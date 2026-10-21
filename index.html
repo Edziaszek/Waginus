@@ -5,420 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Dziennik Formy (Firebase)</title>
   
-  <!-- Firebase SDKs -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyAdWtyDAnH8Fx7lO1VYvB2xh_vhcen6pU8",
-      authDomain: "waginus-66d1a.firebaseapp.com",
-      projectId: "waginus-66d1a",
-      storageBucket: "waginus-66d1a.firebasestorage.app",
-      messagingSenderId: "587901157605",
-      appId: "1:587901157605:web:8501adacabfb22f08a140c",
-      measurementId: "G-1FHS6E37BT"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    window.db = db;
-    window.firebaseFunctions = {
-      async getData(collectionName) {
-        try {
-          const querySnapshot = await getDocs(collection(db, collectionName));
-          let data = [];
-          querySnapshot.forEach((document) => {
-            data.push({ id: document.id, ...document.data() });
-          });
-          return data;
-        } catch (e) {
-          console.error("Błąd pobierania kolekcji " + collectionName, e);
-          return [];
-        }
-      },
-      async addData(collectionName, item) {
-        const docRef = await addDoc(collection(db, collectionName), item);
-        return docRef.id;
-      },
-      async deleteData(collectionName, id) {
-        await deleteDoc(doc(db, collectionName, id));
-      },
-      async updateData(collectionName, id, updatedFields) {
-        const docRef = doc(db, collectionName, id);
-        await updateDoc(docRef, updatedFields);
-      }
-    };
-
-    if (window.startApp) {
-      window.startApp();
-    }
-  </script>
-
-  <style>
-    :root {
-      --font-size-base: 16px;
-      --bg-color: #f8fafc;
-      --card-bg: #ffffff;
-      --card-border: #e2e8f0;
-      --text-main: #0f172a;
-      --text-muted: #64748b;
-      --primary: #2563eb;
-      --primary-hover: #1d4ed8;
-      --primary-text: #ffffff;
-      --input-bg: #ffffff;
-      --input-border: #cbd5e1;
-      --subtab-bg: #e2e8f0;
-      --box-bg: #f1f5f9;
-      --chart-line: #2563eb;
-      --chart-grid: #e2e8f0;
-    }
-
-    [data-theme="dark"] {
-      --bg-color: #0f172a;
-      --card-bg: #1e293b;
-      --card-border: #334155;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --primary: #f97316;
-      --primary-hover: #ea580c;
-      --primary-text: #ffffff;
-      --input-bg: #0f172a;
-      --input-border: #475569;
-      --subtab-bg: #0f172a;
-      --box-bg: #0f172a;
-      --chart-line: #f97316;
-      --chart-grid: #334155;
-    }
-
-    html { font-size: var(--font-size-base); }
-
-    * {
-      box-sizing: border-box;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      -webkit-tap-highlight-color: transparent;
-    }
-    
-    body {
-      background-color: var(--bg-color);
-      color: var(--text-main);
-      margin: 0;
-      padding: 12px 12px 80px 12px;
-      display: flex;
-      justify-content: center;
-    }
-    
-    .container {
-      max-width: 500px;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    .top-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: var(--card-bg);
-      padding: 8px 12px;
-      border-radius: 12px;
-      border: 1px solid var(--card-border);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    }
-    .top-bar-title { font-weight: bold; font-size: 0.95rem; color: var(--text-main); }
-    .top-controls { display: flex; gap: 6px; align-items: center; }
-    .icon-btn {
-      background: var(--box-bg);
-      border: 1px solid var(--card-border);
-      color: var(--text-main);
-      border-radius: 6px;
-      padding: 6px 10px;
-      font-size: 0.85rem;
-      font-weight: bold;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .tab-content { display: none; flex-direction: column; gap: 14px; }
-    .tab-content.active { display: flex; }
-
-    .card {
-      background: var(--card-bg);
-      padding: 14px;
-      border-radius: 12px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-      border: 1px solid var(--card-border);
-    }
-    h2 { margin: 0 0 10px 0; font-size: 1.05rem; color: var(--text-main); }
-    #status {
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      font-weight: bold;
-      text-align: center;
-      color: #0f172a;
-      background: #fef08a;
-    }
-    
-    form { display: flex; flex-direction: column; gap: 10px; }
-    .form-group { display: flex; gap: 8px; }
-    .form-field { display: flex; flex-direction: column; gap: 4px; flex: 1; }
-    label { font-size: 0.8rem; color: var(--text-muted); font-weight: bold; }
-    input, select {
-      padding: 10px;
-      border: 1px solid var(--input-border);
-      border-radius: 6px;
-      font-size: 0.95rem;
-      flex: 1;
-      min-width: 0;
-      background: var(--input-bg);
-      color: var(--text-main);
-    }
-    button.btn-primary {
-      background: var(--primary);
-      color: var(--primary-text);
-      border: none;
-      padding: 10px 14px;
-      border-radius: 6px;
-      font-weight: bold;
-      font-size: 0.95rem;
-      cursor: pointer;
-    }
-    button.btn-danger {
-      background: #ef4444;
-      color: white;
-      border: none;
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-weight: bold;
-      font-size: 0.8rem;
-      cursor: pointer;
-    }
-    button.btn-secondary {
-      background: var(--box-bg);
-      color: var(--text-main);
-      border: 1px solid var(--card-border);
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-weight: bold;
-      font-size: 0.8rem;
-      cursor: pointer;
-    }
-
-    .subtabs-nav {
-      display: flex;
-      gap: 6px;
-      background: var(--subtab-bg);
-      padding: 4px;
-      border-radius: 8px;
-    }
-    .subtab-btn {
-      flex: 1;
-      padding: 8px 4px;
-      border: none;
-      background: transparent;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      cursor: pointer;
-      text-align: center;
-    }
-    .subtab-btn.active {
-      background: var(--card-bg);
-      color: var(--primary);
-      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-    }
-    .subtab-content { display: none; flex-direction: column; gap: 14px; }
-    .subtab-content.active { display: flex; }
-
-    .series-grid { display: flex; flex-direction: column; gap: 8px; }
-    .series-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: var(--box-bg);
-      padding: 6px 10px;
-      border-radius: 8px;
-      border: 1px solid var(--card-border);
-    }
-    .series-label { font-size: 0.85rem; font-weight: bold; width: 60px; color: var(--text-muted); }
-    .step-btn {
-      width: 36px;
-      height: 36px;
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 6px;
-      font-size: 1.2rem;
-      font-weight: bold;
-      color: var(--text-main);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .series-input { text-align: center; font-weight: bold; }
-    
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      text-align: center;
-    }
-    .stat-box { background: var(--box-bg); padding: 10px; border-radius: 8px; }
-    .stat-val { font-size: 1.1rem; font-weight: bold; color: var(--primary); margin-top: 4px; }
-    .stat-lbl { font-size: 0.75rem; color: var(--text-muted); }
-    
-    .btn-group { display: flex; gap: 6px; margin-bottom: 10px; }
-    .btn-group button {
-      flex: 1;
-      padding: 6px 8px;
-      border: 1px solid var(--card-border);
-      background: var(--card-bg);
-      color: var(--text-main);
-      border-radius: 6px;
-      font-size: 0.8rem;
-      cursor: pointer;
-    }
-    .btn-group button.active {
-      background: var(--primary);
-      color: var(--primary-text);
-      border-color: var(--primary);
-      font-weight: bold;
-    }
-    
-    .filter-result-box {
-      background: var(--box-bg);
-      border: 1px solid var(--card-border);
-      padding: 10px;
-      border-radius: 8px;
-      margin-top: 10px;
-      display: flex;
-      justify-content: space-around;
-      text-align: center;
-    }
-    .filter-result-box div { flex: 1; }
-    .filter-result-box span { font-size: 0.75rem; color: var(--text-muted); display: block; }
-    .filter-result-box strong { font-size: 1rem; color: var(--text-main); }
-
-    /* KALENDARZ */
-    .calendar-container { display: flex; flex-direction: column; gap: 10px; }
-    .calendar-header { display: flex; justify-content: space-between; align-items: center; }
-    .calendar-month-title { font-weight: bold; font-size: 0.95rem; color: var(--text-main); }
-    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
-    .calendar-day-head { font-size: 0.75rem; font-weight: bold; color: var(--text-muted); padding: 4px 0; }
-    .calendar-day {
-      aspect-ratio: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      border-radius: 8px;
-      background: var(--box-bg);
-      font-size: 0.85rem;
-      font-weight: bold;
-      color: var(--text-main);
-      border: 1px solid transparent;
-      cursor: default;
-      position: relative;
-    }
-    .calendar-day.empty { background: transparent; border: none; }
-    .calendar-day.workout-day { background: var(--primary); color: var(--primary-text); cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
-    .calendar-day.today { border-color: var(--primary); }
-    .workout-badge { font-size: 0.6rem; line-height: 1; margin-top: 2px; }
-
-    .edit-list { display: flex; flex-direction: column; gap: 8px; max-height: 350px; overflow-y: auto; }
-    .edit-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px;
-      background: var(--box-bg);
-      border-radius: 8px;
-      border: 1px solid var(--card-border);
-    }
-    .item-actions { display: flex; gap: 6px; }
-
-    #dataList, #workoutDataList, #bodyDataList {
-      max-height: 250px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-top: 8px;
-    }
-    .data-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 12px;
-      background: var(--box-bg);
-      border-radius: 6px;
-      font-size: 0.9rem;
-      border-bottom: 1px solid var(--card-border);
-    }
-
-    .accordion-header {
-      font-weight: bold;
-      font-size: 0.88rem;
-      color: var(--primary);
-      background: var(--box-bg);
-      padding: 10px 12px;
-      border-radius: 8px;
-      border: 1px solid var(--card-border);
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 4px;
-      user-select: none;
-    }
-    .accordion-content {
-      display: none;
-      flex-direction: column;
-      gap: 6px;
-      padding: 6px 0 6px 8px;
-      border-left: 2px solid var(--primary);
-      margin-left: 6px;
-      margin-bottom: 6px;
-    }
-    .accordion-content.open { display: flex; }
-    .accordion-arrow { font-size: 0.75rem; }
-
-    .bottom-nav {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      height: 60px;
-      background: var(--card-bg);
-      border-top: 1px solid var(--card-border);
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
-      z-index: 1000;
-      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-    }
-    .nav-item {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      font-size: 0.72rem;
-      font-weight: 500;
-      cursor: pointer;
-      gap: 2px;
-    }
-    .nav-item svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    .nav-item.active { color: var(--primary); font-weight: bold; }
-  </style>
+  <!-- Podłączenie oddzielnego pliku ze stylami -->
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Podłączenie osobnego pliku konfiguracyjnego Firebase -->
+  <script type="module" src="firebase-config.js"></script>
 </head>
 <body>
 
@@ -435,7 +26,7 @@
 
   <div id="status">⏳ Łączenie z Firebase...</div>
 
-  <!-- ZAKŁADKA 1: WAGA -->
+  <!-- ZAKŁADKA 1: WAGA (Zostaje w głównym pliku lub jako szablon) -->
   <div id="tab-weight" class="tab-content active">
     <div class="card">
       <h2>Dodaj pomiar wagi</h2>
@@ -513,220 +104,14 @@
     </div>
   </div>
 
-  <!-- ZAKŁADKA 2: TRENINGI -->
-  <div id="tab-workout" class="tab-content">
-    <div class="card">
-      <h2>Dodaj trening</h2>
-      <form id="workoutForm">
-        <div class="form-group">
-          <div class="form-field">
-            <label>Data</label>
-            <input type="date" id="workoutDate" required>
-          </div>
-          <div class="form-field">
-            <label>Serie (1-6)</label>
-            <select id="seriesCount">
-              <option value="1">1 seria</option>
-              <option value="2">2 serie</option>
-              <option value="3" selected>3 serie</option>
-              <option value="4">4 serie</option>
-              <option value="5">5 serii</option>
-              <option value="6">6 serii</option>
-            </select>
-          </div>
-        </div>
+  <!-- ZAKŁADKA 2: TRENINGI (Importowana z pliku) -->
+  <div id="tab-workout" class="tab-content"></div>
 
-        <div class="form-field">
-          <label>Ćwiczenie (z Bazy)</label>
-          <select id="exerciseSelect" required><option value="">Pobieranie ćwiczeń...</option></select>
-        </div>
+  <!-- ZAKŁADKA 3: OBWODY (Importowana z pliku) -->
+  <div id="tab-body" class="tab-content"></div>
 
-        <div class="form-field">
-          <label>Ciężar w seriach (kg)</label>
-          <div id="seriesInputsContainer" class="series-grid"></div>
-        </div>
-
-        <button type="submit" class="btn-primary">Zapisz trening</button>
-      </form>
-    </div>
-
-    <div class="card">
-      <h2>Kalendarz Treningowy</h2>
-      <div class="calendar-container">
-        <div class="calendar-header">
-          <button class="icon-btn" onclick="prevCalendarMonth()">◄</button>
-          <div id="calendarMonthTitle" class="calendar-month-title">-</div>
-          <button class="icon-btn" onclick="nextCalendarMonth()">►</button>
-        </div>
-        <div class="calendar-grid">
-          <div class="calendar-day-head">Pn</div><div class="calendar-day-head">Wt</div>
-          <div class="calendar-day-head">Śr</div><div class="calendar-day-head">Cz</div>
-          <div class="calendar-day-head">Pt</div><div class="calendar-day-head">Sb</div>
-          <div class="calendar-day-head">Nd</div>
-        </div>
-        <div id="calendarDaysGrid" class="calendar-grid"></div>
-        <div id="calendarSelectedInfo" style="display:none; background:var(--box-bg); padding:10px; border-radius:8px; border:1px solid var(--card-border); font-size:0.85rem; margin-top:6px;"></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Statystyki ćwiczenia</h2>
-      <div class="form-field" style="margin-bottom: 12px;">
-        <label>Wybierz ćwiczenie</label>
-        <select id="statExerciseSelect"></select>
-      </div>
-
-      <div class="btn-group" id="workoutPeriodFilterGroup">
-        <button data-period="week" class="active">Tydzień</button>
-        <button data-period="month">Miesiąc</button>
-        <button data-period="3months">3 Miesiące</button>
-      </div>
-      
-      <div class="filter-result-box">
-        <div><span>Średnia waga</span><strong id="workoutAvgResult">-</strong></div>
-        <div><span>Mediana wagi</span><strong id="workoutMedResult">-</strong></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Wykres siłowy ćwiczenia</h2>
-      <div class="btn-group" id="workoutChartFilterGroup">
-        <button data-range="7">7d</button>
-        <button data-range="30" class="active">30d</button>
-        <button data-range="90">90d</button>
-        <button data-range="all">Wszystko</button>
-      </div>
-      <canvas id="workoutChart"></canvas>
-    </div>
-
-    <div class="card">
-      <h2>Historia treningów</h2>
-      <div id="workoutDataList"></div>
-    </div>
-  </div>
-
-  <!-- ZAKŁADKA 3: OBWODY -->
-  <div id="tab-body" class="tab-content">
-    <div class="card">
-      <h2>Dodaj pomiar obwodu</h2>
-      <form id="bodyForm">
-        <div class="form-group">
-          <div class="form-field">
-            <label>Data</label>
-            <input type="date" id="bodyDate" required>
-          </div>
-          <div class="form-field">
-            <label>Partia Ciała (z Bazy)</label>
-            <select id="bodySelect" required><option value="">Pobieranie obwodów...</option></select>
-          </div>
-        </div>
-
-        <div class="form-field">
-          <label>Wymiar (cm)</label>
-          <div class="series-row">
-            <button type="button" class="step-btn" onclick="adjustBodySize(-0.5)">−</button>
-            <input type="number" id="bodySizeInput" class="series-input" step="0.1" value="80.0" required>
-            <button type="button" class="step-btn" onclick="adjustBodySize(0.5)">+</button>
-          </div>
-        </div>
-
-        <button type="submit" class="btn-primary">Zapisz obwód</button>
-      </form>
-    </div>
-
-    <div class="card">
-      <h2>Statystyki obwodu</h2>
-      <div class="form-field" style="margin-bottom: 12px;">
-        <label>Wybierz partię ciała</label>
-        <select id="statBodySelect"></select>
-      </div>
-
-      <div class="btn-group" id="bodyPeriodFilterGroup">
-        <button data-period="week" class="active">Tydzień</button>
-        <button data-period="month">Miesiąc</button>
-        <button data-period="3months">3 Miesiące</button>
-      </div>
-      
-      <div class="filter-result-box">
-        <div><span>Średni obwód</span><strong id="bodyAvgResult">-</strong></div>
-        <div><span>Mediana obwodu</span><strong id="bodyMedResult">-</strong></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Wykres postępu obwodu</h2>
-      <div class="btn-group" id="bodyChartFilterGroup">
-        <button data-range="7">7d</button>
-        <button data-range="30" class="active">30d</button>
-        <button data-range="90">90d</button>
-        <button data-range="all">Wszystko</button>
-      </div>
-      <canvas id="bodyChart"></canvas>
-    </div>
-
-    <div class="card">
-      <h2>Historia obwodów</h2>
-      <div id="bodyDataList"></div>
-    </div>
-  </div>
-
-  <!-- ZAKŁADKA 4: USTAWIENIA -->
-  <div id="tab-settings" class="tab-content">
-    <div class="subtabs-nav">
-      <button class="subtab-btn active" onclick="switchSubTab('weight-settings', this)">Waga</button>
-      <button class="subtab-btn" onclick="switchSubTab('workout-settings', this)">Treningi</button>
-      <button class="subtab-btn" onclick="switchSubTab('body-settings', this)">Obwody</button>
-      <button class="subtab-btn" onclick="switchSubTab('general-settings', this)">Ogólne</button>
-    </div>
-
-    <div id="subtab-weight-settings" class="subtab-content active">
-      <div class="card">
-        <h2>Edycja wpisów wagi</h2>
-        <div id="editWeightList" class="edit-list"></div>
-      </div>
-    </div>
-
-    <div id="subtab-workout-settings" class="subtab-content">
-      <div class="card">
-        <h2>Nazwy Ćwiczeń (Baza)</h2>
-        <div class="form-group">
-          <input type="text" id="newExerciseInput" placeholder="Nowe ćwiczenie">
-          <button type="button" class="btn-primary" onclick="addExerciseName()">Dodaj</button>
-        </div>
-        <div id="editExercisesList" class="edit-list" style="margin-top: 12px;"></div>
-      </div>
-      <div class="card">
-        <h2>Edycja Treningów</h2>
-        <div id="editWorkoutList" class="edit-list"></div>
-      </div>
-    </div>
-
-    <div id="subtab-body-settings" class="subtab-content">
-      <div class="card">
-        <h2>Nazwy Obwodów (Baza)</h2>
-        <div class="form-group">
-          <input type="text" id="newBodyPartInput" placeholder="Nowy obwód">
-          <button type="button" class="btn-primary" onclick="addBodyPartName()">Dodaj</button>
-        </div>
-        <div id="editBodyPartsList" class="edit-list" style="margin-top: 12px;"></div>
-      </div>
-      <div class="card">
-        <h2>Edycja Pomiary Obwodów</h2>
-        <div id="editBodyList" class="edit-list"></div>
-      </div>
-    </div>
-
-    <div id="subtab-general-settings" class="subtab-content">
-      <div class="card">
-        <h2>Wygląd Aplikacji</h2>
-        <button class="btn-secondary" style="width:100%; margin-bottom: 10px;" onclick="toggleTheme()">Przełącz Motyw (Jasny/Ciemny)</button>
-        <div class="form-group">
-          <button class="btn-secondary" style="flex:1;" onclick="changeFontSize(-1)">Tekst A-</button>
-          <button class="btn-secondary" style="flex:1;" onclick="changeFontSize(1)">Tekst A+</button>
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- ZAKŁADKA 4: USTAWIENIA (Importowana z pliku) -->
+  <div id="tab-settings" class="tab-content"></div>
 
 </div>
 
@@ -744,7 +129,7 @@
     Obwody
   </button>
   <button class="nav-item" onclick="switchTab('settings', this)">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09A1.65 1.65 0 0 0-1.51 1z"/></svg>
     Ustawienia
   </button>
 </nav>
@@ -755,6 +140,22 @@
   let currentWorkoutPeriod = 'week', currentBodyPeriod = 'week';
   let currentCalendarDate = new Date();
   let currentFontSize = parseInt(localStorage.getItem('app_font_size')) || 16;
+
+  // Funkcja ładująca zawartość zewnętrznych plików HTML do zakładek
+  async function loadTabContent() {
+    try {
+      const [workoutRes, bodyRes, settingsRes] = await Promise.all([
+        fetch('tab-workout.html'),
+        fetch('tab-body.html'),
+        fetch('tab-settings.html')
+      ]);
+      document.getElementById('tab-workout').innerHTML = await workoutRes.text();
+      document.getElementById('tab-body').innerHTML = await bodyRes.text();
+      document.getElementById('tab-settings').innerHTML = await settingsRes.text();
+    } catch (e) {
+      console.error("Błąd ładowania zakładek:", e);
+    }
+  }
 
   function parseLocalDate(dStr) {
     if (!dStr) return new Date(NaN);
@@ -831,6 +232,10 @@
 
   window.startApp = async function() {
     initThemeAndFont();
+    
+    // Najpierw wczytujemy pliki HTML zakładek do DOM
+    await loadTabContent();
+
     const dateInput = document.getElementById('dateInput');
     const workoutDate = document.getElementById('workoutDate');
     const bodyDate = document.getElementById('bodyDate');
@@ -962,20 +367,17 @@
         size: parseFloat(String(item.Wymiar || item.size || item.wymiar || 0).replace(',', '.'))
       })).filter(item => item.date && item.part && !isNaN(item.size)).sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
 
-      // Super-elastyczne mapowanie treningów z uwzględnieniem zaimportowanych kluczy dynamicznych
       workoutData = treningi.map(item => {
         let dateVal = item.Data || item.date || '';
         let exerciseVal = item.Cwiczenie || item.Nazwa || item.exercise || '';
         let weights = [];
 
-        // Przeszukaj klucze obiektu, jeśli standardowe pola są puste
         for (const key in item) {
           if (key === 'id') continue;
           const val = item[key];
           if (!dateVal && /^\d{4}-\d{2}-\d{2}$/.test(key)) dateVal = key;
           if (!dateVal && /^\d{4}-\d{2}-\d{2}$/.test(val)) dateVal = val;
           if (!exerciseVal && typeof val === 'string' && val.length > 2 && isNaN(val) && key !== 'id') {
-            // Jeśli klucz to nazwa ćwiczenia lub wartość to nazwa ćwiczenia
             if (exercisesList.some(e => e.name.toLowerCase() === val.toLowerCase())) {
               exerciseVal = val;
             }
@@ -989,7 +391,6 @@
           weights = String(rawWeights).split(',').map(w => parseFloat(w.trim().replace(',', '.'))).filter(v => !isNaN(v));
         }
 
-        // Jeśli wagi nie były w osobnym polu, poszukaj numerycznych wartości w dokumencie
         if (weights.length === 0) {
           for (const key in item) {
             const val = parseFloat(String(item[key]).replace(',', '.'));
@@ -1395,3 +796,4 @@
 </script>
 </body>
 </html>
+
