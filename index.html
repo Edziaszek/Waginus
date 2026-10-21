@@ -5,10 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Dziennik Formy (Firebase)</title>
   
-  <!-- Podłączenie oddzielnego pliku ze stylami -->
   <link rel="stylesheet" href="style.css">
-  
-  <!-- Podłączenie osobnego pliku konfiguracyjnego Firebase -->
   <script type="module" src="firebase-config.js"></script>
 </head>
 <body>
@@ -26,83 +23,8 @@
 
   <div id="status">⏳ Łączenie z Firebase...</div>
 
-  <!-- ZAKŁADKA 1: WAGA (Zostaje w głównym pliku lub jako szablon) -->
-  <div id="tab-weight" class="tab-content active">
-    <div class="card">
-      <h2>Dodaj pomiar wagi</h2>
-      <form id="weightForm">
-        <div class="form-group">
-          <input type="date" id="dateInput" required>
-          <input type="number" id="weightInput" step="0.1" placeholder="Waga (kg)" required>
-        </div>
-        <button type="submit" class="btn-primary">Zapisz pomiar</button>
-      </form>
-    </div>
-
-    <div class="card">
-      <h2>Podsumowanie (Ostatnie 7 dni)</h2>
-      <div class="stats-grid">
-        <div class="stat-box"><div class="stat-lbl">Ostatnia waga</div><div class="stat-val" id="lastWeight">-</div></div>
-        <div class="stat-box"><div class="stat-lbl">Średnia 7d</div><div class="stat-val" id="avg7d">-</div></div>
-        <div class="stat-box"><div class="stat-lbl">Mediana 7d</div><div class="stat-val" id="med7d">-</div></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Średnia i Mediana tygodniowa</h2>
-      <div class="btn-group" id="weekFilterGroup">
-        <button data-type="current" class="active">Obecny</button>
-        <button data-type="prev1">Poprzedni</button>
-        <button data-type="prev2">2 tyg. temu</button>
-      </div>
-      <div class="filter-result-box">
-        <div><span>Średnia</span><strong id="weekAvgResult">-</strong></div>
-        <div><span>Mediana</span><strong id="weekMedResult">-</strong></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Średnia i Mediana miesięczna</h2>
-      <div class="btn-group" id="monthFilterGroup">
-        <button data-type="current" class="active">Obecny</button>
-        <button data-type="prev1">Poprzedni</button>
-        <button data-type="prev2">2 mies. temu</button>
-      </div>
-      <div class="filter-result-box">
-        <div><span>Średnia</span><strong id="monthAvgResult">-</strong></div>
-        <div><span>Mediana</span><strong id="monthMedResult">-</strong></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Własny okres czasowy</h2>
-      <div class="form-group">
-        <input type="date" id="customFrom">
-        <input type="date" id="customTo">
-      </div>
-      <div class="filter-result-box">
-        <div><span>Średnia</span><strong id="customAvgResult">-</strong></div>
-        <div><span>Mediana</span><strong id="customMedResult">-</strong></div>
-        <div><span>Pomiary</span><strong id="customCountResult">-</strong></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Wykres wagi</h2>
-      <div class="btn-group" id="chartFilterGroup">
-        <button data-range="7">7d</button>
-        <button data-range="30" class="active">30d</button>
-        <button data-range="90">90d</button>
-        <button data-range="all">Wszystko</button>
-      </div>
-      <canvas id="nativeChart"></canvas>
-    </div>
-
-    <div class="card">
-      <h2>Historia pomiarów wagi</h2>
-      <div id="dataList"></div>
-    </div>
-  </div>
+  <!-- ZAKŁADKA 1: WAGA (Importowana z pliku) -->
+  <div id="tab-weight" class="tab-content active"></div>
 
   <!-- ZAKŁADKA 2: TRENINGI (Importowana z pliku) -->
   <div id="tab-workout" class="tab-content"></div>
@@ -129,7 +51,7 @@
     Obwody
   </button>
   <button class="nav-item" onclick="switchTab('settings', this)">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09A1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     Ustawienia
   </button>
 </nav>
@@ -141,14 +63,15 @@
   let currentCalendarDate = new Date();
   let currentFontSize = parseInt(localStorage.getItem('app_font_size')) || 16;
 
-  // Funkcja ładująca zawartość zewnętrznych plików HTML do zakładek
   async function loadTabContent() {
     try {
-      const [workoutRes, bodyRes, settingsRes] = await Promise.all([
+      const [weightRes, workoutRes, bodyRes, settingsRes] = await Promise.all([
+        fetch('tab-weight.html'),
         fetch('tab-workout.html'),
         fetch('tab-body.html'),
         fetch('tab-settings.html')
       ]);
+      document.getElementById('tab-weight').innerHTML = await weightRes.text();
       document.getElementById('tab-workout').innerHTML = await workoutRes.text();
       document.getElementById('tab-body').innerHTML = await bodyRes.text();
       document.getElementById('tab-settings').innerHTML = await settingsRes.text();
@@ -232,8 +155,6 @@
 
   window.startApp = async function() {
     initThemeAndFont();
-    
-    // Najpierw wczytujemy pliki HTML zakładek do DOM
     await loadTabContent();
 
     const dateInput = document.getElementById('dateInput');
@@ -360,12 +281,53 @@
 
       bodyPartsList = Array.from(setBody).map((name, idx) => ({ id: `part_${idx}`, name }));
 
-      bodyMeasurementsData = obwody.map(item => ({
-        id: item.id,
-        date: item.Data || item.date || '',
-        part: item.Partia || item.part || item.Part || item.name || '',
-        size: parseFloat(String(item.Wymiar || item.size || item.wymiar || 0).replace(',', '.'))
-      })).filter(item => item.date && item.part && !isNaN(item.size)).sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
+      bodyMeasurementsData = obwody.map(item => {
+        let dateVal = item.Data || item.date || item.data || '';
+        let partVal = item.Partia || item.part || item.Part || item.name || '';
+        let sizeVal = NaN;
+
+        for (const key in item) {
+          if (key === 'id') continue;
+          const val = item[key];
+          if (!dateVal && /^\d{4}-\d{2}-\d{2}$/.test(key)) dateVal = key;
+          if (!dateVal && /^\d{4}-\d{2}-\d{2}$/.test(val)) dateVal = val;
+          if (!partVal && typeof val === 'string' && val.length > 1 && isNaN(val)) {
+            if (bodyPartsList.some(b => b.name.toLowerCase() === val.toLowerCase())) {
+              partVal = val;
+            }
+          }
+        }
+
+        if (!partVal) {
+          for (const key in item) {
+            if (key === 'id' || key === 'Data' || key === 'date' || key === 'Wymiar') continue;
+            if (bodyPartsList.some(b => b.name.toLowerCase() === key.toLowerCase())) {
+              partVal = key;
+              if (!dateVal) dateVal = item[key];
+            }
+          }
+        }
+
+        const rawSize = item.Wymiar || item.size || item.wymiar || item.Wartosc;
+        if (rawSize !== undefined && !isNaN(parseFloat(String(rawSize).replace(',', '.')))) {
+          sizeVal = parseFloat(String(rawSize).replace(',', '.'));
+        } else {
+          for (const key in item) {
+            const val = parseFloat(String(item[key]).replace(',', '.'));
+            if (!isNaN(val) && val > 5 && val < 300 && key !== 'id' && item[key] !== dateVal && item[key] !== partVal) {
+              sizeVal = val;
+              break;
+            }
+          }
+        }
+
+        return {
+          id: item.id,
+          date: dateVal,
+          part: partVal,
+          size: sizeVal
+        };
+      }).filter(item => item.date && item.part && !isNaN(item.size)).sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
 
       workoutData = treningi.map(item => {
         let dateVal = item.Data || item.date || '';
@@ -796,4 +758,3 @@
 </script>
 </body>
 </html>
-
