@@ -881,7 +881,7 @@
     drawChart('workoutChart', weightsForStats, 'all', 'kg');
   }
 
-  function updateCardioStatsAndChart() {
+ function updateCardioStatsAndChart() {
     const sel = document.getElementById('statCardioSelect'); 
     if (!sel || !sel.value) return;
 
@@ -909,15 +909,44 @@
       timeFiltered = filtered.filter(c => parseLocalDate(c.date) >= limitDate);
     }
 
-    const distances = timeFiltered.map(c => c.distance);
+    // Sumowanie całkowitego dystansu
+    const totalDistance = timeFiltered.reduce((acc, curr) => acc + (curr.distance || 0), 0);
+
+    // Sumowanie całkowitego czasu (obsługa formatów typu "45", "45 min", "1:15:00")
+    let totalMinutes = 0;
+    timeFiltered.forEach(c => {
+      const durStr = String(c.duration || '').trim();
+      if (durStr.includes(':')) {
+        const parts = durStr.split(':').map(p => parseInt(p) || 0);
+        if (parts.length === 3) {
+          totalMinutes += parts[0] * 60 + parts[1] + parts[2] / 60;
+        } else if (parts.length === 2) {
+          totalMinutes += parts[0] + parts[1] / 60;
+        }
+      } else {
+        const parsedNum = parseFloat(durStr.replace(',', '.')) || 0;
+        totalMinutes += parsedNum;
+      }
+    });
+
     const cAvg = document.getElementById('cardioAvgResult');
     const cMed = document.getElementById('cardioMedResult');
-    if (cAvg) cAvg.innerText = getAverage(distances) + ' km';
-    if (cMed) cMed.innerText = timeFiltered.length ? `${timeFiltered[timeFiltered.length - 1].duration}` : '-';
+    
+    if (cAvg) cAvg.innerText = totalDistance.toFixed(2) + ' km';
+    if (cMed) {
+      if (totalMinutes >= 60) {
+        const hrs = Math.floor(totalMinutes / 60);
+        const mins = Math.round(totalMinutes % 60);
+        cMed.innerText = `${hrs}h ${mins} min`;
+      } else {
+        cMed.innerText = Math.round(totalMinutes) + ' min';
+      }
+    }
 
+    // Wykres pokazuje dystanse w wybranym okresie
+    const distances = timeFiltered.map(c => c.distance);
     drawChart('cardioChart', distances, 'all', 'km');
   }
-
   function updateBodyStats() {
     const sel = document.getElementById('statBodySelect'); if (!sel || !sel.value) return;
     const filtered = bodyMeasurementsData.filter(b => b.part === sel.value).map(b => b.size);
