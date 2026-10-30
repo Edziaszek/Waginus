@@ -85,7 +85,7 @@
     return `${count} powtórzeń`;
   }
 
-  async function loadTabContent() {
+ async function loadTabContent() {
     try {
       const [mainRes, weightRes, workoutRes, bodyRes, settingsRes] = await Promise.all([
         fetch('tab-main.html'),
@@ -100,7 +100,7 @@
       document.getElementById('tab-body').innerHTML = await bodyRes.text();
       document.getElementById('tab-settings').innerHTML = await settingsRes.text();
 
-      // Przypisanie nasłuchiwania zmiany ćwiczenia po załadowaniu
+      // Przypisanie nasłuchiwania w formularzu dodawania treningu
       const exSel = document.getElementById('exerciseSelect');
       if (exSel) {
         exSel.onchange = handleExerciseChangeForWeights;
@@ -108,6 +108,12 @@
       const seriesCnt = document.getElementById('seriesCount');
       if (seriesCnt) {
         seriesCnt.onchange = () => handleExerciseChangeForWeights();
+      }
+
+      // Przypisanie nasłuchiwania w sekcji STATYSTYK TRENINGOWYCH (kluczowe dla przycisków!)
+      const statExSel = document.getElementById('statExerciseSelect');
+      if (statExSel) {
+        statExSel.onchange = () => updateWorkoutStatsAndChart();
       }
     } catch (e) {
       console.error("Błąd ładowania zakładek:", e);
@@ -242,7 +248,7 @@ let currentWorkoutFilter = 'week';
       e.target.classList.add('active'); currentChartRange = e.target.getAttribute('data-range'); drawNativeChart();
     }));
     
-    // Nowa obsługa 4 przycisków w statystykach treningowych
+    // Obsługa 4 przycisków w statystykach treningowych
     document.querySelectorAll('#workoutFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
       document.querySelectorAll('#workoutFilterGroup button').forEach(b => b.classList.remove('active'));
       e.target.classList.add('active'); 
@@ -259,12 +265,10 @@ let currentWorkoutFilter = 'week';
       e.target.classList.add('active'); currentBodyChartRange = e.target.getAttribute('data-range'); drawBodyChart();
     }));
 
-    const statEx = document.getElementById('statExerciseSelect');
     const statBody = document.getElementById('statBodySelect');
     const cFrom = document.getElementById('customFrom');
     const cTo = document.getElementById('customTo');
 
-    if (statEx) statEx.addEventListener('change', () => { updateWorkoutStatsAndChart(); });
     if (statBody) statBody.addEventListener('change', () => { updateBodyStats(); drawBodyChart(); });
     if (cFrom) cFrom.addEventListener('change', calculateCustomRange);
     if (cTo) cTo.addEventListener('change', calculateCustomRange);
