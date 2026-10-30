@@ -74,6 +74,17 @@
   let currentCalendarDate = new Date();
   let currentFontSize = parseInt(localStorage.getItem('app_font_size')) || 16;
 
+  function formatReps(n) {
+    const count = parseInt(n) || 0;
+    if (count === 1) return '1 powtórzenie';
+    const abs = Math.abs(count);
+    const lastTwo = abs % 100;
+    const lastOne = abs % 10;
+    if (lastTwo >= 11 && lastTwo <= 14) return `${count} powtórzeń`;
+    if (lastOne >= 2 && lastOne <= 4) return `${count} powtórzenia`;
+    return `${count} powtórzeń`;
+  }
+
   async function loadTabContent() {
     try {
       const [mainRes, weightRes, workoutRes, bodyRes, settingsRes] = await Promise.all([
@@ -256,7 +267,7 @@
     container.innerHTML = '';
     for (let i = 1; i <= count; i++) {
       const wVal = defaultWeights[i - 1] !== undefined ? defaultWeights[i - 1] : (defaultWeights[0] || 30);
-      const rVal = defaultReps[i - 1] !== undefined ? defaultReps[i - 1] : (defaultReps[0] || 10);
+      const rVal = defaultReps[i - 1] !== undefined ? defaultReps[i - 1] : (defaultReps[0] || 8);
 
       const row = document.createElement('div');
       row.className = 'series-row';
@@ -267,8 +278,14 @@
 
       row.innerHTML = `
         <span class="series-label" style="min-width:55px;">Seria ${i}:</span>
-        <input type="number" id="seriesWeight_${i}" class="series-input" step="0.5" value="${wVal}" placeholder="kg" style="flex:1;" required>
-        <input type="number" id="seriesReps_${i}" class="series-input" step="1" value="${rVal}" placeholder="powt." style="flex:1;" required>
+        <div style="display:flex; flex:1; align-items:center; gap:4px;">
+          <input type="number" id="seriesWeight_${i}" class="series-input" step="0.5" value="${wVal}" placeholder="kg" style="flex:1;" required>
+          <small style="color:var(--text-muted); font-weight:bold;">kg</small>
+        </div>
+        <div style="display:flex; flex:1; align-items:center; gap:4px;">
+          <input type="number" id="seriesReps_${i}" class="series-input" step="1" value="${rVal}" placeholder="powt." style="flex:1;" required>
+          <small style="color:var(--text-muted); font-weight:bold;">powt.</small>
+        </div>
       `;
       container.appendChild(row);
     }
@@ -421,7 +438,7 @@
           exercise: exerciseVal,
           series: weights.length || 3,
           weights: weights.length ? weights : [30, 30, 30],
-          reps: reps.length ? reps : [10, 10, 10],
+          reps: reps.length ? reps : [8, 8, 8],
           avgWeight: avg
         };
       }).filter(item => item.date && item.exercise).sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
@@ -471,24 +488,6 @@
         });
       }
     });
-  }
-
-  async function addExerciseName() {
-    const input = document.getElementById('newExerciseInput');
-    if (!input || !input.value.trim()) return;
-    const name = input.value.trim();
-    input.value = '';
-    await window.firebaseFunctions.addData('Cwiczenia', { Nazwa: name, ObwodyBaza: "" });
-    fetchFromFirebaseFast();
-  }
-
-  async function addBodyPartName() {
-    const input = document.getElementById('newBodyPartInput');
-    if (!input || !input.value.trim()) return;
-    const name = input.value.trim();
-    input.value = '';
-    await window.firebaseFunctions.addData('Cwiczenia', { Nazwa: "", ObwodyBaza: name });
-    fetchFromFirebaseFast();
   }
 
   async function handleWeightFormSubmit(e) {
@@ -633,30 +632,41 @@
           const exName = exObj.name;
           const exWorkouts = workoutData.filter(w => w.exercise.toLowerCase() === exName.toLowerCase());
 
-          let lastWeight = '-';
-          let recordWeight = '-';
+          let lastStr = '-';
+          let recordStr = '-';
 
           if (exWorkouts.length > 0) {
             const sortedWorkouts = [...exWorkouts].sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
             const lastWorkout = sortedWorkouts[sortedWorkouts.length - 1];
             if (lastWorkout.weights && lastWorkout.weights.length > 0) {
-              lastWeight = Math.max(...lastWorkout.weights) + ' kg (ostatni)';
+              const maxW = Math.max(...lastWorkout.weights);
+              const idx = lastWorkout.weights.indexOf(maxW);
+              const repVal = (lastWorkout.reps && lastWorkout.reps[idx]) ? lastWorkout.reps[idx] : 8;
+              lastStr = `${maxW} kg x ${formatReps(repVal)}`;
             }
 
-            let allWeights = [];
+            let maxWeight = 0;
+            let correspondingReps = 8;
             exWorkouts.forEach(w => {
-              if (w.weights && w.weights.length > 0) allWeights.push(...w.weights);
+              if (w.weights && w.weights.length > 0) {
+                w.weights.forEach((wt, i) => {
+                  if (wt > maxWeight) {
+                    maxWeight = wt;
+                    correspondingReps = (w.reps && w.reps[i]) ? w.reps[i] : 8;
+                  }
+                });
+              }
             });
-            if (allWeights.length > 0) {
-              recordWeight = Math.max(...allWeights) + ' kg';
+            if (maxWeight > 0) {
+              recordStr = `${maxWeight} kg x ${formatReps(correspondingReps)}`;
             }
           }
 
           const itemDiv = document.createElement('div');
           itemDiv.className = 'data-item';
           itemDiv.innerHTML = `
-            <div><strong>${exName}</strong><br><small style="color:var(--text-muted);">Ostatnio: ${lastWeight}</small></div>
-            <div style="text-align:right;">Rekord: <strong style="color:var(--primary);">${recordWeight}</strong></div>
+            <div><strong>${exName}</strong><br><small style="color:var(--text-muted);">Ostatnio: ${lastStr}</small></div>
+            <div style="text-align:right;">Rekord: <strong style="color:var(--primary);">${recordStr}</strong></div>
           `;
           tContainer.appendChild(itemDiv);
         });
@@ -783,7 +793,10 @@
         dayDiv.innerHTML = `<span>${day}</span><span class="workout-badge">🏋️</span>`;
         dayDiv.onclick = () => {
           let html = `<strong style="color:var(--primary)">📅 ${formatDate(iso)}:</strong><ul style="margin:4px 0 0 16px; padding:0;">`;
-          map[iso].forEach(i => html += `<li>${i.exercise}: ${(i.weights || []).join(', ')} kg</li>`);
+          map[iso].forEach(i => {
+            const seriesSummary = (i.weights || []).map((w, idx) => `${w} kg x ${formatReps(i.reps && i.reps[idx] ? i.reps[idx] : 8)}`).join(', ');
+            html += `<li><strong>${i.exercise}:</strong> ${seriesSummary}</li>`;
+          });
           info.innerHTML = html + `</ul>`; info.style.display = 'block';
         };
       } else { dayDiv.innerText = day; }
@@ -806,7 +819,8 @@
       const content = document.createElement('div'); content.className = `accordion-content ${idx===0?'open':''}`;
       grouped[dt].forEach(i => {
         const d = document.createElement('div'); d.className = 'data-item';
-        d.innerHTML = `<div><strong>${i.exercise}</strong><br><small>${(i.weights||[]).join(', ')} kg</small></div><strong>śr. ${(i.avgWeight||0).toFixed(1)} kg</strong>`;
+        const seriesSummary = (i.weights || []).map((w, idx) => `${w} kg x ${formatReps(i.reps && i.reps[idx] ? i.reps[idx] : 8)}`).join('<br>');
+        d.innerHTML = `<div><strong>${i.exercise}</strong><br><small>${seriesSummary}</small></div><strong>śr. ${(i.avgWeight||0).toFixed(1)} kg</strong>`;
         content.appendChild(d);
       });
       list.appendChild(head); list.appendChild(content);
@@ -911,7 +925,7 @@
         d.style.alignItems = 'stretch';
         d.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
-            <span>${formatDate(i.date)} - <strong>${i.exercise}</strong> (${(i.weights||[]).join(',')} kg)</span>
+            <span>${formatDate(i.date)} - <strong>${i.exercise}</strong></span>
             <div style="display:flex; gap:6px;">
               <button class="btn-secondary" onclick="toggleInlineEdit('workout_${i.id}')">Edytuj</button>
               <button class="btn-danger" onclick="deleteRecord('Treningi','${i.id}')">Usuń</button>
@@ -923,8 +937,12 @@
               <input type="date" id="edit_wo_date_${i.id}" value="${i.date}">
             </div>
             <div class="form-field">
-              <label>Ciężary w seriach (po przecinku, np. 30, 32.5, 35)</label>
+              <label>Ciężary w seriach (np. 30, 32.5, 35)</label>
               <input type="text" id="edit_wo_weights_${i.id}" value="${(i.weights||[]).join(', ')}">
+            </div>
+            <div class="form-field">
+              <label>Powtórzenia w seriach (np. 8, 8, 8)</label>
+              <input type="text" id="edit_wo_reps_${i.id}" value="${(i.reps||[]).join(', ')}">
             </div>
             <button class="btn-primary" onclick="saveEditedWorkout('${i.id}', '${i.exercise}')">Zapisz zmianę</button>
           </div>`;
@@ -974,9 +992,11 @@
   async function saveEditedWorkout(id, exercise) {
     const date = document.getElementById(`edit_wo_date_${id}`).value;
     const weightsStr = document.getElementById(`edit_wo_weights_${id}`).value;
+    const repsStr = document.getElementById(`edit_wo_reps_${id}`).value;
     const weights = weightsStr.split(',').map(w => parseFloat(w.trim().replace(',', '.'))).filter(v => !isNaN(v));
+    const reps = repsStr.split(',').map(r => parseInt(r.trim())).filter(v => !isNaN(v));
     if (!date || weights.length === 0) return;
-    await window.firebaseFunctions.updateData('Treningi', id, { Data: date, Cwiczenie: exercise, Wagi: weights });
+    await window.firebaseFunctions.updateData('Treningi', id, { Data: date, Cwiczenie: exercise, Wagi: weights, Powtorzenia: reps });
     await fetchFromFirebaseFast();
   }
 
