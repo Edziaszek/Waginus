@@ -18,7 +18,7 @@
       <input type="number" id="seriesCount" min="1" max="10" value="3" required>
     </div>
     
-    <!-- Kontener na dynamiczne wiersze serii (Waga + Powtórzenia) -->
+    <!-- Kontener na dynamiczne wiersze serii (Waga + Powtórzenia) z dopiskami w środku -->
     <div id="seriesInputsContainer" style="margin-bottom: 15px;"></div>
 
     <button type="submit" class="btn-primary" style="width:100%;">Zapisz Trening</button>
@@ -74,5 +74,5 @@
 
 <div class="card">
   <h2>📜 Historia Treningów</h2>
-  <div id="workoutDataList"></div>
+  <div id="workoutDataList" style="display:flex; flex-direction:column; gap:6px;"></div>
 </div>
