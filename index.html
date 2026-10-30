@@ -226,6 +226,8 @@
     await fetchFromFirebaseFast();
   };
 
+let currentWorkoutFilter = 'week';
+
   function setupFilters() {
     document.querySelectorAll('#weekFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
       document.querySelectorAll('#weekFilterGroup button').forEach(b => b.classList.remove('active'));
@@ -239,14 +241,15 @@
       document.querySelectorAll('#chartFilterGroup button').forEach(b => b.classList.remove('active'));
       e.target.classList.add('active'); currentChartRange = e.target.getAttribute('data-range'); drawNativeChart();
     }));
-    document.querySelectorAll('#workoutPeriodFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
-      document.querySelectorAll('#workoutPeriodFilterGroup button').forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active'); currentWorkoutPeriod = e.target.getAttribute('data-period'); updateWorkoutStats();
+    
+    // Nowa obsługa 4 przycisków w statystykach treningowych
+    document.querySelectorAll('#workoutFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
+      document.querySelectorAll('#workoutFilterGroup button').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active'); 
+      currentWorkoutFilter = e.target.getAttribute('data-filter'); 
+      updateWorkoutStatsAndChart();
     }));
-    document.querySelectorAll('#workoutChartFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
-      document.querySelectorAll('#workoutChartFilterGroup button').forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active'); currentWorkoutChartRange = e.target.getAttribute('data-range'); drawWorkoutChart();
-    }));
+
     document.querySelectorAll('#bodyPeriodFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
       document.querySelectorAll('#bodyPeriodFilterGroup button').forEach(b => b.classList.remove('active'));
       e.target.classList.add('active'); currentBodyPeriod = e.target.getAttribute('data-period'); updateBodyStats();
@@ -261,10 +264,58 @@
     const cFrom = document.getElementById('customFrom');
     const cTo = document.getElementById('customTo');
 
-    if (statEx) statEx.addEventListener('change', () => { updateWorkoutStats(); drawWorkoutChart(); });
+    if (statEx) statEx.addEventListener('change', () => { updateWorkoutStatsAndChart(); });
     if (statBody) statBody.addEventListener('change', () => { updateBodyStats(); drawBodyChart(); });
     if (cFrom) cFrom.addEventListener('change', calculateCustomRange);
     if (cTo) cTo.addEventListener('change', calculateCustomRange);
+  }
+
+  function updateWorkoutStatsAndChart() {
+    const sel = document.getElementById('statExerciseSelect'); 
+    if (!sel || !sel.value) return;
+
+    const exerciseName = sel.value;
+    const allExWorkouts = workoutData.filter(w => w.exercise.toLowerCase() === exerciseName.toLowerCase());
+
+    let filteredWorkouts = [...allExWorkouts];
+    const now = new Date();
+
+    if (currentWorkoutFilter === 'week') {
+      const day = now.getDay() || 7;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - day + 1); 
+      monday.setHours(0,0,0,0);
+      filteredWorkouts = allExWorkouts.filter(w => parseLocalDate(w.date) >= monday);
+    } else if (currentWorkoutFilter === 'month') {
+      const curM = now.getMonth(), curY = now.getFullYear();
+      filteredWorkouts = allExWorkouts.filter(w => {
+        const dt = parseLocalDate(w.date);
+        return dt.getMonth() === curM && dt.getFullYear() === curY;
+      });
+    } else if (currentWorkoutFilter === '90') {
+      const limitDate = new Date();
+      limitDate.setDate(now.getDate() - 90);
+      filteredWorkouts = allExWorkouts.filter(w => parseLocalDate(w.date) >= limitDate);
+    }
+    // dla 'all' bierzemy wszystko
+
+    // Wyciągamy średnie wagi do obliczeń statystyk tekstowych
+    const weightsForStats = filteredWorkouts.map(w => w.avgWeight);
+    const wAvg = document.getElementById('workoutAvgResult');
+    const wMed = document.getElementById('workoutMedResult');
+    if (wAvg) wAvg.innerText = getAverage(weightsForStats) + ' kg';
+    if (wMed) wMed.innerText = getMedian(weightsForStats) + ' kg';
+
+    // Rysowanie wykresu na podstawie przefiltrowanych danych
+    drawChart('workoutChart', weightsForStats, 'all', 'kg');
+  }
+
+  function updateWorkoutStats() {
+    updateWorkoutStatsAndChart();
+  }
+
+  function drawWorkoutChart() {
+    updateWorkoutStatsAndChart();
   }
 
   function renderSeriesInputs(count, defaultWeights = [], defaultReps = []) {
