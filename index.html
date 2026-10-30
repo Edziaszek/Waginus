@@ -36,10 +36,13 @@
   <!-- ZAKŁADKA 2: TRENINGI -->
   <div id="tab-workout" class="tab-content"></div>
 
-  <!-- ZAKŁADKA 3: OBWODY -->
+  <!-- ZAKŁADKA 3: KARDIO -->
+  <div id="tab-cardio" class="tab-content"></div>
+
+  <!-- ZAKŁADKA 4: OBWODY -->
   <div id="tab-body" class="tab-content"></div>
 
-  <!-- ZAKŁADKA 4: USTAWIENIA -->
+  <!-- ZAKŁADKA 5: USTAWIENIA -->
   <div id="tab-settings" class="tab-content"></div>
 
 </div>
@@ -57,6 +60,10 @@
     <svg viewBox="0 0 24 24"><path d="M6.5 6.5h11M6.5 17.5h11M4 9v6M20 9v6M18 7v10M6 7v10"/></svg>
     Treningi
   </button>
+  <button class="nav-item" onclick="switchTab('cardio', this)">
+    <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Kardio
+  </button>
   <button class="nav-item" onclick="switchTab('body', this)">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/></svg>
     Obwody
@@ -68,9 +75,10 @@
 </nav>
 
 <script>
-  let weightData = [], exercisesList = [], bodyPartsList = [], workoutData = [], bodyMeasurementsData = [];
+  let weightData = [], exercisesList = [], bodyPartsList = [], workoutData = [], cardioData = [], cardioTypesList = [], bodyMeasurementsData = [];
   let currentChartRange = '30', currentWorkoutChartRange = '30', currentBodyChartRange = '30';
   let currentWorkoutPeriod = 'week', currentBodyPeriod = 'week';
+  let currentWorkoutFilter = 'week', currentCardioFilter = 'week';
   let currentCalendarDate = new Date();
   let currentFontSize = parseInt(localStorage.getItem('app_font_size')) || 16;
 
@@ -85,36 +93,39 @@
     return `${count} powtórzeń`;
   }
 
- async function loadTabContent() {
+  async function loadTabContent() {
     try {
-      const [mainRes, weightRes, workoutRes, bodyRes, settingsRes] = await Promise.all([
+      const [mainRes, weightRes, workoutRes, cardioRes, bodyRes, settingsRes] = await Promise.all([
         fetch('tab-main.html'),
         fetch('tab-weight.html'),
         fetch('tab-workout.html'),
+        fetch('tab-cardio.html'),
         fetch('tab-body.html'),
         fetch('tab-settings.html')
       ]);
       document.getElementById('tab-main').innerHTML = await mainRes.text();
       document.getElementById('tab-weight').innerHTML = await weightRes.text();
       document.getElementById('tab-workout').innerHTML = await workoutRes.text();
+      document.getElementById('tab-cardio').innerHTML = await cardioRes.text();
       document.getElementById('tab-body').innerHTML = await bodyRes.text();
       document.getElementById('tab-settings').innerHTML = await settingsRes.text();
 
       // Przypisanie nasłuchiwania w formularzu dodawania treningu
       const exSel = document.getElementById('exerciseSelect');
-      if (exSel) {
-        exSel.onchange = handleExerciseChangeForWeights;
-      }
+      if (exSel) exSel.onchange = handleExerciseChangeForWeights;
       const seriesCnt = document.getElementById('seriesCount');
-      if (seriesCnt) {
-        seriesCnt.onchange = () => handleExerciseChangeForWeights();
-      }
+      if (seriesCnt) seriesCnt.onchange = () => handleExerciseChangeForWeights();
 
-      // Przypisanie nasłuchiwania w sekcji STATYSTYK TRENINGOWYCH (kluczowe dla przycisków!)
+      // Przypisanie nasłuchiwania w statystykach treningowych
       const statExSel = document.getElementById('statExerciseSelect');
-      if (statExSel) {
-        statExSel.onchange = () => updateWorkoutStatsAndChart();
-      }
+      if (statExSel) statExSel.onchange = () => updateWorkoutStatsAndChart();
+
+      // Przypisanie formularza i statystyk kardio
+      const cardioForm = document.getElementById('cardioForm');
+      if (cardioForm) cardioForm.addEventListener('submit', handleCardioFormSubmit);
+      const statCardioSel = document.getElementById('statCardioSelect');
+      if (statCardioSel) statCardioSel.onchange = () => updateCardioStatsAndChart();
+
     } catch (e) {
       console.error("Błąd ładowania zakładek:", e);
     }
@@ -178,16 +189,10 @@
     btn.classList.add('active');
     if (tabId === 'main') renderMainDashboard();
     else if (tabId === 'weight') drawNativeChart();
-    else if (tabId === 'workout') { drawWorkoutChart(); renderCalendar(); }
+    else if (tabId === 'workout') { updateWorkoutStatsAndChart(); renderCalendar(); }
+    else if (tabId === 'cardio') { updateCardioStatsAndChart(); }
     else if (tabId === 'body') drawBodyChart();
     else if (tabId === 'settings') renderSettingsLists();
-  }
-
-  function switchSubTab(subId, btn) {
-    document.querySelectorAll('.subtab-content').forEach(st => st.classList.remove('active'));
-    document.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(`subtab-${subId}`).classList.add('active');
-    btn.classList.add('active');
   }
 
   function toggleAccordion(header) {
@@ -214,9 +219,11 @@
 
     const dateInput = document.getElementById('dateInput');
     const workoutDate = document.getElementById('workoutDate');
+    const cardioDate = document.getElementById('cardioDate');
     const bodyDate = document.getElementById('bodyDate');
     if (dateInput) dateInput.valueAsDate = new Date();
     if (workoutDate) workoutDate.valueAsDate = new Date();
+    if (cardioDate) cardioDate.valueAsDate = new Date();
     if (bodyDate) bodyDate.valueAsDate = new Date();
 
     const weightForm = document.getElementById('weightForm');
@@ -232,8 +239,6 @@
     await fetchFromFirebaseFast();
   };
 
-let currentWorkoutFilter = 'week';
-
   function setupFilters() {
     document.querySelectorAll('#weekFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
       document.querySelectorAll('#weekFilterGroup button').forEach(b => b.classList.remove('active'));
@@ -248,7 +253,7 @@ let currentWorkoutFilter = 'week';
       e.target.classList.add('active'); currentChartRange = e.target.getAttribute('data-range'); drawNativeChart();
     }));
     
-    // Obsługa 4 przycisków w statystykach treningowych
+    // Filtry statystyk treningowych
     document.querySelectorAll('#workoutFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
       document.querySelectorAll('#workoutFilterGroup button').forEach(b => b.classList.remove('active'));
       e.target.classList.add('active'); 
@@ -256,13 +261,12 @@ let currentWorkoutFilter = 'week';
       updateWorkoutStatsAndChart();
     }));
 
-    document.querySelectorAll('#bodyPeriodFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
-      document.querySelectorAll('#bodyPeriodFilterGroup button').forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active'); currentBodyPeriod = e.target.getAttribute('data-period'); updateBodyStats();
-    }));
-    document.querySelectorAll('#bodyChartFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
-      document.querySelectorAll('#bodyChartFilterGroup button').forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active'); currentBodyChartRange = e.target.getAttribute('data-range'); drawBodyChart();
+    // Filtry statystyk kardio
+    document.querySelectorAll('#cardioFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
+      document.querySelectorAll('#cardioFilterGroup button').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active'); 
+      currentCardioFilter = e.target.getAttribute('data-filter'); 
+      updateCardioStatsAndChart();
     }));
 
     const statBody = document.getElementById('statBodySelect');
@@ -272,54 +276,6 @@ let currentWorkoutFilter = 'week';
     if (statBody) statBody.addEventListener('change', () => { updateBodyStats(); drawBodyChart(); });
     if (cFrom) cFrom.addEventListener('change', calculateCustomRange);
     if (cTo) cTo.addEventListener('change', calculateCustomRange);
-  }
-
-  function updateWorkoutStatsAndChart() {
-    const sel = document.getElementById('statExerciseSelect'); 
-    if (!sel || !sel.value) return;
-
-    const exerciseName = sel.value;
-    const allExWorkouts = workoutData.filter(w => w.exercise.toLowerCase() === exerciseName.toLowerCase());
-
-    let filteredWorkouts = [...allExWorkouts];
-    const now = new Date();
-
-    if (currentWorkoutFilter === 'week') {
-      const day = now.getDay() || 7;
-      const monday = new Date(now);
-      monday.setDate(now.getDate() - day + 1); 
-      monday.setHours(0,0,0,0);
-      filteredWorkouts = allExWorkouts.filter(w => parseLocalDate(w.date) >= monday);
-    } else if (currentWorkoutFilter === 'month') {
-      const curM = now.getMonth(), curY = now.getFullYear();
-      filteredWorkouts = allExWorkouts.filter(w => {
-        const dt = parseLocalDate(w.date);
-        return dt.getMonth() === curM && dt.getFullYear() === curY;
-      });
-    } else if (currentWorkoutFilter === '90') {
-      const limitDate = new Date();
-      limitDate.setDate(now.getDate() - 90);
-      filteredWorkouts = allExWorkouts.filter(w => parseLocalDate(w.date) >= limitDate);
-    }
-    // dla 'all' bierzemy wszystko
-
-    // Wyciągamy średnie wagi do obliczeń statystyk tekstowych
-    const weightsForStats = filteredWorkouts.map(w => w.avgWeight);
-    const wAvg = document.getElementById('workoutAvgResult');
-    const wMed = document.getElementById('workoutMedResult');
-    if (wAvg) wAvg.innerText = getAverage(weightsForStats) + ' kg';
-    if (wMed) wMed.innerText = getMedian(weightsForStats) + ' kg';
-
-    // Rysowanie wykresu na podstawie przefiltrowanych danych
-    drawChart('workoutChart', weightsForStats, 'all', 'kg');
-  }
-
-  function updateWorkoutStats() {
-    updateWorkoutStatsAndChart();
-  }
-
-  function drawWorkoutChart() {
-    updateWorkoutStatsAndChart();
   }
 
   function renderSeriesInputs(count, defaultWeights = [], defaultReps = []) {
@@ -381,11 +337,13 @@ let currentWorkoutFilter = 'week';
       const statusEl = document.getElementById('status');
       if (statusEl) statusEl.innerText = "⏳ Pobieranie danych z Firebase...";
 
-      const [waga, cwiczenia, obwody, treningi] = await Promise.all([
+      const [waga, cwiczenia, obwody, treningi, kardio, kardioTypy] = await Promise.all([
         window.firebaseFunctions.getData('Waga'),
         window.firebaseFunctions.getData('Cwiczenia'),
         window.firebaseFunctions.getData('Obwody'),
-        window.firebaseFunctions.getData('Treningi')
+        window.firebaseFunctions.getData('Treningi'),
+        window.firebaseFunctions.getData('Kardio'),
+        window.firebaseFunctions.getData('KardioTypy')
       ]);
 
       weightData = waga.map(item => ({
@@ -398,6 +356,20 @@ let currentWorkoutFilter = 'week';
         id: item.id,
         name: (item.Nazwa && item.Nazwa.trim() !== "") ? item.Nazwa.trim() : (item.Cwiczenie || item.exercise || '')
       })).filter(item => item.name);
+
+      cardioTypesList = kardioTypy.map(item => ({
+        id: item.id,
+        name: (item.Nazwa && item.Nazwa.trim() !== "") ? item.Nazwa.trim() : (item.Typ || item.type || '')
+      })).filter(item => item.name);
+
+      if (cardioTypesList.length === 0) {
+        cardioTypesList = [
+          { id: '1', name: 'Bieżnia' },
+          { id: '2', name: 'Rowerek' },
+          { id: '3', name: 'Orbitrek' },
+          { id: '4', name: 'Spacer' }
+        ];
+      }
 
       const setBody = new Set();
       cwiczenia.forEach(item => {
@@ -512,17 +484,29 @@ let currentWorkoutFilter = 'week';
         };
       }).filter(item => item.date && item.exercise).sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
 
+      cardioData = kardio.map(item => ({
+        id: item.id,
+        date: item.Data || item.date || '',
+        type: item.Typ || item.type || 'Bieżnia',
+        duration: item.Czas || item.duration || '',
+        distance: parseFloat(String(item.Dystans || item.distance || 0).replace(',', '.')),
+        pace: item.Tempo || item.pace || '',
+        heartRate: parseInt(item.Tetno || item.heartRate || 0)
+      })).filter(item => item.date).sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
+
       if (statusEl) {
         statusEl.innerText = "🟢 Połączono z Firebase (Baza aktywna)";
         statusEl.style.background = "#bbf7d0";
       }
 
       populateSelects();
+      populateCardioSelects();
       updateApp();
 
       setWeekFilter('current');
       setMonthFilter('current');
-      updateWorkoutStats();
+      updateWorkoutStatsAndChart();
+      updateCardioStatsAndChart();
       updateBodyStats();
 
     } catch (err) {
@@ -544,9 +528,6 @@ let currentWorkoutFilter = 'week';
           const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
           el.appendChild(opt);
         });
-        if (id === 'exerciseSelect') {
-          el.onchange = handleExerciseChangeForWeights;
-        }
       }
     });
 
@@ -555,6 +536,19 @@ let currentWorkoutFilter = 'week';
       if(el) {
         el.innerHTML = '<option value="">Wybierz obwód...</option>';
         bodyPartsList.forEach(item => {
+          const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
+          el.appendChild(opt);
+        });
+      }
+    });
+  }
+
+  function populateCardioSelects() {
+    ['cardioTypeSelect', 'statCardioSelect'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) {
+        el.innerHTML = '<option value="">Wybierz aktywność...</option>';
+        cardioTypesList.forEach(item => {
           const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
           el.appendChild(opt);
         });
@@ -608,6 +602,32 @@ let currentWorkoutFilter = 'week';
     fetchFromFirebaseFast();
   }
 
+  async function handleCardioFormSubmit(e) {
+    e.preventDefault();
+    const date = document.getElementById('cardioDate').value;
+    const type = document.getElementById('cardioTypeSelect').value;
+    const duration = document.getElementById('cardioDuration').value;
+    const distance = parseFloat(document.getElementById('cardioDistance').value);
+    const pace = document.getElementById('cardioPace').value;
+    const heartRate = parseInt(document.getElementById('cardioHeartRate').value);
+
+    if (!date || !type) return;
+
+    cardioData.push({ date, type, duration, distance, pace, heartRate });
+    cardioData.sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
+    updateApp();
+
+    await window.firebaseFunctions.addData('Kardio', { 
+      Data: date, 
+      Typ: type, 
+      Czas: duration, 
+      Dystans: distance, 
+      Tempo: pace, 
+      Tetno: heartRate 
+    });
+    fetchFromFirebaseFast();
+  }
+
   async function handleBodyFormSubmit(e) {
     e.preventDefault();
     const date = document.getElementById('bodyDate').value;
@@ -626,7 +646,8 @@ let currentWorkoutFilter = 'week';
   function updateApp() {
     renderMainDashboard();
     renderList(); renderStats(); drawNativeChart();
-    renderWorkoutList(); updateWorkoutStats(); drawWorkoutChart(); renderCalendar();
+    renderWorkoutList(); updateWorkoutStatsAndChart(); drawWorkoutChart(); renderCalendar();
+    renderCardioList(); updateCardioStatsAndChart();
     renderBodyList(); updateBodyStats(); drawBodyChart();
     renderSettingsLists();
   }
@@ -823,13 +844,78 @@ let currentWorkoutFilter = 'week';
     if (cCnt) cCnt.innerText = filtered.length;
   }
 
-  function updateWorkoutStats() {
-    const sel = document.getElementById('statExerciseSelect'); if (!sel || !sel.value) return;
-    const filtered = workoutData.filter(w => w.exercise === sel.value).map(w => w.avgWeight);
+  function updateWorkoutStatsAndChart() {
+    const sel = document.getElementById('statExerciseSelect'); 
+    if (!sel || !sel.value) return;
+
+    const exerciseName = sel.value;
+    const allExWorkouts = workoutData.filter(w => w.exercise.toLowerCase() === exerciseName.toLowerCase());
+
+    let filteredWorkouts = [...allExWorkouts];
+    const now = new Date();
+
+    if (currentWorkoutFilter === 'week') {
+      const day = now.getDay() || 7;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - day + 1); 
+      monday.setHours(0,0,0,0);
+      filteredWorkouts = allExWorkouts.filter(w => parseLocalDate(w.date) >= monday);
+    } else if (currentWorkoutFilter === 'month') {
+      const curM = now.getMonth(), curY = now.getFullYear();
+      filteredWorkouts = allExWorkouts.filter(w => {
+        const dt = parseLocalDate(w.date);
+        return dt.getMonth() === curM && dt.getFullYear() === curY;
+      });
+    } else if (currentWorkoutFilter === '90') {
+      const limitDate = new Date();
+      limitDate.setDate(now.getDate() - 90);
+      filteredWorkouts = allExWorkouts.filter(w => parseLocalDate(w.date) >= limitDate);
+    }
+
+    const weightsForStats = filteredWorkouts.map(w => w.avgWeight);
     const wAvg = document.getElementById('workoutAvgResult');
     const wMed = document.getElementById('workoutMedResult');
-    if (wAvg) wAvg.innerText = getAverage(filtered) + ' kg';
-    if (wMed) wMed.innerText = getMedian(filtered) + ' kg';
+    if (wAvg) wAvg.innerText = getAverage(weightsForStats) + ' kg';
+    if (wMed) wMed.innerText = getMedian(weightsForStats) + ' kg';
+
+    drawChart('workoutChart', weightsForStats, 'all', 'kg');
+  }
+
+  function updateCardioStatsAndChart() {
+    const sel = document.getElementById('statCardioSelect'); 
+    if (!sel || !sel.value) return;
+
+    const selectedType = sel.value;
+    const filtered = cardioData.filter(c => c.type.toLowerCase() === selectedType.toLowerCase());
+
+    let timeFiltered = [...filtered];
+    const now = new Date();
+
+    if (currentCardioFilter === 'week') {
+      const day = now.getDay() || 7;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - day + 1); 
+      monday.setHours(0,0,0,0);
+      timeFiltered = filtered.filter(c => parseLocalDate(c.date) >= monday);
+    } else if (currentCardioFilter === 'month') {
+      const curM = now.getMonth(), curY = now.getFullYear();
+      timeFiltered = filtered.filter(c => {
+        const dt = parseLocalDate(c.date);
+        return dt.getMonth() === curM && dt.getFullYear() === curY;
+      });
+    } else if (currentCardioFilter === '90') {
+      const limitDate = new Date();
+      limitDate.setDate(now.getDate() - 90);
+      timeFiltered = filtered.filter(c => parseLocalDate(c.date) >= limitDate);
+    }
+
+    const distances = timeFiltered.map(c => c.distance);
+    const cAvg = document.getElementById('cardioAvgResult');
+    const cMed = document.getElementById('cardioMedResult');
+    if (cAvg) cAvg.innerText = getAverage(distances) + ' km';
+    if (cMed) cMed.innerText = timeFiltered.length ? `${timeFiltered[timeFiltered.length - 1].duration}` : '-';
+
+    drawChart('cardioChart', distances, 'all', 'km');
   }
 
   function updateBodyStats() {
@@ -896,6 +982,51 @@ let currentWorkoutFilter = 'week';
         content.appendChild(d);
       });
       list.appendChild(head); list.appendChild(content);
+    });
+  }
+
+  function renderCardioList() {
+    const list = document.getElementById('cardioDataList'); 
+    if (!list) return;
+    list.innerHTML = '';
+    
+    if (!cardioData.length) {
+      list.innerHTML = '<div style="text-align:center; padding:10px; color:var(--text-muted);">Brak wpisów kardio</div>';
+      return;
+    }
+
+    const grouped = {};
+    cardioData.forEach(c => { 
+      if (c.date) { 
+        const k = formatDate(c.date); 
+        if (!grouped[k]) grouped[k] = []; 
+        grouped[k].push(c); 
+      } 
+    });
+
+    Object.keys(grouped).reverse().forEach((dt, idx) => {
+      const head = document.createElement('div'); 
+      head.className = 'accordion-header';
+      head.onclick = () => toggleAccordion(head);
+      head.innerHTML = `<span>📅 ${dt} (${grouped[dt].length})</span><span class="accordion-arrow">${idx === 0 ? '▼' : '▶'}</span>`;
+      
+      const content = document.createElement('div'); 
+      content.className = `accordion-content ${idx === 0 ? 'open' : ''}`;
+      
+      grouped[dt].forEach(i => {
+        const d = document.createElement('div'); 
+        d.className = 'data-item';
+        d.innerHTML = `
+          <div>
+            <strong>${i.type}</strong><br>
+            <small style="color:var(--text-muted);">Czas: ${i.duration} | Tempo: ${i.pace} min/km | Tętno: ${i.heartRate} bpm</small>
+          </div>
+          <strong style="color:var(--primary);">${i.distance} km</strong>`;
+        content.appendChild(d);
+      });
+      
+      list.appendChild(head); 
+      list.appendChild(content);
     });
   }
 
@@ -1086,28 +1217,10 @@ let currentWorkoutFilter = 'week';
     await fetchFromFirebaseFast();
   }
 
-  function saveNewPin() {
-    const val = document.getElementById('newPinInput').value.trim();
-    if (val.length !== 4 || isNaN(val)) { alert("PIN musi składać się z 4 cyfr!"); return; }
-    localStorage.setItem('settings_pin', val);
-    alert("Zapisano nowy PIN!");
-    document.getElementById('newPinInput').value = '';
-  }
-
-  function clearPinProtection() {
-    localStorage.removeItem('settings_pin');
-    sessionStorage.removeItem('app_authenticated');
-    alert("Zabezpieczenie PIN zostało zresetowane do domyślnego (1234), a wylogowanie z sesji wyczyszczone.");
-  }
-
   function getCssColor(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
 
   function drawNativeChart() { drawChart('nativeChart', weightData.map(d => d.weight), currentChartRange, 'kg'); }
-  function drawWorkoutChart() {
-    const sel = document.getElementById('statExerciseSelect');
-    if (!sel || !sel.value) return;
-    drawChart('workoutChart', workoutData.filter(w => w.exercise === sel.value).map(w => w.avgWeight), currentWorkoutChartRange, 'kg');
-  }
+  function drawWorkoutChart() { updateWorkoutStatsAndChart(); }
   function drawBodyChart() {
     const sel = document.getElementById('statBodySelect');
     if (!sel || !sel.value) return;
