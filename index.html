@@ -62,7 +62,7 @@
     Obwody
   </button>
   <button class="nav-item" onclick="switchTab('settings', this)">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33-1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     Ustawienia
   </button>
 </nav>
@@ -250,29 +250,44 @@
     if (cTo) cTo.addEventListener('change', calculateCustomRange);
   }
 
-  function renderSeriesInputs(count) {
+  function renderSeriesInputs(count, defaultWeights = [], defaultReps = []) {
     const container = document.getElementById('seriesInputsContainer');
     if (!container) return;
     container.innerHTML = '';
     for (let i = 1; i <= count; i++) {
+      const wVal = defaultWeights[i - 1] !== undefined ? defaultWeights[i - 1] : (defaultWeights[0] || 30);
+      const rVal = defaultReps[i - 1] !== undefined ? defaultReps[i - 1] : (defaultReps[0] || 10);
+
       const row = document.createElement('div');
       row.className = 'series-row';
-      row.innerHTML = `<span class="series-label">Seria ${i}:</span>
-        <button type="button" class="step-btn" onclick="adjustSeriesWeight(${i}, -2.5)">−</button>
-        <input type="number" id="seriesWeight_${i}" class="series-input" step="0.5" value="30" required>
-        <button type="button" class="step-btn" onclick="adjustSeriesWeight(${i}, 2.5)">+</button>`;
+      row.style.display = 'flex';
+      row.style.gap = '6px';
+      row.style.alignItems = 'center';
+      row.style.marginBottom = '6px';
+
+      row.innerHTML = `
+        <span class="series-label" style="min-width:55px;">Seria ${i}:</span>
+        <input type="number" id="seriesWeight_${i}" class="series-input" step="0.5" value="${wVal}" placeholder="kg" style="flex:1;" required>
+        <input type="number" id="seriesReps_${i}" class="series-input" step="1" value="${rVal}" placeholder="powt." style="flex:1;" required>
+      `;
       container.appendChild(row);
     }
   }
 
-  function adjustSeriesWeight(idx, delta) {
-    const inp = document.getElementById(`seriesWeight_${idx}`);
-    if (inp) inp.value = Math.max(0, (parseFloat(inp.value) || 0) + delta);
-  }
+  function handleExerciseChangeForWeights() {
+    const selectedExercise = document.getElementById('exerciseSelect').value;
+    const seriesCountInput = document.getElementById('seriesCount');
+    if (!selectedExercise) return;
 
-  function adjustBodySize(delta) {
-    const inp = document.getElementById('bodySizeInput');
-    if (inp) inp.value = Math.max(0, (parseFloat(inp.value) || 0) + delta).toFixed(1);
+    const lastWorkout = [...workoutData].reverse().find(w => w.exercise.toLowerCase() === selectedExercise.toLowerCase());
+
+    if (lastWorkout && lastWorkout.weights && lastWorkout.weights.length > 0) {
+      seriesCountInput.value = lastWorkout.weights.length;
+      renderSeriesInputs(lastWorkout.weights.length, lastWorkout.weights, lastWorkout.reps || []);
+    } else {
+      const count = parseInt(seriesCountInput.value) || 3;
+      renderSeriesInputs(count);
+    }
   }
 
   async function fetchFromFirebaseFast() {
@@ -390,6 +405,14 @@
           }
         }
 
+        const rawReps = item.Powtorzenia || item.reps || [];
+        let reps = [];
+        if (Array.isArray(rawReps)) {
+          reps = rawReps.map(r => parseInt(r));
+        } else if (typeof rawReps === 'string') {
+          reps = rawReps.split(',').map(r => parseInt(r.trim())).filter(v => !isNaN(v));
+        }
+
         const avg = parseFloat(String(item.AvgWeight || item.Srednia || 0).replace(',', '.')) || (weights.length ? weights.reduce((a, b) => a + b, 0) / weights.length : 0);
 
         return {
@@ -398,6 +421,7 @@
           exercise: exerciseVal,
           series: weights.length || 3,
           weights: weights.length ? weights : [30, 30, 30],
+          reps: reps.length ? reps : [10, 10, 10],
           avgWeight: avg
         };
       }).filter(item => item.date && item.exercise).sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
@@ -429,32 +453,22 @@
     ['exerciseSelect', 'statExerciseSelect'].forEach(id => {
       const el = document.getElementById(id);
       if(el) {
-        el.innerHTML = '';
-        if (exercisesList.length === 0) {
-          const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'Brak ćwiczeń w bazie';
+        el.innerHTML = '<option value="">Wybierz ćwiczenie...</option>';
+        exercisesList.forEach(item => {
+          const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
           el.appendChild(opt);
-        } else {
-          exercisesList.forEach(item => {
-            const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
-            el.appendChild(opt);
-          });
-        }
+        });
       }
     });
 
     ['bodySelect', 'statBodySelect'].forEach(id => {
       const el = document.getElementById(id);
       if(el) {
-        el.innerHTML = '';
-        if (bodyPartsList.length === 0) {
-          const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'Brak obwodów w bazie';
+        el.innerHTML = '<option value="">Wybierz obwód...</option>';
+        bodyPartsList.forEach(item => {
+          const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
           el.appendChild(opt);
-        } else {
-          bodyPartsList.forEach(item => {
-            const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
-            el.appendChild(opt);
-          });
-        }
+        });
       }
     });
   }
@@ -500,17 +514,26 @@
     if (!date || !exercise) return;
 
     const weights = [];
+    const reps = [];
     for (let i = 1; i <= seriesCount; i++) {
-      const inp = document.getElementById(`seriesWeight_${i}`);
-      if (inp) weights.push(parseFloat(inp.value) || 0);
+      const wInp = document.getElementById(`seriesWeight_${i}`);
+      const rInp = document.getElementById(`seriesReps_${i}`);
+      if (wInp) weights.push(parseFloat(wInp.value) || 0);
+      if (rInp) reps.push(parseInt(rInp.value) || 0);
     }
     const avgWeight = weights.length ? weights.reduce((a, b) => a + b, 0) / weights.length : 0;
 
-    workoutData.push({ date, exercise, series: seriesCount, weights, avgWeight });
+    workoutData.push({ date, exercise, series: seriesCount, weights, reps, avgWeight });
     workoutData.sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
     updateApp();
 
-    await window.firebaseFunctions.addData('Treningi', { Data: date, Cwiczenie: exercise, Serie: seriesCount, Wagi: weights });
+    await window.firebaseFunctions.addData('Treningi', { 
+      Data: date, 
+      Cwiczenie: exercise, 
+      Serie: seriesCount, 
+      Wagi: weights, 
+      Powtorzenia: reps 
+    });
     fetchFromFirebaseFast();
   }
 
@@ -537,9 +560,8 @@
     renderSettingsLists();
   }
 
-  // --- RENDEROWANIE NOWEJ ZAKŁADKI GŁÓWNEJ ---
+  // --- RENDEROWANIE ZAKŁADKI GŁÓWNEJ ---
   function renderMainDashboard() {
-    // 1. Sekcja Waga
     const wContainer = document.getElementById('mainWeightSummary');
     if (wContainer) {
       if (!weightData.length) {
@@ -549,13 +571,8 @@
         sevenDaysAgo.setDate(now.getDate() - 7);
         const last7 = weightData.filter(d => parseLocalDate(d.date) >= sevenDaysAgo).map(d => d.weight);
         
-        // Aktualna waga (średnia z 7 dni - zgodnie z preferencją)
         const currentWeightVal = last7.length ? parseFloat(getAverage(last7)) : weightData[weightData.length - 1].weight;
-        
-        // Najwyższa waga w bazie
         const maxWeightVal = Math.max(...weightData.map(d => d.weight));
-        
-        // Różnica (Najwyższa - Aktualna średnia z 7 dni)
         const diffVal = (maxWeightVal - currentWeightVal).toFixed(1);
 
         wContainer.innerHTML = `
@@ -566,7 +583,6 @@
       }
     }
 
-    // 2. Sekcja Obwody
     const bContainer = document.getElementById('mainBodySummary');
     if (bContainer) {
       if (!bodyPartsList.length) {
@@ -608,7 +624,6 @@
       }
     }
 
-    // 3. Sekcja Treningi
     const tContainer = document.getElementById('mainWorkoutSummary');
     if (tContainer) {
       if (!exercisesList.length) {
@@ -626,10 +641,9 @@
             const sortedWorkouts = [...exWorkouts].sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
             const lastWorkout = sortedWorkouts[sortedWorkouts.length - 1];
             if (lastWorkout.weights && lastWorkout.weights.length > 0) {
-              lastWeight = Math.max(...lastWorkout.weights) + ' kg (ostatni trening)';
+              lastWeight = Math.max(...lastWorkout.weights) + ' kg (ostatni)';
             }
 
-            // Znajdź absolutny rekord (największy ciężar ze wszystkich serii we wszystkich treningach tego ćwiczenia)
             let allWeights = [];
             exWorkouts.forEach(w => {
               if (w.weights && w.weights.length > 0) allWeights.push(...w.weights);
