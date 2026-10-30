@@ -1,0 +1,84 @@
+<div class="card">
+  <h2>🏃‍♂️ Dodaj Trening Kardio</h2>
+  <form id="cardioForm">
+    <div class="form-field">
+      <label>Data</label>
+      <input type="date" id="cardioDate" required>
+    </div>
+    <div class="form-field">
+      <label>Rodzaj aktywności / Urządzenie</label>
+      <div style="display:flex; gap:8px;">
+        <select id="cardioTypeSelect" style="flex:1;" required>
+          <option value="">Wybierz aktywność...</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-field">
+      <label>Czas treningu</label>
+      <div style="position:relative;">
+        <input type="text" id="cardioDuration" placeholder="np. 45 min lub 1:15:00" style="width:100%; padding-right:45px; box-sizing:border-box;" required>
+        <span style="position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.85em; pointer-events:none; font-weight:bold;">czas</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <label>Dystans</label>
+      <div style="position:relative;">
+        <input type="number" id="cardioDistance" step="0.01" placeholder="np. 5.2" style="width:100%; padding-right:40px; box-sizing:border-box;" required>
+        <span style="position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.85em; pointer-events:none; font-weight:bold;">km</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <label>Średnie tempo</label>
+      <div style="position:relative;">
+        <input type="text" id="cardioPace" placeholder="np. 5:30" style="width:100%; padding-right:45px; box-sizing:border-box;" required>
+        <span style="position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.85em; pointer-events:none; font-weight:bold;">min/km</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <label>Średnie tętno</label>
+      <div style="position:relative;">
+        <input type="number" id="cardioHeartRate" step="1" placeholder="np. 145" style="width:100%; padding-right:40px; box-sizing:border-box;" required>
+        <span style="position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.85em; pointer-events:none; font-weight:bold;">bpm</span>
+      </div>
+    </div>
+
+    <button type="submit" class="btn-primary" style="width:100%;">Zapisz Kardio</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>📊 Statystyki Kardio</h2>
+  <div class="form-field">
+    <label>Wybierz aktywność</label>
+    <select id="statCardioSelect">
+      <option value="">Wybierz aktywność...</option>
+    </select>
+  </div>
+
+  <div class="filter-group" id="cardioFilterGroup" style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">
+    <button type="button" class="active" data-filter="week">Ten tydzień</button>
+    <button type="button" data-filter="month">Ten miesiąc</button>
+    <button type="button" data-filter="90">90 dni</button>
+    <button type="button" data-filter="all">Wszystko</button>
+  </div>
+
+  <div style="display:flex; gap:10px; margin-top:12px;">
+    <div class="stat-box" style="flex:1;">
+      <small>Średni dystans</small>
+      <div id="cardioAvgResult" style="font-size:1.2em; font-weight:bold;">- km</div>
+    </div>
+    <div class="stat-box" style="flex:1;">
+      <small>Ostatni czas</small>
+      <div id="cardioMedResult" style="font-size:1.2em; font-weight:bold;">- min</div>
+    </div>
+  </div>
+  
+  <div class="chart-container" style="margin-top:15px;">
+    <canvas id="cardioChart"></canvas>
+  </div>
+</div>
+
+<div class="card">
+  <h2>📜 Historia Kardio</h2>
+  <div id="cardioDataList" style="display:flex; flex-direction:column; gap:6px;"></div>
+</div>
