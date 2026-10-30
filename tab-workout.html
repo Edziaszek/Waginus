@@ -18,7 +18,7 @@
       <input type="number" id="seriesCount" min="1" max="10" value="3" required>
     </div>
     
-    <!-- Kontener na dynamiczne wiersze serii (Waga + Powtórzenia) z dopiskami w środku -->
+    <!-- Kontener na dynamiczne wiersze serii (Waga + Powtórzenia) -->
     <div id="seriesInputsContainer" style="margin-bottom: 15px;"></div>
 
     <button type="submit" class="btn-primary" style="width:100%;">Zapisz Trening</button>
@@ -32,7 +32,7 @@
     <strong id="calendarMonthTitle" style="font-size:1.1em;"></strong>
     <button type="button" class="btn-secondary" onclick="nextCalendarMonth()">Następny ▶</button>
   </div>
-  <div class="calendar-grid-header">
+  <div class="calendar-grid-header" style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: bold; margin-bottom: 6px; font-size: 0.9em; color: var(--text-muted);">
     <div>Pon</div><div>Wt</div><div>Śr</div><div>Czw</div><div>Pt</div><div>Sob</div><div>Ndz</div>
   </div>
   <div id="calendarDaysGrid" class="calendar-grid"></div>
@@ -47,11 +47,15 @@
       <option value="">Wybierz ćwiczenie...</option>
     </select>
   </div>
-  <div class="filter-group" id="workoutPeriodFilterGroup" style="margin-top:10px;">
-    <button type="button" class="active" data-period="week">Ten tydzień</button>
-    <button type="button" data-period="month">Ten miesiąc</button>
-    <button type="button" data-period="all">Całość</button>
+
+  <!-- Ujednolicony pasek filtrów (4 przyciski) -->
+  <div class="filter-group" id="workoutFilterGroup" style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">
+    <button type="button" class="active" data-filter="week">Ten tydzień</button>
+    <button type="button" data-filter="month">Ten miesiąc</button>
+    <button type="button" data-filter="90">90 dni</button>
+    <button type="button" data-filter="all">Wszystko</button>
   </div>
+
   <div style="display:flex; gap:10px; margin-top:12px;">
     <div class="stat-box" style="flex:1;">
       <small>Średnia waga</small>
@@ -62,12 +66,8 @@
       <div id="workoutMedResult" style="font-size:1.2em; font-weight:bold;">- kg</div>
     </div>
   </div>
+  
   <div class="chart-container" style="margin-top:15px;">
-    <div class="filter-group" id="workoutChartFilterGroup" style="margin-bottom:8px;">
-      <button type="button" class="active" data-range="30">30 dni</button>
-      <button type="button" data-range="90">90 dni</button>
-      <button type="button" data-range="all">Wszystko</button>
-    </div>
     <canvas id="workoutChart"></canvas>
   </div>
 </div>
