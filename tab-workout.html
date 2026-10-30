@@ -1,88 +1,78 @@
 <div class="card">
-  <h2>Dodaj trening</h2>
+  <h2>🏋️ Dodaj Trening</h2>
   <form id="workoutForm">
-    <div class="form-group">
-      <div class="form-field">
-        <label>Data</label>
-        <input type="date" id="workoutDate" required>
-      </div>
-      <div class="form-field">
-        <label>Serie (1-6)</label>
-        <select id="seriesCount">
-          <option value="1">1 seria</option>
-          <option value="2">2 serie</option>
-          <option value="3" selected>3 serie</option>
-          <option value="4">4 serie</option>
-          <option value="5">5 serii</option>
-          <option value="6">6 serii</option>
+    <div class="form-field">
+      <label>Data</label>
+      <input type="date" id="workoutDate" required>
+    </div>
+    <div class="form-field">
+      <label>Ćwiczenie</label>
+      <div style="display:flex; gap:8px;">
+        <select id="exerciseSelect" style="flex:1;" required onchange="handleExerciseChangeForWeights()">
+          <option value="">Wybierz ćwiczenie...</option>
         </select>
       </div>
     </div>
-
     <div class="form-field">
-      <label>Ćwiczenie (z Bazy)</label>
-      <select id="exerciseSelect" required><option value="">Pobieranie ćwiczeń...</option></select>
+      <label>Liczba serii</label>
+      <input type="number" id="seriesCount" min="1" max="10" value="3" required>
     </div>
+    
+    <!-- Kontener na dynamiczne wiersze serii (Waga + Powtórzenia) -->
+    <div id="seriesInputsContainer" style="margin-bottom: 15px;"></div>
 
-    <div class="form-field">
-      <label>Ciężar w seriach (kg)</label>
-      <div id="seriesInputsContainer" class="series-grid"></div>
-    </div>
-
-    <button type="submit" class="btn-primary">Zapisz trening</button>
+    <button type="submit" class="btn-primary" style="width:100%;">Zapisz Trening</button>
   </form>
 </div>
 
 <div class="card">
-  <h2>Kalendarz Treningowy</h2>
-  <div class="calendar-container">
-    <div class="calendar-header">
-      <button class="icon-btn" onclick="prevCalendarMonth()">◄</button>
-      <div id="calendarMonthTitle" class="calendar-month-title">-</div>
-      <button class="icon-btn" onclick="nextCalendarMonth()">►</button>
-    </div>
-    <div class="calendar-grid">
-      <div class="calendar-day-head">Pn</div><div class="calendar-day-head">Wt</div>
-      <div class="calendar-day-head">Śr</div><div class="calendar-day-head">Cz</div>
-      <div class="calendar-day-head">Pt</div><div class="calendar-day-head">Sb</div>
-      <div class="calendar-day-head">Nd</div>
-    </div>
-    <div id="calendarDaysGrid" class="calendar-grid"></div>
-    <div id="calendarSelectedInfo" style="display:none; background:var(--box-bg); padding:10px; border-radius:8px; border:1px solid var(--card-border); font-size:0.85rem; margin-top:6px;"></div>
+  <h2>📅 Kalendarz Treningów</h2>
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+    <button type="button" class="btn-secondary" onclick="prevCalendarMonth()">◀ Poprzedni</button>
+    <strong id="calendarMonthTitle" style="font-size:1.1em;"></strong>
+    <button type="button" class="btn-secondary" onclick="nextCalendarMonth()">Następny ▶</button>
   </div>
+  <div class="calendar-grid-header">
+    <div>Pon</div><div>Wt</div><div>Śr</div><div>Czw</div><div>Pt</div><div>Sob</div><div>Ndz</div>
+  </div>
+  <div id="calendarDaysGrid" class="calendar-grid"></div>
+  <div id="calendarSelectedInfo" style="margin-top:12px; padding:10px; background:var(--bg-card); border-radius:8px; display:none;"></div>
 </div>
 
 <div class="card">
-  <h2>Statystyki ćwiczenia</h2>
-  <div class="form-field" style="margin-bottom: 12px;">
+  <h2>📊 Statystyki Treningowe</h2>
+  <div class="form-field">
     <label>Wybierz ćwiczenie</label>
-    <select id="statExerciseSelect"></select>
+    <select id="statExerciseSelect">
+      <option value="">Wybierz ćwiczenie...</option>
+    </select>
   </div>
-
-  <div class="btn-group" id="workoutPeriodFilterGroup">
-    <button data-period="week" class="active">Tydzień</button>
-    <button data-period="month">Miesiąc</button>
-    <button data-period="3months">3 Miesiące</button>
+  <div class="filter-group" id="workoutPeriodFilterGroup" style="margin-top:10px;">
+    <button type="button" class="active" data-period="week">Ten tydzień</button>
+    <button type="button" data-period="month">Ten miesiąc</button>
+    <button type="button" data-period="all">Całość</button>
   </div>
-  
-  <div class="filter-result-box">
-    <div><span>Średnia waga</span><strong id="workoutAvgResult">-</strong></div>
-    <div><span>Mediana waga</span><strong id="workoutMedResult">-</strong></div>
+  <div style="display:flex; gap:10px; margin-top:12px;">
+    <div class="stat-box" style="flex:1;">
+      <small>Średnia waga</small>
+      <div id="workoutAvgResult" style="font-size:1.2em; font-weight:bold;">- kg</div>
+    </div>
+    <div class="stat-box" style="flex:1;">
+      <small>Mediana waga</small>
+      <div id="workoutMedResult" style="font-size:1.2em; font-weight:bold;">- kg</div>
+    </div>
+  </div>
+  <div class="chart-container" style="margin-top:15px;">
+    <div class="filter-group" id="workoutChartFilterGroup" style="margin-bottom:8px;">
+      <button type="button" class="active" data-range="30">30 dni</button>
+      <button type="button" data-range="90">90 dni</button>
+      <button type="button" data-range="all">Wszystko</button>
+    </div>
+    <canvas id="workoutChart"></canvas>
   </div>
 </div>
 
 <div class="card">
-  <h2>Wykres siłowy ćwiczenia</h2>
-  <div class="btn-group" id="workoutChartFilterGroup">
-    <button data-range="7">7d</button>
-    <button data-range="30" class="active">30d</button>
-    <button data-range="90">90d</button>
-    <button data-range="all">Wszystko</button>
-  </div>
-  <canvas id="workoutChart"></canvas>
-</div>
-
-<div class="card">
-  <h2>Historia treningów</h2>
+  <h2>📜 Historia Treningów</h2>
   <div id="workoutDataList"></div>
 </div>
