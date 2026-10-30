@@ -99,6 +99,16 @@
       document.getElementById('tab-workout').innerHTML = await workoutRes.text();
       document.getElementById('tab-body').innerHTML = await bodyRes.text();
       document.getElementById('tab-settings').innerHTML = await settingsRes.text();
+
+      // Podpięcie zdarzenia zmiany ćwiczenia po załadowaniu HTML
+      const exSel = document.getElementById('exerciseSelect');
+      if (exSel) {
+        exSel.addEventListener('change', handleExerciseChangeForWeights);
+      }
+      const seriesCnt = document.getElementById('seriesCount');
+      if (seriesCnt) {
+        seriesCnt.addEventListener('change', () => handleExerciseChangeForWeights());
+      }
     } catch (e) {
       console.error("Błąd ładowania zakładek:", e);
     }
@@ -206,16 +216,12 @@
     const weightForm = document.getElementById('weightForm');
     const workoutForm = document.getElementById('workoutForm');
     const bodyForm = document.getElementById('bodyForm');
-    const seriesCount = document.getElementById('seriesCount');
 
     if (weightForm) weightForm.addEventListener('submit', handleWeightFormSubmit);
     if (workoutForm) workoutForm.addEventListener('submit', handleWorkoutFormSubmit);
     if (bodyForm) bodyForm.addEventListener('submit', handleBodyFormSubmit);
-    if (seriesCount) {
-      seriesCount.addEventListener('change', (e) => renderSeriesInputs(parseInt(e.target.value)));
-    }
-    renderSeriesInputs(3);
 
+    renderSeriesInputs(3);
     setupFilters();
     await fetchFromFirebaseFast();
   };
@@ -292,9 +298,17 @@
   }
 
   function handleExerciseChangeForWeights() {
-    const selectedExercise = document.getElementById('exerciseSelect').value;
+    const selectedExerciseInput = document.getElementById('exerciseSelect');
+    if (!selectedExerciseInput) return;
+    const selectedExercise = selectedExerciseInput.value;
     const seriesCountInput = document.getElementById('seriesCount');
-    if (!selectedExercise) return;
+    if (!seriesCountInput) return;
+
+    if (!selectedExercise) {
+      const count = parseInt(seriesCountInput.value) || 3;
+      renderSeriesInputs(count);
+      return;
+    }
 
     const lastWorkout = [...workoutData].reverse().find(w => w.exercise.toLowerCase() === selectedExercise.toLowerCase());
 
