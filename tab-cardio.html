@@ -82,3 +82,174 @@
   <h2>📜 Historia Kardio</h2>
   <div id="cardioDataList" style="display:flex; flex-direction:column; gap:6px;"></div>
 </div>
+
+<script>
+  let currentCardioFilter = 'week';
+
+  window.renderCardioTab = function() {
+    const cDate = document.getElementById('cardioDate');
+    if (cDate && !cDate.value) cDate.valueAsDate = new Date();
+
+    populateCardioSelects();
+    renderCardioList();
+    window.updateCardioStatsAndChart();
+  };
+
+  function populateCardioSelects() {
+    const cardioTypesList = window.cardioTypesList || [];
+    ['cardioTypeSelect', 'statCardioSelect'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) {
+        const cur = el.value;
+        el.innerHTML = '<option value="">Wybierz aktywność...</option>';
+        cardioTypesList.forEach(item => {
+          const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
+          el.appendChild(opt);
+        });
+        if (cur) el.value = cur;
+      }
+    });
+  }
+
+  window.updateCardioStatsAndChart = function() {
+    const sel = document.getElementById('statCardioSelect'); 
+    if (!sel || !sel.value) return;
+
+    const selectedType = sel.value;
+    const cardioData = window.cardioData || [];
+    const filtered = cardioData.filter(c => c.type.toLowerCase() === selectedType.toLowerCase());
+
+    let timeFiltered = [...filtered];
+    const now = new Date();
+
+    if (currentCardioFilter === 'week') {
+      const day = now.getDay() || 7;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - day + 1); 
+      monday.setHours(0,0,0,0);
+      timeFiltered = filtered.filter(c => window.parseLocalDate(c.date) >= monday);
+    } else if (currentCardioFilter === 'month') {
+      const curM = now.getMonth(), curY = now.getFullYear();
+      timeFiltered = filtered.filter(c => {
+        const dt = window.parseLocalDate(c.date);
+        return dt.getMonth() === curM && dt.getFullYear() === curY;
+      });
+    } else if (currentCardioFilter === '90') {
+      const limitDate = new Date();
+      limitDate.setDate(now.getDate() - 90);
+      timeFiltered = filtered.filter(c => window.parseLocalDate(c.date) >= limitDate);
+    }
+
+    const totalDistance = timeFiltered.reduce((acc, curr) => acc + (curr.distance || 0), 0);
+    let totalMinutes = 0;
+
+    timeFiltered.forEach(c => {
+      const durStr = String(c.duration || '').trim();
+      if (durStr.includes(':')) {
+        const parts = durStr.split(':').map(p => parseInt(p) || 0);
+        if (parts.length === 3) totalMinutes += parts[0] * 60 + parts[1] + parts[2] / 60;
+        else if (parts.length === 2) totalMinutes += parts[0] + parts[1] / 60;
+      } else {
+        totalMinutes += parseFloat(durStr.replace(',', '.')) || 0;
+      }
+    });
+
+    const cAvg = document.getElementById('cardioAvgResult');
+    const cMed = document.getElementById('cardioMedResult');
+    
+    if (cAvg) cAvg.innerText = totalDistance.toFixed(2) + ' km';
+    if (cMed) {
+      if (totalMinutes >= 60) {
+        const hrs = Math.floor(totalMinutes / 60);
+        const mins = Math.round(totalMinutes % 60);
+        cMed.innerText = `${hrs}h ${mins} min`;
+      } else {
+        cMed.innerText = Math.round(totalMinutes) + ' min';
+      }
+    }
+
+    const distances = timeFiltered.map(c => c.distance);
+    window.drawChart('cardioChart', distances, 'all', 'km');
+  };
+
+  function renderCardioList() {
+    const list = document.getElementById('cardioDataList'); 
+    if (!list) return;
+    list.innerHTML = '';
+    
+    const cardioData = window.cardioData || [];
+    if (!cardioData.length) {
+      list.innerHTML = '<div style="text-align:center; padding:10px; color:var(--text-muted);">Brak wpisów kardio</div>';
+      return;
+    }
+
+    const grouped = {};
+    cardioData.forEach(c => { 
+      if (c.date) { 
+        const k = window.formatDate(c.date); 
+        if (!grouped[k]) grouped[k] = []; 
+        grouped[k].push(c); 
+      } 
+    });
+
+    Object.keys(grouped).reverse().forEach((dt, idx) => {
+      const head = document.createElement('div'); 
+      head.className = 'accordion-header';
+      head.onclick = () => window.toggleAccordion(head);
+      head.innerHTML = `<span>📅 ${dt} (${grouped[dt].length})</span><span class="accordion-arrow">${idx === 0 ? '▼' : '▶'}</span>`;
+      
+      const content = document.createElement('div'); 
+      content.className = `accordion-content ${idx === 0 ? 'open' : ''}`;
+      
+      grouped[dt].forEach(i => {
+        const d = document.createElement('div'); 
+        d.className = 'data-item';
+        d.innerHTML = `
+          <div>
+            <strong>${i.type}</strong><br>
+            <small style="color:var(--text-muted);">Czas: ${i.duration} | Tempo: ${i.pace} min/km | Tętno: ${i.heartRate} bpm</small>
+          </div>
+          <strong style="color:var(--primary);">${i.distance} km</strong>`;
+        content.appendChild(d);
+      });
+      
+      list.appendChild(head); 
+      list.appendChild(content);
+    });
+  }
+
+  // NASŁUCHIWANIA DLA KARDIO
+  const cardioForm = document.getElementById('cardioForm');
+  if (cardioForm) {
+    cardioForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const date = document.getElementById('cardioDate').value;
+      const type = document.getElementById('cardioTypeSelect').value;
+      const duration = document.getElementById('cardioDuration').value;
+      const distance = parseFloat(document.getElementById('cardioDistance').value);
+      const pace = document.getElementById('cardioPace').value;
+      const heartRate = parseInt(document.getElementById('cardioHeartRate').value);
+
+      if (!date || !type) return;
+
+      window.cardioData.push({ date, type, duration, distance, pace, heartRate });
+      window.cardioData.sort((a, b) => window.parseLocalDate(a.date) - window.parseLocalDate(b.date));
+      window.updateApp();
+
+      await window.firebaseFunctions.addData('Kardio', { 
+        Data: date, Typ: type, Czas: duration, Dystans: distance, Tempo: pace, Tetno: heartRate 
+      });
+      window.fetchFromFirebaseFast();
+    });
+  }
+
+  const statCardioSel = document.getElementById('statCardioSelect');
+  if (statCardioSel) statCardioSel.onchange = () => window.updateCardioStatsAndChart();
+
+  document.querySelectorAll('#cardioFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
+    document.querySelectorAll('#cardioFilterGroup button').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active'); 
+    currentCardioFilter = e.target.getAttribute('data-filter'); 
+    window.updateCardioStatsAndChart();
+  }));
+</script>
