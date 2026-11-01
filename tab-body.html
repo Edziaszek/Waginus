@@ -29,13 +29,15 @@
   <h2>Statystyki obwodu</h2>
   <div class="form-field" style="margin-bottom: 12px;">
     <label>Wybierz partię ciała</label>
-    <select id="statBodySelect"></select>
+    <select id="statBodySelect" onchange="handleBodyStatChange()">
+      <option value="">Wybierz obwód...</option>
+    </select>
   </div>
 
-  <div class="btn-group" id="bodyPeriodFilterGroup">
-    <button data-period="week" class="active">Tydzień</button>
-    <button data-period="month">Miesiąc</button>
-    <button data-period="3months">3 Miesiące</button>
+  <div class="filter-group" id="bodyPeriodFilterGroup" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
+    <button type="button" class="active" data-period="week">Tydzień</button>
+    <button type="button" data-period="month">Miesiąc</button>
+    <button type="button" data-period="3months">3 Miesiące</button>
   </div>
   
   <div class="filter-result-box">
@@ -46,11 +48,11 @@
 
 <div class="card">
   <h2>Wykres postępu obwodu</h2>
-  <div class="btn-group" id="bodyChartFilterGroup">
-    <button data-range="7">7d</button>
-    <button data-range="30" class="active">30d</button>
-    <button data-range="90">90d</button>
-    <button data-range="all">Wszystko</button>
+  <div class="filter-group" id="bodyChartFilterGroup" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
+    <button type="button" data-range="7">7d</button>
+    <button type="button" class="active" data-range="30">30d</button>
+    <button type="button" data-range="90">90d</button>
+    <button type="button" data-range="all">Wszystko</button>
   </div>
   <canvas id="bodyChart"></canvas>
 </div>
@@ -61,7 +63,10 @@
 </div>
 
 <script>
-  let currentBodyChartRange = '30';
+  // Unikamy ponownej deklaracji zmiennych globalnych wewnątrz zakładki przy wielokrotnym wczytaniu
+  if (typeof window.currentBodyChartRange === 'undefined') {
+    window.currentBodyChartRange = '30';
+  }
 
   window.renderBodyTab = function() {
     const bDate = document.getElementById('bodyDate');
@@ -81,10 +86,18 @@
         const cur = el.value;
         el.innerHTML = '<option value="">Wybierz obwód...</option>';
         bodyPartsList.forEach(item => {
-          const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
+          const opt = document.createElement('option'); 
+          opt.value = item.name; 
+          opt.textContent = item.name;
           el.appendChild(opt);
         });
-        if (cur) el.value = cur;
+
+        // Domyślne zaznaczenie pierwszego elementu w statystykach, żeby od razu były dane
+        if (id === 'statBodySelect' && !cur && el.options.length > 1) {
+          el.selectedIndex = 1;
+        } else if (cur) {
+          el.value = cur;
+        }
       }
     });
   }
@@ -96,11 +109,16 @@
     inp.value = (Math.max(0, cur + delta)).toFixed(1);
   };
 
+  window.handleBodyStatChange = function() {
+    updateBodyStats();
+    window.drawBodyChart();
+  };
+
   function updateBodyStats() {
     const sel = document.getElementById('statBodySelect'); 
     if (!sel || !sel.value) return;
     const bodyMeasurementsData = window.bodyMeasurementsData || [];
-    const filtered = bodyMeasurementsData.filter(b => b.part === sel.value).map(b => b.size);
+    const filtered = bodyMeasurementsData.filter(b => b.part && b.part.toLowerCase() === sel.value.toLowerCase()).map(b => b.size);
     const bAvg = document.getElementById('bodyAvgResult');
     const bMed = document.getElementById('bodyMedResult');
     if (bAvg) bAvg.innerText = window.getAverage(filtered) + ' cm';
@@ -111,7 +129,8 @@
     const sel = document.getElementById('statBodySelect');
     if (!sel || !sel.value) return;
     const bodyMeasurementsData = window.bodyMeasurementsData || [];
-    window.drawChart('bodyChart', bodyMeasurementsData.filter(b => b.part === sel.value).map(b => b.size), currentBodyChartRange, 'cm');
+    const filteredSizes = bodyMeasurementsData.filter(b => b.part && b.part.toLowerCase() === sel.value.toLowerCase()).map(b => b.size);
+    window.drawChart('bodyChart', filteredSizes, window.currentBodyChartRange, 'cm');
   };
 
   function renderBodyList() {
@@ -155,9 +174,10 @@
     });
   }
 
-  // SUBKRYPCJE ZDARZEŃ OBWODÓW
+  // Bezpieczne podpięcie formularza (usuwamy stare handlery przez klonowanie lub sprawdzamy unikalność)
   const bodyForm = document.getElementById('bodyForm');
-  if (bodyForm) {
+  if (bodyForm && !bodyForm.dataset.listenerAttached) {
+    bodyForm.dataset.listenerAttached = 'true';
     bodyForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const date = document.getElementById('bodyDate').value;
@@ -174,13 +194,17 @@
     });
   }
 
-  const statBodySel = document.getElementById('statBodySelect');
-  if (statBodySel) statBodySel.addEventListener('change', () => { updateBodyStats(); window.drawBodyChart(); });
-
-  document.querySelectorAll('#bodyChartFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
-    document.querySelectorAll('#bodyChartFilterGroup button').forEach(b => b.classList.remove('active'));
-    e.target.classList.add('active'); 
-    currentBodyChartRange = e.target.getAttribute('data-range'); 
-    window.drawBodyChart();
-  }));
+  // Obsługa przycisków zakresu wykresu bez duplikowania eventów
+  const chartFilterGroup = document.getElementById('bodyChartFilterGroup');
+  if (chartFilterGroup && !chartFilterGroup.dataset.listenerAttached) {
+    chartFilterGroup.dataset.listenerAttached = 'true';
+    chartFilterGroup.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        chartFilterGroup.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active'); 
+        window.currentBodyChartRange = e.target.getAttribute('data-range'); 
+        window.drawBodyChart();
+      });
+    });
+  }
 </script>
