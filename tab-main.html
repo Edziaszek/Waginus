@@ -4,21 +4,130 @@
 
 <div class="card">
   <h3>⚖️ Waga</h3>
-  <div id="mainWeightSummary" style="display: flex; flex-direction: column; gap: 8px;">
-    <!-- Dane generowane dynamicznie -->
-  </div>
+  <div id="mainWeightSummary" style="display: flex; flex-direction: column; gap: 8px;"></div>
 </div>
 
 <div class="card">
   <h3>📏 Obwody ciała</h3>
-  <div id="mainBodySummary" style="display: flex; flex-direction: column; gap: 8px;">
-    <!-- Dane generowane dynamicznie -->
-  </div>
+  <div id="mainBodySummary" style="display: flex; flex-direction: column; gap: 8px;"></div>
 </div>
 
 <div class="card">
   <h3>🏋️ Rekordy i ostatnie ciężary w ćwiczeniach</h3>
-  <div id="mainWorkoutSummary" style="display: flex; flex-direction: column; gap: 8px;">
-    <!-- Dane generowane dynamicznie -->
-  </div>
+  <div id="mainWorkoutSummary" style="display: flex; flex-direction: column; gap: 8px;"></div>
 </div>
+
+<script>
+  window.renderMainDashboard = function() {
+    const weightData = window.weightData || [];
+    const bodyPartsList = window.bodyPartsList || [];
+    const bodyMeasurementsData = window.bodyMeasurementsData || [];
+    const exercisesList = window.exercisesList || [];
+    const workoutData = window.workoutData || [];
+
+    const wContainer = document.getElementById('mainWeightSummary');
+    if (wContainer) {
+      if (!weightData.length) {
+        wContainer.innerHTML = '<div style="color:var(--text-muted)">Brak pomiarów wagi w bazie.</div>';
+      } else {
+        const now = new Date(), sevenDaysAgo = new Date(); 
+        sevenDaysAgo.setDate(now.getDate() - 7);
+        const last7 = weightData.filter(d => window.parseLocalDate(d.date) >= sevenDaysAgo).map(d => d.weight);
+        
+        const currentWeightVal = last7.length ? parseFloat(window.getAverage(last7)) : weightData[weightData.length - 1].weight;
+        const maxWeightVal = Math.max(...weightData.map(d => d.weight));
+        const diffVal = (maxWeightVal - currentWeightVal).toFixed(1);
+
+        wContainer.innerHTML = `
+          <div class="data-item"><span>Aktualna waga (średnia z 7 dni):</span> <strong>${currentWeightVal.toFixed(1)} kg</strong></div>
+          <div class="data-item"><span>Najwyższa waga w bazie:</span> <strong>${maxWeightVal.toFixed(1)} kg</strong></div>
+          <div class="data-item"><span>Aktualnie schudłeś:</span> <strong style="color:var(--primary);">${diffVal} kg</strong></div>
+        `;
+      }
+    }
+
+    const bContainer = document.getElementById('mainBodySummary');
+    if (bContainer) {
+      if (!bodyPartsList.length) {
+        bContainer.innerHTML = '<div style="color:var(--text-muted)">Brak zdefiniowanych obwodów w bazie.</div>';
+      } else {
+        bContainer.innerHTML = '';
+        bodyPartsList.forEach(partObj => {
+          const partName = partObj.name;
+          const measurements = bodyMeasurementsData.filter(b => b.part.toLowerCase() === partName.toLowerCase());
+          
+          let lastVal = '-', maxVal = '-', diffVal = '-';
+          if (measurements.length > 0) {
+            const sorted = [...measurements].sort((a, b) => window.parseLocalDate(a.date) - window.parseLocalDate(b.date));
+            lastVal = sorted[sorted.length - 1].size.toFixed(1) + ' cm';
+            const maxNumber = Math.max(...sorted.map(s => s.size));
+            maxVal = maxNumber.toFixed(1) + ' cm';
+            diffVal = (maxNumber - sorted[sorted.length - 1].size).toFixed(1) + ' cm';
+          }
+
+          const itemDiv = document.createElement('div');
+          itemDiv.className = 'data-item';
+          itemDiv.style.flexDirection = 'column';
+          itemDiv.style.alignItems = 'stretch';
+          itemDiv.innerHTML = `
+            <div style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom:4px;">
+              <span>${partName}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.9em; color:var(--text-muted);">
+              <span>Ostatni: <strong>${lastVal}</strong></span>
+              <span>Najwyższy: <strong>${maxVal}</strong></span>
+              <span>Różnica: <strong style="color:var(--primary);">${diffVal}</strong></span>
+            </div>
+          `;
+          bContainer.appendChild(itemDiv);
+        });
+      }
+    }
+
+    const tContainer = document.getElementById('mainWorkoutSummary');
+    if (tContainer) {
+      if (!exercisesList.length) {
+        tContainer.innerHTML = '<div style="color:var(--text-muted)">Brak zdefiniowanych ćwiczeń w bazie.</div>';
+      } else {
+        tContainer.innerHTML = '';
+        exercisesList.forEach(exObj => {
+          const exName = exObj.name;
+          const exWorkouts = workoutData.filter(w => w.exercise.toLowerCase() === exName.toLowerCase());
+
+          let lastStr = '-', recordStr = '-';
+          if (exWorkouts.length > 0) {
+            const sortedWorkouts = [...exWorkouts].sort((a, b) => window.parseLocalDate(a.date) - window.parseLocalDate(b.date));
+            const lastWorkout = sortedWorkouts[sortedWorkouts.length - 1];
+            if (lastWorkout.weights && lastWorkout.weights.length > 0) {
+              const maxW = Math.max(...lastWorkout.weights);
+              const idx = lastWorkout.weights.indexOf(maxW);
+              const repVal = (lastWorkout.reps && lastWorkout.reps[idx]) ? lastWorkout.reps[idx] : 8;
+              lastStr = `${maxW} kg x ${window.formatReps(repVal)}`;
+            }
+
+            let maxWeight = 0, correspondingReps = 8;
+            exWorkouts.forEach(w => {
+              if (w.weights && w.weights.length > 0) {
+                w.weights.forEach((wt, i) => {
+                  if (wt > maxWeight) {
+                    maxWeight = wt;
+                    correspondingReps = (w.reps && w.reps[i]) ? w.reps[i] : 8;
+                  }
+                });
+              }
+            });
+            if (maxWeight > 0) recordStr = `${maxWeight} kg x ${window.formatReps(correspondingReps)}`;
+          }
+
+          const itemDiv = document.createElement('div');
+          itemDiv.className = 'data-item';
+          itemDiv.innerHTML = `
+            <div><strong>${exName}</strong><br><small style="color:var(--text-muted);">Ostatnio: ${lastStr}</small></div>
+            <div style="text-align:right;">Rekord: <strong style="color:var(--primary);">${recordStr}</strong></div>
+          `;
+          tContainer.appendChild(itemDiv);
+        });
+      }
+    }
+  };
+</script>
