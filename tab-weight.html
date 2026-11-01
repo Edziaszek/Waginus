@@ -72,3 +72,141 @@
   <h2>Historia pomiarów wagi</h2>
   <div id="dataList"></div>
 </div>
+
+<script>
+  let currentChartRange = '30';
+
+  window.renderWeightTab = function() {
+    const dInp = document.getElementById('dateInput');
+    if (dInp && !dInp.value) dInp.valueAsDate = new Date();
+
+    renderWeightList();
+    renderWeightStats();
+    setWeekFilter('current');
+    setMonthFilter('current');
+    window.drawWeightChart();
+  };
+
+  function renderWeightList() {
+    const listEl = document.getElementById('dataList'); 
+    if(!listEl) return;
+    listEl.innerHTML = '';
+    [...(window.weightData || [])].reverse().forEach(item => {
+      const div = document.createElement('div'); 
+      div.className = 'data-item';
+      div.innerHTML = `<span>${window.formatDate(item.date)}</span> <strong>${item.weight.toFixed(1)} kg</strong>`;
+      listEl.appendChild(div);
+    });
+  }
+
+  function renderWeightStats() {
+    const weightData = window.weightData || [];
+    if (!weightData.length) return;
+    const now = new Date(), sevenDaysAgo = new Date(); 
+    sevenDaysAgo.setDate(now.getDate() - 7);
+    const last7 = weightData.filter(d => window.parseLocalDate(d.date) >= sevenDaysAgo).map(d => d.weight);
+
+    const avg7d = document.getElementById('avg7d');
+    const med7d = document.getElementById('med7d');
+    const lastWeight = document.getElementById('lastWeight');
+
+    if (avg7d) avg7d.innerText = window.getAverage(last7) + ' kg';
+    if (med7d) med7d.innerText = window.getMedian(last7) + ' kg';
+    if (lastWeight) lastWeight.innerText = weightData[weightData.length - 1].weight.toFixed(1) + ' kg';
+  }
+
+  function setWeekFilter(type) {
+    const weightData = window.weightData || [];
+    const now = new Date(), day = now.getDay() || 7, monday = new Date(now);
+    monday.setDate(now.getDate() - day + 1); monday.setHours(0,0,0,0);
+    let start = new Date(monday), end = new Date(monday);
+    end.setDate(start.getDate() + 6); end.setHours(23,59,59,999);
+    if (type === 'prev1') { start.setDate(start.getDate() - 7); end.setDate(end.getDate() - 7); }
+    else if (type === 'prev2') { start.setDate(start.getDate() - 14); end.setDate(end.getDate() - 14); }
+    
+    const filtered = weightData.filter(d => { 
+      const dt = window.parseLocalDate(d.date); 
+      return dt >= start && dt <= end; 
+    }).map(d => d.weight);
+
+    const wAvg = document.getElementById('weekAvgResult');
+    const wMed = document.getElementById('weekMedResult');
+    if (wAvg) wAvg.innerText = window.getAverage(filtered) + ' kg';
+    if (wMed) wMed.innerText = window.getMedian(filtered) + ' kg';
+  }
+
+  function setMonthFilter(type) {
+    const weightData = window.weightData || [];
+    const now = new Date(); let m = now.getMonth(), y = now.getFullYear();
+    if (type === 'prev1') m -= 1; else if (type === 'prev2') m -= 2;
+    if (m < 0) { m += 12; y -= 1; }
+    
+    const filtered = weightData.filter(d => { 
+      const dt = window.parseLocalDate(d.date); 
+      return dt.getMonth() === m && dt.getFullYear() === y; 
+    }).map(d => d.weight);
+
+    const mAvg = document.getElementById('monthAvgResult');
+    const mMed = document.getElementById('monthMedResult');
+    if (mAvg) mAvg.innerText = window.getAverage(filtered) + ' kg';
+    if (mMed) mMed.innerText = window.getMedian(filtered) + ' kg';
+  }
+
+  function calculateCustomRange() {
+    const weightData = window.weightData || [];
+    const f = document.getElementById('customFrom').value, t = document.getElementById('customTo').value;
+    if (!f || !t) return;
+    const from = window.parseLocalDate(f), to = window.parseLocalDate(t); 
+    from.setHours(0,0,0,0); to.setHours(23,59,59,999);
+    const filtered = weightData.filter(d => { const dt = window.parseLocalDate(d.date); return dt >= from && dt <= to; }).map(d => d.weight);
+    
+    const cAvg = document.getElementById('customAvgResult');
+    const cMed = document.getElementById('customMedResult');
+    const cCnt = document.getElementById('customCountResult');
+    if (cAvg) cAvg.innerText = window.getAverage(filtered) + ' kg';
+    if (cMed) cMed.innerText = window.getMedian(filtered) + ' kg';
+    if (cCnt) cCnt.innerText = filtered.length;
+  }
+
+  window.drawWeightChart = function() {
+    window.drawChart('nativeChart', (window.weightData || []).map(d => d.weight), currentChartRange, 'kg');
+  };
+
+  // SUBSKRYPCJE ZDARZEŃ ZAKŁADKI WAGI
+  const weightForm = document.getElementById('weightForm');
+  if (weightForm) {
+    weightForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const date = document.getElementById('dateInput').value;
+      const weight = parseFloat(document.getElementById('weightInput').value);
+      if (!date || isNaN(weight)) return;
+
+      document.getElementById('weightInput').value = '';
+      window.weightData.push({ date, weight });
+      window.weightData.sort((a, b) => window.parseLocalDate(a.date) - window.parseLocalDate(b.date));
+      window.updateApp();
+
+      await window.firebaseFunctions.addData('Waga', { Data: date, Waga: weight });
+      window.fetchFromFirebaseFast();
+    });
+  }
+
+  document.querySelectorAll('#weekFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
+    document.querySelectorAll('#weekFilterGroup button').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active'); setWeekFilter(e.target.getAttribute('data-type'));
+  }));
+
+  document.querySelectorAll('#monthFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
+    document.querySelectorAll('#monthFilterGroup button').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active'); setMonthFilter(e.target.getAttribute('data-type'));
+  }));
+
+  document.querySelectorAll('#chartFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
+    document.querySelectorAll('#chartFilterGroup button').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active'); currentChartRange = e.target.getAttribute('data-range'); window.drawWeightChart();
+  }));
+
+  const cFrom = document.getElementById('customFrom'), cTo = document.getElementById('customTo');
+  if (cFrom) cFrom.addEventListener('change', calculateCustomRange);
+  if (cTo) cTo.addEventListener('change', calculateCustomRange);
+</script>
