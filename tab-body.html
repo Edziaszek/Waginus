@@ -114,19 +114,18 @@
     window.handleBodyStatChange();
   };
 
-  window.handleBodyStatChange = function() {
+  // Wspólna funkcja pobierająca przefiltrowane dane dla danej partii i okresu
+  function getFilteredBodySizes() {
     const sel = document.getElementById('statBodySelect');
-    if (!sel || !sel.value) return;
+    if (!sel || !sel.value) return [];
     
     const bodyMeasurementsData = window.bodyMeasurementsData || [];
-    
-    // Filtrowanie po wybranej partii (ignorując wielkość liter)
     const filteredByPart = bodyMeasurementsData.filter(b => b.part && b.part.trim().toLowerCase() === sel.value.trim().toLowerCase());
 
     const now = new Date();
-    now.setHours(23, 59, 59, 999); // Koniec dzisiejszego dnia
+    now.setHours(23, 59, 59, 999);
 
-    let limitDate = new Date(0); // Domyślnie dla 'all' (od początku)
+    let limitDate = new Date(0); 
 
     if (window.currentBodyPeriod === 'week') {
       limitDate = new Date();
@@ -142,21 +141,28 @@
       limitDate.setHours(0, 0, 0, 0);
     }
 
-    // Filtrowanie uwzględniające poprawnie sparsowane daty
     const timeFiltered = filteredByPart.filter(b => {
       if (window.currentBodyPeriod === 'all') return true;
       const dt = window.parseLocalDate(b.date);
       return !isNaN(dt.getTime()) && dt >= limitDate;
     });
 
-    const sizes = timeFiltered.map(b => b.size);
+    return timeFiltered.map(b => b.size);
+  }
+
+  window.handleBodyStatChange = function() {
+    const sizes = getFilteredBodySizes();
 
     const bAvg = document.getElementById('bodyAvgResult');
     const bMed = document.getElementById('bodyMedResult');
     if (bAvg) bAvg.innerText = window.getAverage(sizes) + ' cm';
     if (bMed) bMed.innerText = window.getMedian(sizes) + ' cm';
 
-    // Rysujemy wykres na podstawie przefiltrowanych danych
+    window.drawBodyChart();
+  };
+
+  window.drawBodyChart = function() {
+    const sizes = getFilteredBodySizes();
     window.drawChart('bodyChart', sizes, 'all', 'cm');
   };
 
