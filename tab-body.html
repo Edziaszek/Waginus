@@ -34,10 +34,9 @@
     </select>
   </div>
 
-  <!-- Przyciski okresów sterujące statystykami i wykresem -->
   <div class="btn-group" id="bodyPeriodFilterGroup">
-    <button type="button" class="active" onclick="window.setBodyPeriod('week', this)">Tydzień</button>
-    <button type="button" onclick="window.setBodyPeriod('month', this)">Miesiąc</button>
+    <button type="button" onclick="window.setBodyPeriod('week', this)">Tydzień</button>
+    <button type="button" class="active" onclick="window.setBodyPeriod('month', this)">Miesiąc</button>
     <button type="button" onclick="window.setBodyPeriod('3months', this)">3 Miesiące</button>
     <button type="button" onclick="window.setBodyPeriod('all', this)">Wszystko</button>
   </div>
@@ -60,7 +59,7 @@
 
 <script>
   if (typeof window.currentBodyPeriod === 'undefined') {
-    window.currentBodyPeriod = 'week';
+    window.currentBodyPeriod = 'month';
   }
 
   window.renderBodyTab = function() {
@@ -114,8 +113,7 @@
     window.handleBodyStatChange();
   };
 
-  // Wspólna funkcja pobierająca przefiltrowane dane dla danej partii i okresu
-  function getFilteredBodySizes() {
+  function getFilteredBodyData() {
     const sel = document.getElementById('statBodySelect');
     if (!sel || !sel.value) return [];
     
@@ -141,17 +139,16 @@
       limitDate.setHours(0, 0, 0, 0);
     }
 
-    const timeFiltered = filteredByPart.filter(b => {
+    return filteredByPart.filter(b => {
       if (window.currentBodyPeriod === 'all') return true;
       const dt = window.parseLocalDate(b.date);
       return !isNaN(dt.getTime()) && dt >= limitDate;
     });
-
-    return timeFiltered.map(b => b.size);
   }
 
   window.handleBodyStatChange = function() {
-    const sizes = getFilteredBodySizes();
+    const timeFiltered = getFilteredBodyData();
+    const sizes = timeFiltered.map(b => b.size);
 
     const bAvg = document.getElementById('bodyAvgResult');
     const bMed = document.getElementById('bodyMedResult');
@@ -162,7 +159,8 @@
   };
 
   window.drawBodyChart = function() {
-    const sizes = getFilteredBodySizes();
+    const timeFiltered = getFilteredBodyData();
+    const sizes = timeFiltered.map(b => b.size);
     window.drawChart('bodyChart', sizes, 'all', 'cm');
   };
 
