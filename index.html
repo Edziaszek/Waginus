@@ -194,7 +194,7 @@
     if (typeof window.drawBodyChart === 'function') window.drawBodyChart();
   };
 
-  // KONTROLER ZAKŁADEK I ŁADOWANIA SKRYPTÓW HMTL
+  // ŁADOWANIE PLIKÓW ZAKŁADEK Z WSTRZYKIWANIEM SKRYPTÓW
   async function loadTabContent() {
     try {
       const [mainRes, weightRes, workoutRes, cardioRes, bodyRes, settingsRes] = await Promise.all([
@@ -206,24 +206,20 @@
         fetch('tab-settings.html')
       ]);
 
-      const loadAndExecuteScript = (targetId, htmlText) => {
-        const container = document.getElementById(targetId);
-        container.innerHTML = htmlText;
-        const scripts = container.querySelectorAll('script');
-        scripts.forEach(oldScript => {
-          const newScript = document.createElement('script');
-          Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
-          newScript.appendChild(document.createTextNode(oldScript.innerHTML));
-          oldScript.parentNode.replaceChild(newScript, oldScript);
-        });
-      };
+      document.getElementById('tab-main').innerHTML = await mainRes.text();
+      document.getElementById('tab-weight').innerHTML = await weightRes.text();
+      document.getElementById('tab-workout').innerHTML = await workoutRes.text();
+      document.getElementById('tab-cardio').innerHTML = await cardioRes.text();
+      document.getElementById('tab-body').innerHTML = await bodyRes.text();
+      document.getElementById('tab-settings').innerHTML = await settingsRes.text();
 
-      loadAndExecuteScript('tab-main', await mainRes.text());
-      loadAndExecuteScript('tab-weight', await weightRes.text());
-      loadAndExecuteScript('tab-workout', await workoutRes.text());
-      loadAndExecuteScript('tab-cardio', await cardioRes.text());
-      loadAndExecuteScript('tab-body', await bodyRes.text());
-      loadAndExecuteScript('tab-settings', await settingsRes.text());
+      // Wykonaj skrypty z załadowanych plików HTML
+      document.querySelectorAll('.tab-content script').forEach(oldScript => {
+        const newScript = document.createElement('script');
+        Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+        newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+        oldScript.parentNode.replaceChild(newScript, oldScript);
+      });
 
     } catch (e) {
       console.error("Błąd ładowania plików zakładek:", e);
@@ -246,13 +242,10 @@
     btn.classList.add('active');
 
     if (tabId === 'main' && typeof window.renderMainDashboard === 'function') window.renderMainDashboard();
-    else if (tabId === 'weight' && typeof window.drawWeightChart === 'function') window.drawWeightChart();
-    else if (tabId === 'workout') {
-      if (typeof window.updateWorkoutStatsAndChart === 'function') window.updateWorkoutStatsAndChart();
-      if (typeof window.renderCalendar === 'function') window.renderCalendar();
-    }
-    else if (tabId === 'cardio' && typeof window.updateCardioStatsAndChart === 'function') window.updateCardioStatsAndChart();
-    else if (tabId === 'body' && typeof window.drawBodyChart === 'function') window.drawBodyChart();
+    else if (tabId === 'weight' && typeof window.renderWeightTab === 'function') window.renderWeightTab();
+    else if (tabId === 'workout' && typeof window.renderWorkoutTab === 'function') window.renderWorkoutTab();
+    else if (tabId === 'cardio' && typeof window.renderCardioTab === 'function') window.renderCardioTab();
+    else if (tabId === 'body' && typeof window.renderBodyTab === 'function') window.renderBodyTab();
     else if (tabId === 'settings' && typeof window.renderSettingsLists === 'function') window.renderSettingsLists();
   };
 
