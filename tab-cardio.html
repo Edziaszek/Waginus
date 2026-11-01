@@ -103,10 +103,18 @@
         const cur = el.value;
         el.innerHTML = '<option value="">Wybierz aktywność...</option>';
         cardioTypesList.forEach(item => {
-          const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
+          const opt = document.createElement('option'); 
+          opt.value = item.name; 
+          opt.textContent = item.name;
           el.appendChild(opt);
         });
-        if (cur) el.value = cur;
+        
+        // Jeśli to lista statystyk i nie ma wybranej opcji, a są elementy -> wybierz domyślnie pierwszy
+        if (id === 'statCardioSelect' && !cur && el.options.length > 1) {
+          el.selectedIndex = 1;
+        } else if (cur) {
+          el.value = cur;
+        }
       }
     });
   }
@@ -117,7 +125,7 @@
 
     const selectedType = sel.value;
     const cardioData = window.cardioData || [];
-    const filtered = cardioData.filter(c => c.type.toLowerCase() === selectedType.toLowerCase());
+    const filtered = cardioData.filter(c => c.type && c.type.toLowerCase() === selectedType.toLowerCase());
 
     let timeFiltered = [...filtered];
     const now = new Date();
