@@ -119,26 +119,35 @@
     if (!sel || !sel.value) return;
     
     const bodyMeasurementsData = window.bodyMeasurementsData || [];
-    const filteredByPart = bodyMeasurementsData.filter(b => b.part && b.part.toLowerCase() === sel.value.toLowerCase());
+    
+    // Filtrowanie po wybranej partii (ignorując wielkość liter)
+    const filteredByPart = bodyMeasurementsData.filter(b => b.part && b.part.trim().toLowerCase() === sel.value.trim().toLowerCase());
 
-    // Filtrowanie czasowe na podstawie wybranego przycisku okresu
-    let timeFiltered = [...filteredByPart];
     const now = new Date();
+    now.setHours(23, 59, 59, 999); // Koniec dzisiejszego dnia
+
+    let limitDate = new Date(0); // Domyślnie dla 'all' (od początku)
 
     if (window.currentBodyPeriod === 'week') {
-      const weekAgo = new Date();
-      weekAgo.setDate(now.getDate() - 7);
-      timeFiltered = filteredByPart.filter(b => window.parseLocalDate(b.date) >= weekAgo);
+      limitDate = new Date();
+      limitDate.setDate(now.getDate() - 7);
+      limitDate.setHours(0, 0, 0, 0);
     } else if (window.currentBodyPeriod === 'month') {
-      const monthAgo = new Date();
-      monthAgo.setDate(now.getDate() - 30);
-      timeFiltered = filteredByPart.filter(b => window.parseLocalDate(b.date) >= monthAgo);
+      limitDate = new Date();
+      limitDate.setDate(now.getDate() - 30);
+      limitDate.setHours(0, 0, 0, 0);
     } else if (window.currentBodyPeriod === '3months') {
-      const threeMonthsAgo = new Date();
-      threeMonthsAgo.setDate(now.getDate() - 90);
-      timeFiltered = filteredByPart.filter(b => window.parseLocalDate(b.date) >= threeMonthsAgo);
+      limitDate = new Date();
+      limitDate.setDate(now.getDate() - 90);
+      limitDate.setHours(0, 0, 0, 0);
     }
-    // dla 'all' bierzemy wszystko
+
+    // Filtrowanie uwzględniające poprawnie sparsowane daty
+    const timeFiltered = filteredByPart.filter(b => {
+      if (window.currentBodyPeriod === 'all') return true;
+      const dt = window.parseLocalDate(b.date);
+      return !isNaN(dt.getTime()) && dt >= limitDate;
+    });
 
     const sizes = timeFiltered.map(b => b.size);
 
