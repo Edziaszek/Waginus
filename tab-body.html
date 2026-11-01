@@ -59,3 +59,128 @@
   <h2>Historia obwodów</h2>
   <div id="bodyDataList"></div>
 </div>
+
+<script>
+  let currentBodyChartRange = '30';
+
+  window.renderBodyTab = function() {
+    const bDate = document.getElementById('bodyDate');
+    if (bDate && !bDate.value) bDate.valueAsDate = new Date();
+
+    populateBodySelects();
+    renderBodyList();
+    updateBodyStats();
+    window.drawBodyChart();
+  };
+
+  function populateBodySelects() {
+    const bodyPartsList = window.bodyPartsList || [];
+    ['bodySelect', 'statBodySelect'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) {
+        const cur = el.value;
+        el.innerHTML = '<option value="">Wybierz obwód...</option>';
+        bodyPartsList.forEach(item => {
+          const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
+          el.appendChild(opt);
+        });
+        if (cur) el.value = cur;
+      }
+    });
+  }
+
+  window.adjustBodySize = function(delta) {
+    const inp = document.getElementById('bodySizeInput');
+    if (!inp) return;
+    const cur = parseFloat(inp.value) || 0;
+    inp.value = (Math.max(0, cur + delta)).toFixed(1);
+  };
+
+  function updateBodyStats() {
+    const sel = document.getElementById('statBodySelect'); 
+    if (!sel || !sel.value) return;
+    const bodyMeasurementsData = window.bodyMeasurementsData || [];
+    const filtered = bodyMeasurementsData.filter(b => b.part === sel.value).map(b => b.size);
+    const bAvg = document.getElementById('bodyAvgResult');
+    const bMed = document.getElementById('bodyMedResult');
+    if (bAvg) bAvg.innerText = window.getAverage(filtered) + ' cm';
+    if (bMed) bMed.innerText = window.getMedian(filtered) + ' cm';
+  }
+
+  window.drawBodyChart = function() {
+    const sel = document.getElementById('statBodySelect');
+    if (!sel || !sel.value) return;
+    const bodyMeasurementsData = window.bodyMeasurementsData || [];
+    window.drawChart('bodyChart', bodyMeasurementsData.filter(b => b.part === sel.value).map(b => b.size), currentBodyChartRange, 'cm');
+  };
+
+  function renderBodyList() {
+    const list = document.getElementById('bodyDataList'); 
+    if (!list) return;
+    list.innerHTML = '';
+    
+    const bodyMeasurementsData = window.bodyMeasurementsData || [];
+    if (!bodyMeasurementsData.length) {
+      list.innerHTML = '<div style="text-align:center; padding:10px; color:var(--text-muted);">Brak pomiarów obwodów</div>';
+      return;
+    }
+
+    const grouped = {};
+    bodyMeasurementsData.forEach(b => { 
+      if (b.date) { 
+        const k = window.formatDate(b.date); 
+        if (!grouped[k]) grouped[k] = []; 
+        grouped[k].push(b); 
+      } 
+    });
+
+    Object.keys(grouped).reverse().forEach((dt, idx) => {
+      const head = document.createElement('div'); 
+      head.className = 'accordion-header';
+      head.onclick = () => window.toggleAccordion(head);
+      head.innerHTML = `<span>📅 ${dt} (${grouped[dt].length})</span><span class="accordion-arrow">${idx === 0 ? '▼' : '▶'}</span>`;
+      
+      const content = document.createElement('div'); 
+      content.className = `accordion-content ${idx === 0 ? 'open' : ''}`;
+      
+      grouped[dt].forEach(i => {
+        const d = document.createElement('div'); 
+        d.className = 'data-item';
+        d.innerHTML = `<span>${i.part}</span><strong>${i.size.toFixed(1)} cm</strong>`;
+        content.appendChild(d);
+      });
+      
+      list.appendChild(head); 
+      list.appendChild(content);
+    });
+  }
+
+  // SUBKRYPCJE ZDARZEŃ OBWODÓW
+  const bodyForm = document.getElementById('bodyForm');
+  if (bodyForm) {
+    bodyForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const date = document.getElementById('bodyDate').value;
+      const part = document.getElementById('bodySelect').value;
+      const size = parseFloat(document.getElementById('bodySizeInput').value);
+      if (!date || !part || isNaN(size)) return;
+
+      window.bodyMeasurementsData.push({ date, part, size });
+      window.bodyMeasurementsData.sort((a, b) => window.parseLocalDate(a.date) - window.parseLocalDate(b.date));
+      window.updateApp();
+
+      await window.firebaseFunctions.addData('Obwody', { Data: date, Partia: part, Wymiar: size });
+      window.fetchFromFirebaseFast();
+    });
+  }
+
+  const statBodySel = document.getElementById('statBodySelect');
+  if (statBodySel) statBodySel.addEventListener('change', () => { updateBodyStats(); window.drawBodyChart(); });
+
+  document.querySelectorAll('#bodyChartFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
+    document.querySelectorAll('#bodyChartFilterGroup button').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active'); 
+    currentBodyChartRange = e.target.getAttribute('data-range'); 
+    window.drawBodyChart();
+  }));
+</script>
