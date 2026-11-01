@@ -60,3 +60,181 @@
     <button class="btn-danger" style="width:100%;" onclick="clearPinProtection()">Usuń PIN / Wyloguj z sesji</button>
   </div>
 </div>
+
+<script>
+  window.switchSubTab = function(subtabId, btn) {
+    document.querySelectorAll('.subtab-content').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`subtab-${subtabId}`).classList.add('active');
+    btn.classList.add('active');
+  };
+
+  window.renderSettingsLists = function() {
+    const weightData = window.weightData || [];
+    const exercisesList = window.exercisesList || [];
+    const bodyPartsList = window.bodyPartsList || [];
+    const workoutData = window.workoutData || [];
+    const bodyMeasurementsData = window.bodyMeasurementsData || [];
+
+    const wList = document.getElementById('editWeightList'); 
+    if(wList) {
+      wList.innerHTML = '';
+      [...weightData].reverse().forEach(i => {
+        const d = document.createElement('div'); d.className = 'edit-item';
+        d.style.flexDirection = 'column'; d.style.alignItems = 'stretch';
+        d.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+            <span>${window.formatDate(i.date)}: <strong>${i.weight} kg</strong></span>
+            <div style="display:flex; gap:6px;">
+              <button class="btn-secondary" onclick="toggleInlineEdit('weight_${i.id}')">Edytuj</button>
+              <button class="btn-danger" onclick="deleteRecord('Waga','${i.id}')">Usuń</button>
+            </div>
+          </div>
+          <div id="edit_weight_${i.id}" style="display:none; margin-top:8px; gap:6px; flex-direction:column;">
+            <input type="date" id="edit_w_date_${i.id}" value="${i.date}">
+            <input type="number" id="edit_w_val_${i.id}" step="0.1" value="${i.weight}">
+            <button class="btn-primary" onclick="saveEditedWeight('${i.id}')">Zapisz zmianę</button>
+          </div>`;
+        wList.appendChild(d);
+      });
+    }
+
+    const exList = document.getElementById('editExercisesList'); 
+    if(exList) {
+      exList.innerHTML = '';
+      exercisesList.forEach(i => {
+        const d = document.createElement('div'); d.className = 'edit-item';
+        d.innerHTML = `<span>${i.name}</span><button class="btn-danger" onclick="deleteRecord('Cwiczenia','${i.id}')">Usuń</button>`;
+        exList.appendChild(d);
+      });
+    }
+
+    const bpList = document.getElementById('editBodyPartsList'); 
+    if(bpList) {
+      bpList.innerHTML = '';
+      bodyPartsList.forEach(i => {
+        const d = document.createElement('div'); d.className = 'edit-item';
+        d.innerHTML = `<span>${i.name}</span><button class="btn-danger" onclick="deleteRecord('Cwiczenia','${i.id}')">Usuń</button>`;
+        bpList.appendChild(d);
+      });
+    }
+
+    const woList = document.getElementById('editWorkoutList'); 
+    if(woList) {
+      woList.innerHTML = '';
+      [...workoutData].reverse().forEach(i => {
+        const d = document.createElement('div'); d.className = 'edit-item';
+        d.style.flexDirection = 'column'; d.style.alignItems = 'stretch';
+        d.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+            <span>${window.formatDate(i.date)} - <strong>${i.exercise}</strong></span>
+            <div style="display:flex; gap:6px;">
+              <button class="btn-secondary" onclick="toggleInlineEdit('workout_${i.id}')">Edytuj</button>
+              <button class="btn-danger" onclick="deleteRecord('Treningi','${i.id}')">Usuń</button>
+            </div>
+          </div>
+          <div id="edit_workout_${i.id}" style="display:none; margin-top:8px; gap:6px; flex-direction:column;">
+            <div class="form-field"><label>Data</label><input type="date" id="edit_wo_date_${i.id}" value="${i.date}"></div>
+            <div class="form-field"><label>Ciężary w seriach (np. 30, 32.5, 35)</label><input type="text" id="edit_wo_weights_${i.id}" value="${(i.weights||[]).join(', ')}"></div>
+            <div class="form-field"><label>Powtórzenia w seriach (np. 8, 8, 8)</label><input type="text" id="edit_wo_reps_${i.id}" value="${(i.reps||[]).join(', ')}"></div>
+            <button class="btn-primary" onclick="saveEditedWorkout('${i.id}', '${i.exercise}')">Zapisz zmianę</button>
+          </div>`;
+        woList.appendChild(d);
+      });
+    }
+
+    const bList = document.getElementById('editBodyList'); 
+    if(bList) {
+      bList.innerHTML = '';
+      [...bodyMeasurementsData].reverse().forEach(i => {
+        const d = document.createElement('div'); d.className = 'edit-item';
+        d.style.flexDirection = 'column'; d.style.alignItems = 'stretch';
+        d.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+            <span>${window.formatDate(i.date)} - <strong>${i.part}</strong>: ${i.size} cm</span>
+            <div style="display:flex; gap:6px;">
+              <button class="btn-secondary" onclick="toggleInlineEdit('body_${i.id}')">Edytuj</button>
+              <button class="btn-danger" onclick="deleteRecord('Obwody','${i.id}')">Usuń</button>
+            </div>
+          </div>
+          <div id="edit_body_${i.id}" style="display:none; margin-top:8px; gap:6px; flex-direction:column;">
+            <input type="date" id="edit_b_date_${i.id}" value="${i.date}">
+            <input type="number" id="edit_b_val_${i.id}" step="0.1" value="${i.size}">
+            <button class="btn-primary" onclick="saveEditedBody('${i.id}', '${i.part}')">Zapisz zmianę</button>
+          </div>`;
+        bList.appendChild(d);
+      });
+    }
+  };
+
+  window.toggleInlineEdit = function(id) {
+    const el = document.getElementById(`edit_${id}`);
+    if (el) el.style.display = el.style.display === 'flex' ? 'none' : 'flex';
+  };
+
+  window.saveEditedWeight = async function(id) {
+    const date = document.getElementById(`edit_w_date_${id}`).value;
+    const weight = parseFloat(document.getElementById(`edit_w_val_${id}`).value);
+    if (!date || isNaN(weight)) return;
+    await window.firebaseFunctions.updateData('Waga', id, { Data: date, Waga: weight });
+    await window.fetchFromFirebaseFast();
+  };
+
+  window.saveEditedWorkout = async function(id, exercise) {
+    const date = document.getElementById(`edit_wo_date_${id}`).value;
+    const weightsStr = document.getElementById(`edit_wo_weights_${id}`).value;
+    const repsStr = document.getElementById(`edit_wo_reps_${id}`).value;
+    const weights = weightsStr.split(',').map(w => parseFloat(w.trim().replace(',', '.'))).filter(v => !isNaN(v));
+    const reps = repsStr.split(',').map(r => parseInt(r.trim())).filter(v => !isNaN(v));
+    if (!date || weights.length === 0) return;
+    await window.firebaseFunctions.updateData('Treningi', id, { Data: date, Cwiczenie: exercise, Wagi: weights, Powtorzenia: reps });
+    await window.fetchFromFirebaseFast();
+  };
+
+  window.saveEditedBody = async function(id, part) {
+    const date = document.getElementById(`edit_b_date_${id}`).value;
+    const size = parseFloat(document.getElementById(`edit_b_val_${id}`).value);
+    if (!date || isNaN(size)) return;
+    await window.firebaseFunctions.updateData('Obwody', id, { Data: date, Partia: part, Wymiar: size });
+    await window.fetchFromFirebaseFast();
+  };
+
+  window.deleteRecord = async function(coll, id) {
+    if(!confirm("Usunąć wpis?")) return;
+    await window.firebaseFunctions.deleteData(coll, id);
+    await window.fetchFromFirebaseFast();
+  };
+
+  window.addExerciseName = async function() {
+    const inp = document.getElementById('newExerciseInput');
+    if (!inp || !inp.value.trim()) return;
+    const name = inp.value.trim();
+    inp.value = '';
+    await window.firebaseFunctions.addData('Cwiczenia', { Nazwa: name });
+    await window.fetchFromFirebaseFast();
+  };
+
+  window.addBodyPartName = async function() {
+    const inp = document.getElementById('newBodyPartInput');
+    if (!inp || !inp.value.trim()) return;
+    const name = inp.value.trim();
+    inp.value = '';
+    await window.firebaseFunctions.addData('Obwody', { Partia: name, Wymiar: 0 });
+    await window.fetchFromFirebaseFast();
+  };
+
+  window.saveNewPin = function() {
+    const inp = document.getElementById('newPinInput');
+    if (!inp || inp.value.length !== 4) { alert("PIN musi składać się z 4 cyfr!"); return; }
+    localStorage.setItem('settings_pin', inp.value);
+    alert("PIN został pomyślnie zmieniony.");
+    inp.value = '';
+  };
+
+  window.clearPinProtection = function() {
+    sessionStorage.removeItem('app_authenticated');
+    sessionStorage.removeItem('pin_authenticated');
+    alert("Sesja została zakończona. Odśwież stronę, aby zalogować się ponownie.");
+    location.reload();
+  };
+</script>
