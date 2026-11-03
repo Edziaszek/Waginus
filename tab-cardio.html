@@ -1,48 +1,28 @@
 <div class="card">
   <h2>🏃‍♂️ Dodaj Trening Kardio</h2>
   <form id="cardioForm">
-    <div class="form-field">
-      <label>Data</label>
-      <input type="date" id="cardioDate" required>
-    </div>
+    <div class="form-field"><label>Data</label><input type="date" id="cardioDate" required></div>
     <div class="form-field">
       <label>Rodzaj aktywności / Urządzenie</label>
-      <div style="display:flex; gap:8px;">
-        <select id="cardioTypeSelect" style="flex:1;" required>
-          <option value="">Wybierz aktywność...</option>
-        </select>
-      </div>
+      <select id="cardioTypeSelect" required><option value="">Wybierz aktywność...</option></select>
     </div>
     <div class="form-field">
       <label>Czas treningu</label>
-      <div style="position:relative;">
-        <input type="text" id="cardioDuration" placeholder="np. 45 min lub 1:15:00" style="width:100%; padding-right:45px; box-sizing:border-box;" required>
-        <span style="position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.85em; pointer-events:none; font-weight:bold;">czas</span>
-      </div>
+      <div class="unit-field"><input type="text" id="cardioDuration" placeholder="np. 45 min lub 1:15:00" required><i>czas</i></div>
     </div>
     <div class="form-field">
       <label>Dystans</label>
-      <div style="position:relative;">
-        <input type="number" id="cardioDistance" step="0.01" placeholder="np. 5.2" style="width:100%; padding-right:40px; box-sizing:border-box;" required>
-        <span style="position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.85em; pointer-events:none; font-weight:bold;">km</span>
-      </div>
+      <div class="unit-field"><input type="number" id="cardioDistance" step="0.01" inputmode="decimal" placeholder="np. 5.2" required><i>km</i></div>
     </div>
     <div class="form-field">
       <label>Średnie tempo</label>
-      <div style="position:relative;">
-        <input type="text" id="cardioPace" placeholder="np. 5:30" style="width:100%; padding-right:45px; box-sizing:border-box;" required>
-        <span style="position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.85em; pointer-events:none; font-weight:bold;">min/km</span>
-      </div>
+      <div class="unit-field"><input type="text" id="cardioPace" placeholder="np. 5:30" required><i>min/km</i></div>
     </div>
     <div class="form-field">
       <label>Średnie tętno</label>
-      <div style="position:relative;">
-        <input type="number" id="cardioHeartRate" step="1" placeholder="np. 145" style="width:100%; padding-right:40px; box-sizing:border-box;" required>
-        <span style="position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.85em; pointer-events:none; font-weight:bold;">bpm</span>
-      </div>
+      <div class="unit-field"><input type="number" id="cardioHeartRate" step="1" inputmode="numeric" placeholder="np. 145" required><i>bpm</i></div>
     </div>
-
-    <button type="submit" class="btn-primary" style="width:100%;">Zapisz Kardio</button>
+    <button type="submit" class="btn-primary">Zapisz Kardio</button>
   </form>
 </div>
 
@@ -50,214 +30,161 @@
   <h2>📊 Statystyki Kardio</h2>
   <div class="form-field">
     <label>Wybierz aktywność</label>
-    <select id="statCardioSelect">
-      <option value="">Wybierz aktywność...</option>
-    </select>
+    <select id="statCardioSelect"><option value="">Wybierz aktywność...</option></select>
   </div>
-
-  <div class="filter-group" id="cardioFilterGroup" style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">
+  <div class="btn-group" id="cardioFilterGroup">
     <button type="button" class="active" data-filter="week">Ten tydzień</button>
     <button type="button" data-filter="month">Ten miesiąc</button>
     <button type="button" data-filter="90">90 dni</button>
     <button type="button" data-filter="all">Wszystko</button>
   </div>
-
-  <div style="display:flex; gap:10px; margin-top:12px;">
-    <div class="stat-box" style="flex:1;">
-      <small>Łączny dystans</small>
-      <div id="cardioAvgResult" style="font-size:1.2em; font-weight:bold;">- km</div>
-    </div>
-    <div class="stat-box" style="flex:1;">
-      <small>Łączny czas</small>
-      <div id="cardioMedResult" style="font-size:1.2em; font-weight:bold;">- min</div>
-    </div>
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-lbl">Łączny dystans</div><div class="stat-val" id="cardioDistTotal">-</div></div>
+    <div class="stat-box"><div class="stat-lbl">Łączny czas</div><div class="stat-val" id="cardioTimeTotal">-</div></div>
   </div>
-  
-  <div class="chart-container" style="margin-top:15px;">
-    <canvas id="cardioChart"></canvas>
-  </div>
+  <div class="chart-box"><canvas id="cardioChart"></canvas></div>
 </div>
 
 <div class="card">
   <h2>📜 Historia Kardio</h2>
-  <div id="cardioDataList" style="display:flex; flex-direction:column; gap:6px;"></div>
+  <div id="cardioHistory" class="history"></div>
 </div>
 
 <script>
-  let currentCardioFilter = 'week';
+(() => {
+  const { util: U, data: D } = App;
+  const $ = id => document.getElementById(id);
+  const state = { filter: 'week' };
 
-  window.renderCardioTab = function() {
-    const cDate = document.getElementById('cardioDate');
-    if (cDate && !cDate.value) cDate.valueAsDate = new Date();
-
-    populateCardioSelects();
-    renderCardioList();
-    window.updateCardioStatsAndChart();
+  // "45 min", "45", "1:15:00", "45:30" -> minuty
+  const toMinutes = s => {
+    s = String(s).trim();
+    if (s.includes(':')) {
+      const p = s.split(':').map(x => parseInt(x) || 0);
+      return p.length === 3 ? p[0] * 60 + p[1] + p[2] / 60 : p.length === 2 ? p[0] + p[1] / 60 : 0;
+    }
+    return parseFloat(s.replace(',', '.')) || 0;
   };
 
-  function populateCardioSelects() {
-    const cardioTypesList = window.cardioTypesList || [];
-    ['cardioTypeSelect', 'statCardioSelect'].forEach(id => {
-      const el = document.getElementById(id);
-      if(el) {
-        const cur = el.value;
-        el.innerHTML = '<option value="">Wybierz aktywność...</option>';
-        cardioTypesList.forEach(item => {
-          const opt = document.createElement('option'); 
-          opt.value = item.name; 
-          opt.textContent = item.name;
-          el.appendChild(opt);
-        });
-        
-        // Jeśli to lista statystyk i nie ma wybranej opcji, a są elementy -> wybierz domyślnie pierwszy
-        if (id === 'statCardioSelect' && !cur && el.options.length > 1) {
-          el.selectedIndex = 1;
-        } else if (cur) {
-          el.value = cur;
-        }
-      }
-    });
+  // ---------- dane ----------
+  function parse(raw) {
+    D.cardioTypes = raw.KardioTypy
+      .map(i => ({ id: i.id, name: String(U.pick(i, 'Nazwa', 'Typ', 'type') ?? '').trim() })).filter(t => t.name);
+    if (!D.cardioTypes.length) D.cardioTypes = ['Bieżnia', 'Rowerek', 'Orbitrek', 'Spacer'].map((name, i) => ({ id: 'default_' + i, name }));
+
+    D.cardio = raw.Kardio.map(i => {
+      const date = U.pick(i, 'Data', 'date') || '', duration = String(U.pick(i, 'Czas', 'duration') ?? '');
+      return {
+        id: i.id, date, ts: U.ts(date), duration, minutes: toMinutes(duration),
+        type: U.pick(i, 'Typ', 'type') || 'Bieżnia',
+        distance: U.num(U.pick(i, 'Dystans', 'distance')) || 0,
+        pace: U.pick(i, 'Tempo', 'pace') || '',
+        heartRate: parseInt(U.pick(i, 'Tetno', 'heartRate')) || 0
+      };
+    }).filter(r => r.date && !isNaN(r.ts)).sort(U.byTs);
   }
 
-  window.updateCardioStatsAndChart = function() {
-    const sel = document.getElementById('statCardioSelect'); 
-    if (!sel || !sel.value) return;
-
-    const selectedType = sel.value;
-    const cardioData = window.cardioData || [];
-    const filtered = cardioData.filter(c => c.type && c.type.toLowerCase() === selectedType.toLowerCase());
-
-    let timeFiltered = [...filtered];
-    const now = new Date();
-
-    if (currentCardioFilter === 'week') {
-      const day = now.getDay() || 7;
-      const monday = new Date(now);
-      monday.setDate(now.getDate() - day + 1); 
-      monday.setHours(0,0,0,0);
-      timeFiltered = filtered.filter(c => window.parseLocalDate(c.date) >= monday);
-    } else if (currentCardioFilter === 'month') {
-      const curM = now.getMonth(), curY = now.getFullYear();
-      timeFiltered = filtered.filter(c => {
-        const dt = window.parseLocalDate(c.date);
-        return dt.getMonth() === curM && dt.getFullYear() === curY;
-      });
-    } else if (currentCardioFilter === '90') {
-      const limitDate = new Date();
-      limitDate.setDate(now.getDate() - 90);
-      timeFiltered = filtered.filter(c => window.parseLocalDate(c.date) >= limitDate);
+  function fillSelects() {
+    const opts = '<option value="">Wybierz aktywność...</option>' +
+      D.cardioTypes.map(t => `<option value="${U.esc(t.name)}">${U.esc(t.name)}</option>`).join('');
+    for (const id of ['cardioTypeSelect', 'statCardioSelect']) {
+      const el = $(id), cur = el.value;
+      el.innerHTML = opts;
+      el.value = cur;
+      if (el.selectedIndex < 0) el.selectedIndex = 0;
+      if (id === 'statCardioSelect' && el.selectedIndex === 0 && D.cardioTypes.length) el.selectedIndex = 1;
     }
-
-    const totalDistance = timeFiltered.reduce((acc, curr) => acc + (curr.distance || 0), 0);
-    let totalMinutes = 0;
-
-    timeFiltered.forEach(c => {
-      const durStr = String(c.duration || '').trim();
-      if (durStr.includes(':')) {
-        const parts = durStr.split(':').map(p => parseInt(p) || 0);
-        if (parts.length === 3) totalMinutes += parts[0] * 60 + parts[1] + parts[2] / 60;
-        else if (parts.length === 2) totalMinutes += parts[0] + parts[1] / 60;
-      } else {
-        totalMinutes += parseFloat(durStr.replace(',', '.')) || 0;
-      }
-    });
-
-    const cAvg = document.getElementById('cardioAvgResult');
-    const cMed = document.getElementById('cardioMedResult');
-    
-    if (cAvg) cAvg.innerText = totalDistance.toFixed(2) + ' km';
-    if (cMed) {
-      if (totalMinutes >= 60) {
-        const hrs = Math.floor(totalMinutes / 60);
-        const mins = Math.round(totalMinutes % 60);
-        cMed.innerText = `${hrs}h ${mins} min`;
-      } else {
-        cMed.innerText = Math.round(totalMinutes) + ' min';
-      }
-    }
-
-    const distances = timeFiltered.map(c => c.distance);
-    window.drawChart('cardioChart', distances, 'all', 'km');
-  };
-
-  function renderCardioList() {
-    const list = document.getElementById('cardioDataList'); 
-    if (!list) return;
-    list.innerHTML = '';
-    
-    const cardioData = window.cardioData || [];
-    if (!cardioData.length) {
-      list.innerHTML = '<div style="text-align:center; padding:10px; color:var(--text-muted);">Brak wpisów kardio</div>';
-      return;
-    }
-
-    const grouped = {};
-    cardioData.forEach(c => { 
-      if (c.date) { 
-        const k = window.formatDate(c.date); 
-        if (!grouped[k]) grouped[k] = []; 
-        grouped[k].push(c); 
-      } 
-    });
-
-    Object.keys(grouped).reverse().forEach((dt, idx) => {
-      const head = document.createElement('div'); 
-      head.className = 'accordion-header';
-      head.onclick = () => window.toggleAccordion(head);
-      head.innerHTML = `<span>📅 ${dt} (${grouped[dt].length})</span><span class="accordion-arrow">${idx === 0 ? '▼' : '▶'}</span>`;
-      
-      const content = document.createElement('div'); 
-      content.className = `accordion-content ${idx === 0 ? 'open' : ''}`;
-      
-      grouped[dt].forEach(i => {
-        const d = document.createElement('div'); 
-        d.className = 'data-item';
-        d.innerHTML = `
-          <div>
-            <strong>${i.type}</strong><br>
-            <small style="color:var(--text-muted);">Czas: ${i.duration} | Tempo: ${i.pace} min/km | Tętno: ${i.heartRate} bpm</small>
-          </div>
-          <strong style="color:var(--primary);">${i.distance} km</strong>`;
-        content.appendChild(d);
-      });
-      
-      list.appendChild(head); 
-      list.appendChild(content);
-    });
   }
 
-  // NASŁUCHIWANIA DLA KARDIO
-  const cardioForm = document.getElementById('cardioForm');
-  if (cardioForm) {
-    cardioForm.addEventListener('submit', async (e) => {
+  // ---------- statystyki i wykres ----------
+  function sessions() {
+    const type = $('statCardioSelect').value.toLowerCase();
+    if (!type) return [];
+    const n = new Date(), f = state.filter;
+    const from = f === 'week' ? U.daysAgo((n.getDay() || 7) - 1)
+      : f === 'month' ? new Date(n.getFullYear(), n.getMonth(), 1).getTime()
+      : f === '90' ? U.daysAgo(90) : 0;
+    return D.cardio.filter(c => c.ts >= from && c.type.toLowerCase() === type);
+  }
+
+  // Wykres kardio: słupki dystansu na sesję (ostatnie 40), wartości nad słupkami gdy jest ich mało
+  function drawChart(rows) {
+    const canvas = $('cardioChart'), w = canvas.parentElement.clientWidth;
+    if (!w) return;
+    const h = 180, dpr = window.devicePixelRatio || 1, ctx = canvas.getContext('2d');
+    canvas.width = w * dpr; canvas.height = h * dpr; canvas.style.height = h + 'px';
+    ctx.scale(dpr, dpr);
+    const c = { bar: U.css('--primary'), muted: U.css('--text-muted'), grid: U.css('--card-border') };
+    ctx.font = '11px sans-serif'; ctx.fillStyle = c.muted;
+    rows = rows.slice(-40);
+    if (!rows.length) { ctx.textAlign = 'center'; ctx.fillText('Brak sesji w okresie', w / 2, h / 2); return; }
+
+    const P = 12, T = 20, B = 24, max = Math.max(...rows.map(r => r.distance)) * 1.1 || 1;
+    const slot = (w - 2 * P) / rows.length, bw = Math.min(32, slot * .7);
+
+    ctx.strokeStyle = c.grid; ctx.beginPath(); ctx.moveTo(P, h - B); ctx.lineTo(w - P, h - B); ctx.stroke();
+    ctx.textAlign = 'center';
+    rows.forEach((r, i) => {
+      const bh = r.distance / max * (h - T - B), x = P + slot * i + (slot - bw) / 2, y = h - B - bh;
+      ctx.fillStyle = c.bar; ctx.beginPath(); ctx.roundRect(x, y, bw, bh, 3); ctx.fill();
+      if (rows.length <= 10) { ctx.fillStyle = c.muted; ctx.textBaseline = 'bottom'; ctx.fillText(+r.distance.toFixed(1), x + bw / 2, y - 3); }
+    });
+    ctx.fillStyle = c.muted; ctx.textBaseline = 'top';
+    ctx.textAlign = 'left'; ctx.fillText(U.fmtDate(rows[0].date).slice(0, 5), P, h - B + 6);
+    ctx.textAlign = 'right'; ctx.fillText(U.fmtDate(rows[rows.length - 1].date).slice(0, 5), w - P, h - B + 6);
+  }
+
+  function renderStats() {
+    const rows = sessions();
+    const km = rows.reduce((s, r) => s + r.distance, 0), min = rows.reduce((s, r) => s + r.minutes, 0);
+    $('cardioDistTotal').textContent = km.toFixed(2) + ' km';
+    $('cardioTimeTotal').textContent = min >= 60 ? `${Math.floor(min / 60)}h ${Math.round(min % 60)} min` : Math.round(min) + ' min';
+    drawChart(rows);
+  }
+
+  function renderHistory() {
+    const groups = [...U.group(D.cardio, c => U.fmtDate(c.date))].reverse();
+    $('cardioHistory').innerHTML = groups.map(([dt, items], idx) => `
+      <details class="accordion" ${idx === 0 ? 'open' : ''}>
+        <summary><span>📅 ${dt} (${items.length})</span></summary>
+        <div class="accordion-body">${items.map(i => `
+          <div class="data-item">
+            <div><strong>${U.esc(i.type)}</strong><br>
+              <small class="muted">Czas: ${U.esc(i.duration)} | Tempo: ${U.esc(i.pace)} min/km | Tętno: ${i.heartRate} bpm</small></div>
+            <strong class="accent">${i.distance} km</strong>
+          </div>`).join('')}</div>
+      </details>`).join('') || '<div class="muted center">Brak wpisów kardio</div>';
+  }
+
+  function render() { fillSelects(); renderHistory(); renderStats(); }
+
+  // ---------- zdarzenia ----------
+  function init() {
+    $('cardioDate').value = U.iso(Date.now());
+    $('statCardioSelect').addEventListener('change', renderStats);
+    $('cardioFilterGroup').addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      $('cardioFilterGroup').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+      state.filter = b.dataset.filter;
+      renderStats();
+    });
+
+    $('cardioForm').addEventListener('submit', async e => {
       e.preventDefault();
-      const date = document.getElementById('cardioDate').value;
-      const type = document.getElementById('cardioTypeSelect').value;
-      const duration = document.getElementById('cardioDuration').value;
-      const distance = parseFloat(document.getElementById('cardioDistance').value);
-      const pace = document.getElementById('cardioPace').value;
-      const heartRate = parseInt(document.getElementById('cardioHeartRate').value);
-
+      const date = $('cardioDate').value, type = $('cardioTypeSelect').value;
       if (!date || !type) return;
-
-      window.cardioData.push({ date, type, duration, distance, pace, heartRate });
-      window.cardioData.sort((a, b) => window.parseLocalDate(a.date) - window.parseLocalDate(b.date));
-      window.updateApp();
-
-      await window.firebaseFunctions.addData('Kardio', { 
-        Data: date, Typ: type, Czas: duration, Dystans: distance, Tempo: pace, Tetno: heartRate 
-      });
-      window.fetchFromFirebaseFast();
+      const duration = $('cardioDuration').value.trim(), pace = $('cardioPace').value.trim();
+      const distance = U.num($('cardioDistance').value), heartRate = parseInt($('cardioHeartRate').value);
+      const rec = { date, ts: U.ts(date), type, duration, minutes: toMinutes(duration), distance, pace, heartRate };
+      D.cardio.push(rec); D.cardio.sort(U.byTs); App.invalidate();
+      const id = await App.run(
+        () => App.db.addData('Kardio', { Data: date, Typ: type, Czas: duration, Dystans: distance, Tempo: pace, Tetno: heartRate }),
+        () => U.drop(D.cardio, rec));
+      if (id) rec.id = id;
     });
   }
 
-  const statCardioSel = document.getElementById('statCardioSelect');
-  if (statCardioSel) statCardioSel.onchange = () => window.updateCardioStatsAndChart();
-
-  document.querySelectorAll('#cardioFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
-    document.querySelectorAll('#cardioFilterGroup button').forEach(b => b.classList.remove('active'));
-    e.target.classList.add('active'); 
-    currentCardioFilter = e.target.getAttribute('data-filter'); 
-    window.updateCardioStatsAndChart();
-  }));
+  App.register('cardio', { collections: ['Kardio', 'KardioTypy'], parse, init, render });
+})();
 </script>
