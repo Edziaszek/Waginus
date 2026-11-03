@@ -1,6 +1,7 @@
 <div class="subtabs-nav" id="settingsNav">
   <button class="subtab-btn active" data-sub="weight">Waga</button>
   <button class="subtab-btn" data-sub="workout">Treningi</button>
+  <button class="subtab-btn" data-sub="cardio">Kardio</button>
   <button class="subtab-btn" data-sub="body">Obwody</button>
   <button class="subtab-btn" data-sub="general">Ogólne</button>
 </div>
@@ -19,6 +20,18 @@
     <div id="editExercisesList" class="edit-list mt"></div>
   </div>
   <div class="card"><h2>Edycja Treningów</h2><div id="editWorkoutList" class="edit-list"></div></div>
+</div>
+
+<div class="subtab-content" data-panel="cardio">
+  <div class="card">
+    <h2>Rodzaje Aktywności (Baza)</h2>
+    <div class="form-group">
+      <input type="text" id="newCardioTypeInput" placeholder="Nowy rodzaj (np. Bieżnia)">
+      <button type="button" class="btn-primary" data-act="add-ctype">Dodaj</button>
+    </div>
+    <div id="editCardioTypesList" class="edit-list mt"></div>
+  </div>
+  <div class="card"><h2>Edycja Kardio</h2><div id="editCardioList" class="edit-list"></div></div>
 </div>
 
 <div class="subtab-content" data-panel="body">
@@ -64,6 +77,7 @@
   const KINDS = {
     weight:   { coll: 'Waga',      list: () => D.weight },
     workout:  { coll: 'Treningi',  list: () => D.workouts },
+    cardio:   { coll: 'Kardio',    list: () => D.cardio },
     body:     { coll: 'Obwody',    list: () => D.body },
     exercise: { coll: 'Cwiczenia', list: () => D.exercises }
   };
@@ -97,6 +111,23 @@
         field('weights', 'text', r.weights.join(', '), 'Ciężary w seriach (np. 30, 32.5, 35)') +
         field('reps', 'text', r.reps.join(', '), 'Powtórzenia w seriach (np. 8, 8, 8)'))).join('');
     },
+    cardio() {
+      $('editCardioTypesList').innerHTML = D.cardioTypes.map(t => `<div class="edit-item"><span>${U.esc(t.name)}</span>
+        <button class="btn-danger" data-act="delete-ctype" data-name="${U.esc(t.name)}">Usuń</button></div>`).join('');
+      // lista rodzajów w edycji zawiera też rodzaj wpisu, który zniknął z bazy – żeby go nie zgubić przy zapisie
+      const typeSelect = cur => {
+        const names = [...new Set([...D.cardioTypes.map(t => t.name), cur])];
+        return `<div class="form-field"><label>Rodzaj</label><select data-f="type">${names.map(n =>
+          `<option value="${U.esc(n)}" ${n === cur ? 'selected' : ''}>${U.esc(n)}</option>`).join('')}</select></div>`;
+      };
+      $('editCardioList').innerHTML = [...D.cardio].reverse().map(r => item('cardio', r,
+        `${U.fmtDate(r.date)} - <strong>${U.esc(r.type)}</strong>: ${r.distance} km`,
+        field('date', 'date', U.iso(r.ts), 'Data') + typeSelect(r.type) +
+        field('duration', 'text', r.duration, 'Czas (np. 45 min lub 1:15:00)') +
+        field('distance', 'number', r.distance, 'Dystans (km)', 'step="0.01"') +
+        field('pace', 'text', r.pace, 'Średnie tempo (min/km)') +
+        field('hr', 'number', r.heartRate, 'Średnie tętno (bpm)', 'step="1"'))).join('');
+    },
     body() {
       $('editBodyPartsList').innerHTML = D.bodyParts.map(p => `<div class="edit-item"><span>${U.esc(p.name)}</span>
         <button class="btn-danger" data-act="delete-part" data-name="${U.esc(p.name)}">Usuń</button></div>`).join('');
@@ -129,6 +160,11 @@
     } else if (kind === 'body') {
       const size = U.num(f('size'));
       if (!isNaN(size)) await patch(kind, rec, { date, ts, size }, { Data: date, Partia: rec.part, Wymiar: size });
+    } else if (kind === 'cardio') {
+      const type = f('type'), duration = f('duration').trim(), pace = f('pace').trim();
+      const distance = U.num(f('distance')), heartRate = parseInt(f('hr')) || 0;
+      if (!isNaN(distance)) await patch(kind, rec, { date, ts, type, duration, distance, pace, heartRate },
+        { Data: date, Typ: type, Czas: duration, Dystans: distance, Tempo: pace, Tetno: heartRate });
     } else if (kind === 'workout') {
       const nums = (s, conv) => s.split(',').map(x => conv(x.trim().replace(',', '.'))).filter(n => !isNaN(n));
       const weights = nums(f('weights'), parseFloat), reps = nums(f('reps'), parseInt);
@@ -154,6 +190,38 @@
     D.exercises.push(rec); App.invalidate();
     const id = await App.run(() => App.db.addData('Cwiczenia', { Nazwa: name }), () => U.drop(D.exercises, rec));
     if (id) rec.id = id;
+  }
+
+  // Lista domyślnych rodzajów (gdy baza jest pusta) istnieje tylko w pamięci – przed pierwszą zmianą zapisujemy ją w bazie,
+  // inaczej po odświeżeniu zniknęłaby i został tylko nowo dodany rodzaj.
+  async function materializeTypes() {
+    for (const t of D.cardioTypes.filter(t => String(t.id).startsWith('default_'))) {
+      t.id = await App.db.addData('KardioTypy', { Nazwa: t.name });
+    }
+  }
+
+  async function addCardioType() {
+    const inp = $('newCardioTypeInput'), name = inp.value.trim();
+    if (!name) return;
+    if (D.cardioTypes.some(t => t.name.toLowerCase() === name.toLowerCase())) { alert('Taki rodzaj już istnieje.'); return; }
+    inp.value = '';
+    const rec = { id: undefined, name };
+    D.cardioTypes.push(rec); App.invalidate();
+    const id = await App.run(async () => { await materializeTypes(); return App.db.addData('KardioTypy', { Nazwa: name }); },
+      () => U.drop(D.cardioTypes, rec));
+    if (id) rec.id = id;
+  }
+
+  // Usuwa rodzaj z listy wyboru; istniejące wpisy kardio tego rodzaju zostają bez zmian.
+  async function removeCardioType(name) {
+    const i = D.cardioTypes.findIndex(t => t.name === name);
+    if (i < 0 || !confirm(`Usunąć rodzaj „${name}” z listy? Dotychczasowe wpisy kardio zostaną.`)) return;
+    const [rec] = D.cardioTypes.splice(i, 1);
+    App.invalidate();
+    await App.run(async () => {
+      await materializeTypes(); // pozostałe domyślne zapisujemy w bazie, usuwany był tylko w pamięci
+      if (!String(rec.id).startsWith('default_')) await App.db.deleteData('KardioTypy', rec.id);
+    }, () => D.cardioTypes.splice(i, 0, rec));
   }
 
   async function addPart() {
@@ -199,6 +267,8 @@
     delete: d => remove(d.kind, d.id),
     'delete-part': d => removePart(d.name),
     'add-exercise': addExercise,
+    'add-ctype': addCardioType,
+    'delete-ctype': d => removeCardioType(d.name),
     'add-part': addPart,
     theme: () => App.toggleTheme(),
     font: d => App.changeFont(+d.d),
