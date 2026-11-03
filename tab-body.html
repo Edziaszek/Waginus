@@ -26,11 +26,11 @@
     <label>Wybierz partię ciała</label>
     <select id="statBodySelect"><option value="">Wybierz obwód...</option></select>
   </div>
-  <div class="btn-group" id="bodyPeriodGroup">
-    <button type="button" data-period="7">Tydzień</button>
-    <button type="button" class="active" data-period="30">Miesiąc</button>
-    <button type="button" data-period="90">3 Miesiące</button>
-    <button type="button" data-period="all">Wszystko</button>
+  <div class="segmented" role="group" id="bodyPeriodGroup">
+    <button type="button" data-period="7" aria-pressed="false">Tydzień</button>
+    <button type="button" class="active" data-period="30" aria-pressed="true">Miesiąc</button>
+    <button type="button" data-period="90" aria-pressed="false">3 Miesiące</button>
+    <button type="button" data-period="all" aria-pressed="false">Wszystko</button>
   </div>
   <div class="filter-result-box">
     <div><span>Średni obwód</span><strong id="bodyAvg">-</strong></div>
@@ -181,7 +181,7 @@
     $('bodyPeriodGroup').addEventListener('click', e => {
       const b = e.target.closest('button');
       if (!b) return;
-      $('bodyPeriodGroup').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+      $('bodyPeriodGroup').querySelectorAll('button').forEach(x => { x.classList.toggle('active', x === b); x.setAttribute('aria-pressed', x === b); });
       state.period = b.dataset.period;
       renderStats();
     });

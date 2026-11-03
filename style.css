@@ -133,12 +133,6 @@ button.full { width: 100%; }
 .stat-val { font-size: 1.1rem; font-weight: bold; color: var(--primary); margin-top: 4px; }
 .stat-lbl { font-size: .75rem; color: var(--text-muted); }
 
-.btn-group { display: flex; gap: 6px; margin: 10px 0; flex-wrap: wrap; }
-.btn-group button {
-  flex: 1; padding: 6px 8px; border: 1px solid var(--card-border); background: var(--card-bg);
-  color: var(--text-main); border-radius: 6px; font-size: .8rem; cursor: pointer;
-}
-.btn-group button.active { background: var(--primary); color: var(--primary-text); border-color: var(--primary); font-weight: bold; }
 
 .filter-result-box {
   background: var(--box-bg); border: 1px solid var(--card-border); padding: 10px;
@@ -206,3 +200,22 @@ details.accordion[open] > summary::after { content: '▼'; }
 }
 .nav-item svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .nav-item.active { color: var(--primary); font-weight: bold; }
+
+/* ---------- Przełącznik okresu (segmented control) – duże cele dotykowe ---------- */
+.segmented {
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; margin: 12px 0;
+  padding: 4px; background: var(--box-bg); border: 1px solid var(--card-border); border-radius: 14px;
+}
+.segmented button {
+  min-height: 44px; padding: 0 4px; border: none; border-radius: 10px; background: transparent;
+  color: var(--text-muted); font-size: .85rem; font-weight: 600; cursor: pointer;
+  touch-action: manipulation; user-select: none;
+  transition: background .18s, color .18s, transform .12s, box-shadow .18s;
+}
+.segmented button:active { transform: scale(.94); }
+.segmented button.active {
+  background: var(--primary); color: var(--primary-text); font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0,0,0,.22);
+}
+.segmented button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.stat-sub { font-size: .72rem; color: var(--text-muted); margin-top: 2px; min-height: 1em; }

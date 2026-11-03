@@ -20,10 +20,10 @@
 
 <div class="card">
   <h2>Średnia i Mediana tygodniowa</h2>
-  <div class="btn-group" id="weekFilterGroup">
-    <button data-off="0" class="active">Obecny</button>
-    <button data-off="1">Poprzedni</button>
-    <button data-off="2">2 tyg. temu</button>
+  <div class="segmented" role="group" id="weekFilterGroup">
+    <button data-off="0" class="active" aria-pressed="true">Obecny</button>
+    <button data-off="1" aria-pressed="false">Poprzedni</button>
+    <button data-off="2" aria-pressed="false">2 tyg. temu</button>
   </div>
   <div class="filter-result-box">
     <div><span>Średnia</span><strong id="weekAvg">-</strong></div>
@@ -33,10 +33,10 @@
 
 <div class="card">
   <h2>Średnia i Mediana miesięczna</h2>
-  <div class="btn-group" id="monthFilterGroup">
-    <button data-off="0" class="active">Obecny</button>
-    <button data-off="1">Poprzedni</button>
-    <button data-off="2">2 mies. temu</button>
+  <div class="segmented" role="group" id="monthFilterGroup">
+    <button data-off="0" class="active" aria-pressed="true">Obecny</button>
+    <button data-off="1" aria-pressed="false">Poprzedni</button>
+    <button data-off="2" aria-pressed="false">2 mies. temu</button>
   </div>
   <div class="filter-result-box">
     <div><span>Średnia</span><strong id="monthAvg">-</strong></div>
@@ -59,11 +59,11 @@
 
 <div class="card">
   <h2>Wykres wagi</h2>
-  <div class="btn-group" id="chartFilterGroup">
-    <button data-range="7">7d</button>
-    <button data-range="30" class="active">30d</button>
-    <button data-range="90">90d</button>
-    <button data-range="all">Wszystko</button>
+  <div class="segmented" role="group" id="chartFilterGroup">
+    <button data-range="7" aria-pressed="false">7d</button>
+    <button data-range="30" class="active" aria-pressed="true">30d</button>
+    <button data-range="90" aria-pressed="false">90d</button>
+    <button data-range="all" aria-pressed="false">Wszystko</button>
   </div>
   <div class="chart-box"><canvas id="weightChart"></canvas></div>
 </div>
@@ -176,7 +176,7 @@
     $(id).addEventListener('click', e => {
       const b = e.target.closest('button');
       if (!b) return;
-      $(id).querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+      $(id).querySelectorAll('button').forEach(x => { x.classList.toggle('active', x === b); x.setAttribute('aria-pressed', x === b); });
       onPick(b.dataset);
     });
   }

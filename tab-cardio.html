@@ -32,11 +32,11 @@
     <label>Wybierz aktywność</label>
     <select id="statCardioSelect"><option value="">Wybierz aktywność...</option></select>
   </div>
-  <div class="btn-group" id="cardioFilterGroup">
-    <button type="button" class="active" data-filter="week">Ten tydzień</button>
-    <button type="button" data-filter="month">Ten miesiąc</button>
-    <button type="button" data-filter="90">90 dni</button>
-    <button type="button" data-filter="all">Wszystko</button>
+  <div class="segmented" role="group" id="cardioFilterGroup">
+    <button type="button" class="active" data-filter="week" aria-pressed="true">Tydzień</button>
+    <button type="button" data-filter="month" aria-pressed="false">Miesiąc</button>
+    <button type="button" data-filter="90" aria-pressed="false">90 dni</button>
+    <button type="button" data-filter="all" aria-pressed="false">Wszystko</button>
   </div>
   <div class="stats-row">
     <div class="stat-box"><div class="stat-lbl">Łączny dystans</div><div class="stat-val" id="cardioDistTotal">-</div></div>
@@ -165,7 +165,7 @@
     $('cardioFilterGroup').addEventListener('click', e => {
       const b = e.target.closest('button');
       if (!b) return;
-      $('cardioFilterGroup').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+      $('cardioFilterGroup').querySelectorAll('button').forEach(x => { x.classList.toggle('active', x === b); x.setAttribute('aria-pressed', x === b); });
       state.filter = b.dataset.filter;
       renderStats();
     });
