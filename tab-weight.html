@@ -2,8 +2,8 @@
   <h2>Dodaj pomiar wagi</h2>
   <form id="weightForm">
     <div class="form-group">
-      <input type="date" id="dateInput" required>
-      <input type="number" id="weightInput" step="0.1" placeholder="Waga (kg)" required>
+      <input type="date" id="weightDate" required>
+      <input type="number" id="weightInput" step="0.1" inputmode="decimal" placeholder="Waga (kg)" required>
     </div>
     <button type="submit" class="btn-primary">Zapisz pomiar</button>
   </form>
@@ -21,26 +21,26 @@
 <div class="card">
   <h2>Średnia i Mediana tygodniowa</h2>
   <div class="btn-group" id="weekFilterGroup">
-    <button data-type="current" class="active">Obecny</button>
-    <button data-type="prev1">Poprzedni</button>
-    <button data-type="prev2">2 tyg. temu</button>
+    <button data-off="0" class="active">Obecny</button>
+    <button data-off="1">Poprzedni</button>
+    <button data-off="2">2 tyg. temu</button>
   </div>
   <div class="filter-result-box">
-    <div><span>Średnia</span><strong id="weekAvgResult">-</strong></div>
-    <div><span>Mediana</span><strong id="weekMedResult">-</strong></div>
+    <div><span>Średnia</span><strong id="weekAvg">-</strong></div>
+    <div><span>Mediana</span><strong id="weekMed">-</strong></div>
   </div>
 </div>
 
 <div class="card">
   <h2>Średnia i Mediana miesięczna</h2>
   <div class="btn-group" id="monthFilterGroup">
-    <button data-type="current" class="active">Obecny</button>
-    <button data-type="prev1">Poprzedni</button>
-    <button data-type="prev2">2 mies. temu</button>
+    <button data-off="0" class="active">Obecny</button>
+    <button data-off="1">Poprzedni</button>
+    <button data-off="2">2 mies. temu</button>
   </div>
   <div class="filter-result-box">
-    <div><span>Średnia</span><strong id="monthAvgResult">-</strong></div>
-    <div><span>Mediana</span><strong id="monthMedResult">-</strong></div>
+    <div><span>Średnia</span><strong id="monthAvg">-</strong></div>
+    <div><span>Mediana</span><strong id="monthMed">-</strong></div>
   </div>
 </div>
 
@@ -51,9 +51,9 @@
     <input type="date" id="customTo">
   </div>
   <div class="filter-result-box">
-    <div><span>Średnia</span><strong id="customAvgResult">-</strong></div>
-    <div><span>Mediana</span><strong id="customMedResult">-</strong></div>
-    <div><span>Pomiary</span><strong id="customCountResult">-</strong></div>
+    <div><span>Średnia</span><strong id="customAvg">-</strong></div>
+    <div><span>Mediana</span><strong id="customMed">-</strong></div>
+    <div><span>Pomiary</span><strong id="customCount">-</strong></div>
   </div>
 </div>
 
@@ -65,148 +65,142 @@
     <button data-range="90">90d</button>
     <button data-range="all">Wszystko</button>
   </div>
-  <canvas id="nativeChart"></canvas>
+  <div class="chart-box"><canvas id="weightChart"></canvas></div>
 </div>
 
 <div class="card">
   <h2>Historia pomiarów wagi</h2>
-  <div id="dataList"></div>
+  <div id="weightHistory" class="history"></div>
 </div>
 
 <script>
-  let currentChartRange = '30';
+(() => {
+  const { util: U, data: D } = App;
+  const $ = id => document.getElementById(id);
+  const state = { week: 0, month: 0, range: '30' };
 
-  window.renderWeightTab = function() {
-    const dInp = document.getElementById('dateInput');
-    if (dInp && !dInp.value) dInp.valueAsDate = new Date();
+  // ---------- dane ----------
+  function parse(raw) {
+    D.weight = raw.Waga.map(i => {
+      const date = U.pick(i, 'Data', 'date', 'data') || '';
+      return { id: i.id, date, ts: U.ts(date), weight: U.num(U.pick(i, 'Waga', 'weight', 'waga')) };
+    }).filter(r => r.date && !isNaN(r.ts) && !isNaN(r.weight)).sort(U.byTs);
+  }
 
-    renderWeightList();
-    renderWeightStats();
-    setWeekFilter('current');
-    setMonthFilter('current');
-    window.drawWeightChart();
+  const inRange = (from, to = Infinity) => D.weight.filter(r => r.ts >= from && r.ts <= to).map(r => r.weight);
+  const show = (prefix, vals) => {
+    $(prefix + 'Avg').textContent = U.f1(U.avg(vals), 'kg');
+    $(prefix + 'Med').textContent = U.f1(U.median(vals), 'kg');
   };
 
-  function renderWeightList() {
-    const listEl = document.getElementById('dataList'); 
-    if(!listEl) return;
-    listEl.innerHTML = '';
-    [...(window.weightData || [])].reverse().forEach(item => {
-      const div = document.createElement('div'); 
-      div.className = 'data-item';
-      div.innerHTML = `<span>${window.formatDate(item.date)}</span> <strong>${item.weight.toFixed(1)} kg</strong>`;
-      listEl.appendChild(div);
+  function weekStats() {
+    const start = U.daysAgo((new Date().getDay() || 7) - 1 + 7 * state.week);
+    show('week', inRange(start, U.endOfDay(start + 6 * U.DAY)));
+  }
+
+  function monthStats() {
+    const n = new Date(), m = n.getMonth() - state.month, y = n.getFullYear();
+    show('month', inRange(new Date(y, m, 1).getTime(), new Date(y, m + 1, 0, 23, 59, 59, 999).getTime()));
+  }
+
+  function customStats() {
+    const f = U.ts($('customFrom').value), t = U.ts($('customTo').value);
+    if (isNaN(f) || isNaN(t)) return;
+    const vals = inRange(f, U.endOfDay(t));
+    show('custom', vals);
+    $('customCount').textContent = vals.length;
+  }
+
+  // ---------- wykres wagi: linia po osi czasu, siatka, linia średniej, podpis ostatniego punktu ----------
+  function drawChart() {
+    const canvas = $('weightChart'), w = canvas.parentElement.clientWidth;
+    if (!w) return;
+    const h = 200, dpr = window.devicePixelRatio || 1, ctx = canvas.getContext('2d');
+    canvas.width = w * dpr; canvas.height = h * dpr; canvas.style.height = h + 'px';
+    ctx.scale(dpr, dpr);
+    const c = { line: U.css('--primary'), muted: U.css('--text-muted'), grid: U.css('--card-border') };
+
+    const rows = state.range === 'all' ? D.weight : D.weight.filter(r => r.ts >= U.daysAgo(+state.range - 1));
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = c.muted;
+    if (rows.length < 2) { ctx.textAlign = 'center'; ctx.fillText('Za mało danych w okresie', w / 2, h / 2); return; }
+
+    const vals = rows.map(r => r.weight), lo = Math.min(...vals), hi = Math.max(...vals), span = (hi - lo) || 1;
+    const min = lo - span * .15, max = hi + span * .15, L = 40, R = 12, T = 12, B = 24;
+    const t0 = rows[0].ts, t1 = rows[rows.length - 1].ts;
+    const X = ts => L + (ts - t0) / ((t1 - t0) || 1) * (w - L - R);
+    const Y = v => T + (1 - (v - min) / (max - min)) * (h - T - B);
+
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.strokeStyle = c.grid; ctx.lineWidth = 1;
+    for (let i = 0; i <= 3; i++) {
+      const v = min + (max - min) * i / 3, y = Y(v);
+      ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke();
+      ctx.fillText(v.toFixed(1), L - 6, y);
+    }
+
+    const avgY = Y(U.avg(vals));
+    ctx.setLineDash([5, 4]); ctx.strokeStyle = c.muted;
+    ctx.beginPath(); ctx.moveTo(L, avgY); ctx.lineTo(w - R, avgY); ctx.stroke(); ctx.setLineDash([]);
+
+    ctx.strokeStyle = c.line; ctx.lineWidth = 2.5; ctx.lineJoin = 'round'; ctx.beginPath();
+    rows.forEach((r, i) => i ? ctx.lineTo(X(r.ts), Y(r.weight)) : ctx.moveTo(X(r.ts), Y(r.weight)));
+    ctx.stroke();
+    ctx.fillStyle = c.line;
+    if (rows.length <= 60) rows.forEach(r => { ctx.beginPath(); ctx.arc(X(r.ts), Y(r.weight), 3, 0, 7); ctx.fill(); });
+
+    const last = rows[rows.length - 1];
+    ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+    ctx.fillText(last.weight.toFixed(1), X(last.ts), Y(last.weight) - 6);
+
+    ctx.fillStyle = c.muted; ctx.font = '11px sans-serif'; ctx.textBaseline = 'top';
+    ctx.textAlign = 'left'; ctx.fillText(U.fmtDate(rows[0].date).slice(0, 5), L, h - B + 6);
+    ctx.textAlign = 'right'; ctx.fillText(U.fmtDate(last.date).slice(0, 5), w - R, h - B + 6);
+  }
+
+  // ---------- render ----------
+  function render() {
+    const w = D.weight, last7 = inRange(U.daysAgo(6));
+    $('lastWeight').textContent = w.length ? w[w.length - 1].weight.toFixed(1) + ' kg' : '-';
+    $('avg7d').textContent = U.f1(U.avg(last7), 'kg');
+    $('med7d').textContent = U.f1(U.median(last7), 'kg');
+
+    $('weightHistory').innerHTML = [...w].reverse().map(r =>
+      `<div class="data-item"><span>${U.fmtDate(r.date)}</span><strong>${r.weight.toFixed(1)} kg</strong></div>`).join('')
+      || '<div class="muted center">Brak pomiarów</div>';
+
+    weekStats(); monthStats(); customStats(); drawChart();
+  }
+
+  // ---------- zdarzenia ----------
+  function bindGroup(id, onPick) {
+    $(id).addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      $(id).querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+      onPick(b.dataset);
     });
   }
 
-  function renderWeightStats() {
-    const weightData = window.weightData || [];
-    if (!weightData.length) return;
-    const now = new Date(), sevenDaysAgo = new Date(); 
-    sevenDaysAgo.setDate(now.getDate() - 7);
-    const last7 = weightData.filter(d => window.parseLocalDate(d.date) >= sevenDaysAgo).map(d => d.weight);
+  function init() {
+    $('weightDate').value = U.iso(Date.now());
+    bindGroup('weekFilterGroup', d => { state.week = +d.off; weekStats(); });
+    bindGroup('monthFilterGroup', d => { state.month = +d.off; monthStats(); });
+    bindGroup('chartFilterGroup', d => { state.range = d.range; drawChart(); });
+    $('customFrom').addEventListener('change', customStats);
+    $('customTo').addEventListener('change', customStats);
 
-    const avg7d = document.getElementById('avg7d');
-    const med7d = document.getElementById('med7d');
-    const lastWeight = document.getElementById('lastWeight');
-
-    if (avg7d) avg7d.innerText = window.getAverage(last7) + ' kg';
-    if (med7d) med7d.innerText = window.getMedian(last7) + ' kg';
-    if (lastWeight) lastWeight.innerText = weightData[weightData.length - 1].weight.toFixed(1) + ' kg';
-  }
-
-  function setWeekFilter(type) {
-    const weightData = window.weightData || [];
-    const now = new Date(), day = now.getDay() || 7, monday = new Date(now);
-    monday.setDate(now.getDate() - day + 1); monday.setHours(0,0,0,0);
-    let start = new Date(monday), end = new Date(monday);
-    end.setDate(start.getDate() + 6); end.setHours(23,59,59,999);
-    if (type === 'prev1') { start.setDate(start.getDate() - 7); end.setDate(end.getDate() - 7); }
-    else if (type === 'prev2') { start.setDate(start.getDate() - 14); end.setDate(end.getDate() - 14); }
-    
-    const filtered = weightData.filter(d => { 
-      const dt = window.parseLocalDate(d.date); 
-      return dt >= start && dt <= end; 
-    }).map(d => d.weight);
-
-    const wAvg = document.getElementById('weekAvgResult');
-    const wMed = document.getElementById('weekMedResult');
-    if (wAvg) wAvg.innerText = window.getAverage(filtered) + ' kg';
-    if (wMed) wMed.innerText = window.getMedian(filtered) + ' kg';
-  }
-
-  function setMonthFilter(type) {
-    const weightData = window.weightData || [];
-    const now = new Date(); let m = now.getMonth(), y = now.getFullYear();
-    if (type === 'prev1') m -= 1; else if (type === 'prev2') m -= 2;
-    if (m < 0) { m += 12; y -= 1; }
-    
-    const filtered = weightData.filter(d => { 
-      const dt = window.parseLocalDate(d.date); 
-      return dt.getMonth() === m && dt.getFullYear() === y; 
-    }).map(d => d.weight);
-
-    const mAvg = document.getElementById('monthAvgResult');
-    const mMed = document.getElementById('monthMedResult');
-    if (mAvg) mAvg.innerText = window.getAverage(filtered) + ' kg';
-    if (mMed) mMed.innerText = window.getMedian(filtered) + ' kg';
-  }
-
-  function calculateCustomRange() {
-    const weightData = window.weightData || [];
-    const f = document.getElementById('customFrom').value, t = document.getElementById('customTo').value;
-    if (!f || !t) return;
-    const from = window.parseLocalDate(f), to = window.parseLocalDate(t); 
-    from.setHours(0,0,0,0); to.setHours(23,59,59,999);
-    const filtered = weightData.filter(d => { const dt = window.parseLocalDate(d.date); return dt >= from && dt <= to; }).map(d => d.weight);
-    
-    const cAvg = document.getElementById('customAvgResult');
-    const cMed = document.getElementById('customMedResult');
-    const cCnt = document.getElementById('customCountResult');
-    if (cAvg) cAvg.innerText = window.getAverage(filtered) + ' kg';
-    if (cMed) cMed.innerText = window.getMedian(filtered) + ' kg';
-    if (cCnt) cCnt.innerText = filtered.length;
-  }
-
-  window.drawWeightChart = function() {
-    window.drawChart('nativeChart', (window.weightData || []).map(d => d.weight), currentChartRange, 'kg');
-  };
-
-  // SUBSKRYPCJE ZDARZEŃ ZAKŁADKI WAGI
-  const weightForm = document.getElementById('weightForm');
-  if (weightForm) {
-    weightForm.addEventListener('submit', async (e) => {
+    $('weightForm').addEventListener('submit', async e => {
       e.preventDefault();
-      const date = document.getElementById('dateInput').value;
-      const weight = parseFloat(document.getElementById('weightInput').value);
+      const date = $('weightDate').value, weight = U.num($('weightInput').value);
       if (!date || isNaN(weight)) return;
-
-      document.getElementById('weightInput').value = '';
-      window.weightData.push({ date, weight });
-      window.weightData.sort((a, b) => window.parseLocalDate(a.date) - window.parseLocalDate(b.date));
-      window.updateApp();
-
-      await window.firebaseFunctions.addData('Waga', { Data: date, Waga: weight });
-      window.fetchFromFirebaseFast();
+      $('weightInput').value = '';
+      const rec = { date, ts: U.ts(date), weight };
+      D.weight.push(rec); D.weight.sort(U.byTs); App.invalidate();
+      const id = await App.run(() => App.db.addData('Waga', { Data: date, Waga: weight }), () => U.drop(D.weight, rec));
+      if (id) rec.id = id;
     });
   }
 
-  document.querySelectorAll('#weekFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
-    document.querySelectorAll('#weekFilterGroup button').forEach(b => b.classList.remove('active'));
-    e.target.classList.add('active'); setWeekFilter(e.target.getAttribute('data-type'));
-  }));
-
-  document.querySelectorAll('#monthFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
-    document.querySelectorAll('#monthFilterGroup button').forEach(b => b.classList.remove('active'));
-    e.target.classList.add('active'); setMonthFilter(e.target.getAttribute('data-type'));
-  }));
-
-  document.querySelectorAll('#chartFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
-    document.querySelectorAll('#chartFilterGroup button').forEach(b => b.classList.remove('active'));
-    e.target.classList.add('active'); currentChartRange = e.target.getAttribute('data-range'); window.drawWeightChart();
-  }));
-
-  const cFrom = document.getElementById('customFrom'), cTo = document.getElementById('customTo');
-  if (cFrom) cFrom.addEventListener('change', calculateCustomRange);
-  if (cTo) cTo.addEventListener('change', calculateCustomRange);
+  App.register('weight', { collections: ['Waga'], parse, init, render });
+})();
 </script>
