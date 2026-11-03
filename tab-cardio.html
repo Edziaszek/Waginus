@@ -75,7 +75,7 @@
     D.cardio = raw.Kardio.map(i => {
       const date = U.pick(i, 'Data', 'date') || '', duration = String(U.pick(i, 'Czas', 'duration') ?? '');
       return {
-        id: i.id, date, ts: U.ts(date), duration, minutes: toMinutes(duration),
+        id: i.id, date, ts: U.ts(date), duration,
         type: U.pick(i, 'Typ', 'type') || 'Bieżnia',
         distance: U.num(U.pick(i, 'Dystans', 'distance')) || 0,
         pace: U.pick(i, 'Tempo', 'pace') || '',
@@ -136,7 +136,7 @@
 
   function renderStats() {
     const rows = sessions();
-    const km = rows.reduce((s, r) => s + r.distance, 0), min = rows.reduce((s, r) => s + r.minutes, 0);
+    const km = rows.reduce((s, r) => s + r.distance, 0), min = rows.reduce((s, r) => s + toMinutes(r.duration), 0);
     $('cardioDistTotal').textContent = km.toFixed(2) + ' km';
     $('cardioTimeTotal').textContent = min >= 60 ? `${Math.floor(min / 60)}h ${Math.round(min % 60)} min` : Math.round(min) + ' min';
     drawChart(rows);
@@ -176,7 +176,7 @@
       if (!date || !type) return;
       const duration = $('cardioDuration').value.trim(), pace = $('cardioPace').value.trim();
       const distance = U.num($('cardioDistance').value), heartRate = parseInt($('cardioHeartRate').value);
-      const rec = { date, ts: U.ts(date), type, duration, minutes: toMinutes(duration), distance, pace, heartRate };
+      const rec = { date, ts: U.ts(date), type, duration, distance, pace, heartRate };
       D.cardio.push(rec); D.cardio.sort(U.byTs); App.invalidate();
       const id = await App.run(
         () => App.db.addData('Kardio', { Data: date, Typ: type, Czas: duration, Dystans: distance, Tempo: pace, Tetno: heartRate }),
