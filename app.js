@@ -166,7 +166,7 @@
     const names = [...document.querySelectorAll('.nav-item')].map(b => b.dataset.tab);
     const app = document.getElementById('app');
     const html = await Promise.all(names.map(n =>
-      fetch(`tab-${n}.html`).then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
+      fetch(`tab-${n}.html`, { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
         .catch(e => { console.error(`Nie załadowano zakładki ${n}`, e); return null; })));
 
     names.forEach((n, i) => {
