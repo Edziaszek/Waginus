@@ -32,9 +32,10 @@
     <button type="button" data-period="90" aria-pressed="false">3 Miesiące</button>
     <button type="button" data-period="all" aria-pressed="false">Wszystko</button>
   </div>
-  <div class="filter-result-box">
-    <div><span>Średni obwód</span><strong id="bodyAvg">-</strong></div>
-    <div><span>Mediana obwodu</span><strong id="bodyMed">-</strong></div>
+  <div class="stats-grid">
+    <div class="stat-box"><div class="stat-lbl">Najniższy</div><div class="stat-val" id="bodyMin">-</div></div>
+    <div class="stat-box"><div class="stat-lbl">Najwyższy</div><div class="stat-val" id="bodyMax">-</div></div>
+    <div class="stat-box"><div class="stat-lbl">Różnica</div><div class="stat-val" id="bodyDiff">-</div></div>
   </div>
 </div>
 
@@ -142,8 +143,10 @@
 
   function renderStats() {
     const rows = measurements(), sizes = rows.map(r => r.size);
-    $('bodyAvg').textContent = U.f1(U.avg(sizes), 'cm');
-    $('bodyMed').textContent = U.f1(U.median(sizes), 'cm');
+    const lo = Math.min(...sizes), hi = Math.max(...sizes); // dla pustej listy: Infinity/-Infinity -> "-"
+    $('bodyMin').textContent = U.f1(lo, 'cm');
+    $('bodyMax').textContent = U.f1(hi, 'cm');
+    $('bodyDiff').textContent = sizes.length ? U.f1(hi - lo, 'cm') : '-';
     drawChart(rows);
   }
 
