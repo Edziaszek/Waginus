@@ -1,19 +1,22 @@
-<div class="card"><h2>📊 Podsumowanie Formy</h2></div>
+<details class="fold" open>
+  <summary>⚖️ Waga</summary>
+  <div class="fold-body stack" id="mainWeight"></div>
+</details>
 
-<div class="card">
-  <h3>⚖️ Waga</h3>
-  <div id="mainWeight" class="stack"></div>
-</div>
+<details class="fold">
+  <summary>📏 Obwody ciała</summary>
+  <div class="fold-body stack" id="mainBody"></div>
+</details>
 
-<div class="card">
-  <h3>📏 Obwody ciała</h3>
-  <div id="mainBody" class="stack"></div>
-</div>
+<details class="fold">
+  <summary>🏋️ Rekordy i ostatnie ciężary w ćwiczeniach</summary>
+  <div class="fold-body stack" id="mainWorkout"></div>
+</details>
 
-<div class="card">
-  <h3>🏋️ Rekordy i ostatnie ciężary w ćwiczeniach</h3>
-  <div id="mainWorkout" class="stack"></div>
-</div>
+<details class="fold">
+  <summary>🏃‍♂️ Rekordy i ostatnie wyniki w kardio</summary>
+  <div class="fold-body stack" id="mainCardio"></div>
+</details>
 
 <script>
 (() => {
@@ -76,8 +79,26 @@
     }).join('');
   }
 
+  function renderCardio() {
+    if (!D.cardioTypes.length) return ($('mainCardio').innerHTML = empty('Brak zdefiniowanych rodzajów kardio w bazie.'));
+    const byType = U.group(D.cardio, c => c.type.toLowerCase());
+    $('mainCardio').innerHTML = D.cardioTypes.map(t => {
+      const list = byType.get(t.name.toLowerCase()) || [];
+      let last = '-', record = '-';
+      if (list.length) {
+        const l = list[list.length - 1];
+        last = `${l.distance} km${l.duration ? ' · ' + U.esc(l.duration) : ''} (${U.fmtDate(l.date).slice(0, 5)})`;
+        const best = Math.max(...list.map(c => c.distance));
+        if (best > 0) record = `${best} km`;
+      }
+      return `<div class="data-item">
+        <div><strong>${U.esc(t.name)}</strong><br><small class="muted">Ostatnio: ${last}</small></div>
+        <div style="text-align:right">Rekord: <strong class="accent">${record}</strong></div></div>`;
+    }).join('');
+  }
+
   App.register('main', {
-    render() { renderWeight(); renderBody(); renderWorkouts(); }
+    render() { renderWeight(); renderBody(); renderWorkouts(); renderCardio(); }
   });
 })();
 </script>
