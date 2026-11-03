@@ -1,302 +1,261 @@
 <div class="card">
   <h2>🏋️ Dodaj Trening</h2>
   <form id="workoutForm">
-    <div class="form-field">
-      <label>Data</label>
-      <input type="date" id="workoutDate" required>
-    </div>
+    <div class="form-field"><label>Data</label><input type="date" id="workoutDate" required></div>
     <div class="form-field">
       <label>Ćwiczenie</label>
-      <div style="display:flex; gap:8px;">
-        <select id="exerciseSelect" style="flex:1;" required>
-          <option value="">Wybierz ćwiczenie...</option>
-        </select>
-      </div>
+      <select id="exerciseSelect" required><option value="">Wybierz ćwiczenie...</option></select>
     </div>
-    <div class="form-field">
-      <label>Liczba serii</label>
-      <input type="number" id="seriesCount" min="1" max="10" value="3" required>
-    </div>
-    
-    <div id="seriesInputsContainer" style="margin-bottom: 15px;"></div>
-
-    <button type="submit" class="btn-primary" style="width:100%;">Zapisz Trening</button>
+    <div class="form-field"><label>Liczba serii</label><input type="number" id="seriesCount" min="1" max="10" value="3" required></div>
+    <div id="seriesBox" class="series-grid"></div>
+    <button type="submit" class="btn-primary">Zapisz Trening</button>
   </form>
 </div>
 
 <div class="card">
   <h2>📅 Kalendarz Treningów</h2>
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-    <button type="button" class="btn-secondary" onclick="prevCalendarMonth()">◀ Poprzedni</button>
-    <strong id="calendarMonthTitle" style="font-size:1.1em;"></strong>
-    <button type="button" class="btn-secondary" onclick="nextCalendarMonth()">Następny ▶</button>
+  <div class="between" style="margin-bottom:10px">
+    <button type="button" class="btn-secondary" data-nav="-1">◀ Poprzedni</button>
+    <strong id="calendarTitle"></strong>
+    <button type="button" class="btn-secondary" data-nav="1">Następny ▶</button>
   </div>
-  <div class="calendar-grid-header" style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: bold; margin-bottom: 6px; font-size: 0.9em; color: var(--text-muted);">
-    <div>Pon</div><div>Wt</div><div>Śr</div><div>Czw</div><div>Pt</div><div>Sob</div><div>Ndz</div>
-  </div>
-  <div id="calendarDaysGrid" class="calendar-grid"></div>
-  <div id="calendarSelectedInfo" style="margin-top:12px; padding:10px; background:var(--bg-card); border-radius:8px; display:none;"></div>
+  <div class="calendar-head"><div>Pon</div><div>Wt</div><div>Śr</div><div>Czw</div><div>Pt</div><div>Sob</div><div>Ndz</div></div>
+  <div id="calendarGrid" class="calendar-grid"></div>
+  <div id="calendarInfo" class="calendar-info" hidden></div>
 </div>
 
 <div class="card">
   <h2>📊 Statystyki Treningowe</h2>
   <div class="form-field">
     <label>Wybierz ćwiczenie</label>
-    <select id="statExerciseSelect">
-      <option value="">Wybierz ćwiczenie...</option>
-    </select>
+    <select id="statExerciseSelect"><option value="">Wybierz ćwiczenie...</option></select>
   </div>
-
-  <div class="filter-group" id="workoutFilterGroup" style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">
+  <div class="btn-group" id="workoutFilterGroup">
     <button type="button" class="active" data-filter="week">Ten tydzień</button>
     <button type="button" data-filter="month">Ten miesiąc</button>
     <button type="button" data-filter="90">90 dni</button>
     <button type="button" data-filter="all">Wszystko</button>
   </div>
-
-  <div style="display:flex; gap:10px; margin-top:12px;">
-    <div class="stat-box" style="flex:1;">
-      <small>Średnia waga</small>
-      <div id="workoutAvgResult" style="font-size:1.2em; font-weight:bold;">- kg</div>
-    </div>
-    <div class="stat-box" style="flex:1;">
-      <small>Mediana waga</small>
-      <div id="workoutMedResult" style="font-size:1.2em; font-weight:bold;">- kg</div>
-    </div>
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-lbl">Średnia waga</div><div class="stat-val" id="workoutAvg">-</div></div>
+    <div class="stat-box"><div class="stat-lbl">Mediana waga</div><div class="stat-val" id="workoutMed">-</div></div>
   </div>
-  
-  <div class="chart-container" style="margin-top:15px;">
-    <canvas id="workoutChart"></canvas>
-  </div>
+  <div class="chart-box"><canvas id="workoutChart"></canvas></div>
 </div>
 
 <div class="card">
   <h2>📜 Historia Treningów</h2>
-  <div id="workoutDataList" style="display:flex; flex-direction:column; gap:6px;"></div>
+  <div id="workoutHistory" class="history"></div>
 </div>
 
 <script>
-  let currentWorkoutFilter = 'week';
-  let currentCalendarDate = new Date();
+(() => {
+  const { util: U, data: D } = App;
+  const $ = id => document.getElementById(id);
+  const MONTHS = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
+  const now = new Date();
+  const state = { filter: 'week', cal: new Date(now.getFullYear(), now.getMonth(), 1), byDay: new Map() };
 
-  window.renderWorkoutTab = function() {
-    const wDate = document.getElementById('workoutDate');
-    if (wDate && !wDate.value) wDate.valueAsDate = new Date();
+  const repsAt = (w, i) => w.reps[i] || 8;
+  const setLine = (w, i) => `${w.weights[i]} kg x ${U.reps(repsAt(w, i))}`;
 
-    populateExerciseSelects();
-    renderSeriesInputs(3);
-    renderWorkoutList();
-    window.updateWorkoutStatsAndChart();
-    window.renderCalendar();
-  };
+  // ---------- dane ----------
+  function parse(raw) {
+    D.exercises = raw.Cwiczenia
+      .map(i => ({ id: i.id, name: String(U.pick(i, 'Nazwa', 'Cwiczenie', 'exercise') ?? '').trim() }))
+      .filter(e => e.name);
 
-  function populateExerciseSelects() {
-    const exercisesList = window.exercisesList || [];
-    ['exerciseSelect', 'statExerciseSelect'].forEach(id => {
-      const el = document.getElementById(id);
-      if(el) {
-        const cur = el.value;
-        el.innerHTML = '<option value="">Wybierz ćwiczenie...</option>';
-        exercisesList.forEach(item => {
-          const opt = document.createElement('option'); opt.value = item.name; opt.textContent = item.name;
-          el.appendChild(opt);
-        });
-        if (cur) el.value = cur;
-      }
+    // wartość może być tablicą, napisem "30, 32.5" albo liczbą
+    const toList = (v, conv) => (Array.isArray(v) ? v : ['string', 'number'].includes(typeof v) ? String(v).split(',') : [])
+      .map(x => conv(String(x).trim().replace(',', '.'))).filter(n => !isNaN(n));
+
+    D.workouts = raw.Treningi.map(i => {
+      const date = U.pick(i, 'Data', 'date') || '';
+      const weights = toList(U.pick(i, 'Wagi', 'weights', 'Serie_Wagi'), parseFloat);
+      return {
+        id: i.id, date, ts: U.ts(date),
+        exercise: String(U.pick(i, 'Cwiczenie', 'Nazwa', 'exercise') ?? ''),
+        weights,
+        reps: toList(U.pick(i, 'Powtorzenia', 'reps'), parseInt),
+        avgWeight: U.num(U.pick(i, 'AvgWeight', 'Srednia')) || U.avg(weights) || 0
+      };
+    }).filter(r => r.date && r.exercise && !isNaN(r.ts)).sort(U.byTs);
+  }
+
+  // ---------- formularz serii ----------
+  function fillSelects() {
+    const opts = '<option value="">Wybierz ćwiczenie...</option>' +
+      D.exercises.map(e => `<option value="${U.esc(e.name)}">${U.esc(e.name)}</option>`).join('');
+    for (const id of ['exerciseSelect', 'statExerciseSelect']) {
+      const el = $(id), cur = el.value;
+      el.innerHTML = opts;
+      el.value = cur;
+      if (el.selectedIndex < 0) el.selectedIndex = 0;
+      if (id === 'statExerciseSelect' && el.selectedIndex === 0 && D.exercises.length) el.selectedIndex = 1;
+    }
+  }
+
+  function renderSeries(count, w = [], r = []) {
+    $('seriesBox').innerHTML = Array.from({ length: count }, (_, i) => {
+      const wv = w[i] ?? w[w.length - 1] ?? 30, rv = r[i] ?? r[r.length - 1] ?? 8;
+      return `<div class="series-row">
+        <span class="series-label">Seria ${i + 1}:</span>
+        <div class="unit-field"><input type="number" class="s-w series-input" step="0.5" value="${wv}" required><i>kg</i></div>
+        <div class="unit-field"><input type="number" class="s-r series-input" step="1" value="${rv}" required><i>powt.</i></div>
+      </div>`;
+    }).join('');
+  }
+  const readSeries = () => [...$('seriesBox').children].map(row => [row.querySelector('.s-w').value, row.querySelector('.s-r').value]);
+
+  function onExerciseChange() {
+    const name = $('exerciseSelect').value.toLowerCase();
+    const last = name && D.workouts.findLast(w => w.exercise.toLowerCase() === name);
+    if (last && last.weights.length) {
+      $('seriesCount').value = last.weights.length;
+      renderSeries(last.weights.length, last.weights, last.reps);
+    }
+  }
+
+  function onCountChange() { // zachowuje już wpisane wartości
+    const n = Math.min(10, Math.max(1, parseInt($('seriesCount').value) || 1)), cur = readSeries();
+    renderSeries(n, cur.map(c => c[0]), cur.map(c => c[1]));
+  }
+
+  // ---------- statystyki i wykres ----------
+  function sessions() {
+    const name = $('statExerciseSelect').value.toLowerCase();
+    if (!name) return [];
+    const n = new Date(), f = state.filter;
+    const from = f === 'week' ? U.daysAgo((n.getDay() || 7) - 1)
+      : f === 'month' ? new Date(n.getFullYear(), n.getMonth(), 1).getTime()
+      : f === '90' ? U.daysAgo(90) : 0;
+    return D.workouts.filter(w => w.ts >= from && w.exercise.toLowerCase() === name && w.avgWeight > 0);
+  }
+
+  // Wykres treningowy: średni ciężar sesji, punkty równo rozłożone, wartości przy punktach (gdy jest ich mało)
+  function drawChart(rows) {
+    const canvas = $('workoutChart'), w = canvas.parentElement.clientWidth;
+    if (!w) return;
+    const h = 180, dpr = window.devicePixelRatio || 1, ctx = canvas.getContext('2d');
+    canvas.width = w * dpr; canvas.height = h * dpr; canvas.style.height = h + 'px';
+    ctx.scale(dpr, dpr);
+    const c = { line: U.css('--primary'), muted: U.css('--text-muted'), grid: U.css('--card-border') };
+    ctx.font = '11px sans-serif'; ctx.fillStyle = c.muted;
+    if (rows.length < 2) { ctx.textAlign = 'center'; ctx.fillText('Za mało danych w okresie', w / 2, h / 2); return; }
+
+    const vals = rows.map(r => r.avgWeight), lo = Math.min(...vals), hi = Math.max(...vals), span = (hi - lo) || 1;
+    const min = lo - span * .25, max = hi + span * .25, P = 24, T = 20, B = 24;
+    const X = i => P + i / (vals.length - 1) * (w - 2 * P);
+    const Y = v => T + (1 - (v - min) / (max - min)) * (h - T - B);
+
+    ctx.strokeStyle = c.grid; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(P, h - B); ctx.lineTo(w - P, h - B); ctx.stroke();
+
+    ctx.strokeStyle = c.line; ctx.lineWidth = 2.5; ctx.lineJoin = 'round'; ctx.beginPath();
+    vals.forEach((v, i) => i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v)));
+    ctx.stroke();
+
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    vals.forEach((v, i) => {
+      ctx.fillStyle = v === hi ? '#16a34a' : c.line;   // rekord sesji na zielono
+      ctx.beginPath(); ctx.arc(X(i), Y(v), v === hi ? 5 : 3.5, 0, 7); ctx.fill();
+      if (vals.length <= 12) { ctx.fillStyle = c.muted; ctx.fillText(+v.toFixed(1), X(i), Y(v) - 8); }
     });
+
+    ctx.fillStyle = c.muted; ctx.textBaseline = 'top';
+    ctx.textAlign = 'left'; ctx.fillText(U.fmtDate(rows[0].date).slice(0, 5), P, h - B + 6);
+    ctx.textAlign = 'right'; ctx.fillText(U.fmtDate(rows[rows.length - 1].date).slice(0, 5), w - P, h - B + 6);
   }
 
-  function renderSeriesInputs(count, defaultWeights = [], defaultReps = []) {
-    const container = document.getElementById('seriesInputsContainer');
-    if (!container) return;
-    container.innerHTML = '';
-    for (let i = 1; i <= count; i++) {
-      const wVal = defaultWeights[i - 1] !== undefined ? defaultWeights[i - 1] : (defaultWeights[0] || 30);
-      const rVal = defaultReps[i - 1] !== undefined ? defaultReps[i - 1] : (defaultReps[0] || 8);
-
-      const row = document.createElement('div');
-      row.className = 'series-row';
-      row.style.display = 'flex';
-      row.style.gap = '6px';
-      row.style.alignItems = 'center';
-      row.style.marginBottom = '6px';
-
-      row.innerHTML = `
-        <span class="series-label" style="min-width:55px;">Seria ${i}:</span>
-        <div style="position:relative; flex:1;">
-          <input type="number" id="seriesWeight_${i}" class="series-input" step="0.5" value="${wVal}" style="width:100%; padding-right:36px; box-sizing:border-box;" required>
-          <span style="position:absolute; right:10px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.85em; pointer-events:none; font-weight:bold;">kg</span>
-        </div>
-        <div style="position:relative; flex:1;">
-          <input type="number" id="seriesReps_${i}" class="series-input" step="1" value="${rVal}" style="width:100%; padding-right:50px; box-sizing:border-box;" required>
-          <span style="position:absolute; right:10px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.85em; pointer-events:none; font-weight:bold;">powt.</span>
-        </div>
-      `;
-      container.appendChild(row);
-    }
+  function renderStats() {
+    const rows = sessions(), vals = rows.map(r => r.avgWeight);
+    $('workoutAvg').textContent = U.f1(U.avg(vals), 'kg');
+    $('workoutMed').textContent = U.f1(U.median(vals), 'kg');
+    drawChart(rows);
   }
 
-  function handleExerciseChangeForWeights() {
-    const selectedExerciseInput = document.getElementById('exerciseSelect');
-    if (!selectedExerciseInput) return;
-    const selectedExercise = selectedExerciseInput.value.trim().toLowerCase();
-    const seriesCountInput = document.getElementById('seriesCount');
-    if (!seriesCountInput) return;
-
-    if (!selectedExercise) {
-      renderSeriesInputs(parseInt(seriesCountInput.value) || 3);
-      return;
+  // ---------- kalendarz ----------
+  function renderCalendar() {
+    const y = state.cal.getFullYear(), m = state.cal.getMonth();
+    $('calendarTitle').textContent = `${MONTHS[m]} ${y}`;
+    state.byDay = U.group(D.workouts, w => U.iso(w.ts));
+    const first = (new Date(y, m, 1).getDay() || 7) - 1, total = new Date(y, m + 1, 0).getDate(), today = U.iso(Date.now());
+    let html = '<div class="calendar-day empty"></div>'.repeat(first);
+    for (let d = 1; d <= total; d++) {
+      const iso = U.iso(new Date(y, m, d).getTime()), cls = 'calendar-day' + (iso === today ? ' today' : '');
+      html += state.byDay.has(iso)
+        ? `<div class="${cls} workout-day" data-iso="${iso}"><span>${d}</span><span class="workout-badge">🏋️</span></div>`
+        : `<div class="${cls}">${d}</div>`;
     }
-
-    const workoutData = window.workoutData || [];
-    const lastWorkout = [...workoutData].reverse().find(w => w.exercise && w.exercise.trim().toLowerCase() === selectedExercise);
-
-    if (lastWorkout && lastWorkout.weights && lastWorkout.weights.length > 0) {
-      seriesCountInput.value = lastWorkout.weights.length;
-      renderSeriesInputs(lastWorkout.weights.length, lastWorkout.weights, lastWorkout.reps || []);
-    } else {
-      renderSeriesInputs(parseInt(seriesCountInput.value) || 3);
-    }
+    $('calendarGrid').innerHTML = html;
+    $('calendarInfo').hidden = true;
   }
 
-  window.updateWorkoutStatsAndChart = function() {
-    const sel = document.getElementById('statExerciseSelect'); 
-    if (!sel || !sel.value) return;
+  function showDay(iso) {
+    const items = state.byDay.get(iso) || [];
+    $('calendarInfo').innerHTML = `<strong class="accent">📅 ${U.fmtDate(iso)}:</strong><ul>` +
+      items.map(w => `<li><strong>${U.esc(w.exercise)}:</strong> ${w.weights.map((_, i) => setLine(w, i)).join(', ')}</li>`).join('') + '</ul>';
+    $('calendarInfo').hidden = false;
+  }
 
-    const exerciseName = sel.value;
-    const workoutData = window.workoutData || [];
-    const allExWorkouts = workoutData.filter(w => w.exercise.toLowerCase() === exerciseName.toLowerCase());
+  // ---------- historia ----------
+  function renderHistory() {
+    const groups = [...U.group(D.workouts, w => U.fmtDate(w.date))].reverse();
+    $('workoutHistory').innerHTML = groups.map(([dt, items], idx) => `
+      <details class="accordion" ${idx === 0 ? 'open' : ''}>
+        <summary><span>📅 ${dt} (${items.length})</span></summary>
+        <div class="accordion-body">${items.map(w => `
+          <div class="data-item">
+            <div><strong>${U.esc(w.exercise)}</strong><br><small>${w.weights.map((_, i) => setLine(w, i)).join('<br>')}</small></div>
+            <strong>śr. ${w.avgWeight.toFixed(1)} kg</strong>
+          </div>`).join('')}</div>
+      </details>`).join('') || '<div class="muted center">Brak treningów</div>';
+  }
 
-    let filteredWorkouts = [...allExWorkouts];
-    const now = new Date();
+  function render() { fillSelects(); renderHistory(); renderStats(); renderCalendar(); }
 
-    if (currentWorkoutFilter === 'week') {
-      const day = now.getDay() || 7;
-      const monday = new Date(now);
-      monday.setDate(now.getDate() - day + 1); 
-      monday.setHours(0,0,0,0);
-      filteredWorkouts = allExWorkouts.filter(w => window.parseLocalDate(w.date) >= monday);
-    } else if (currentWorkoutFilter === 'month') {
-      const curM = now.getMonth(), curY = now.getFullYear();
-      filteredWorkouts = allExWorkouts.filter(w => {
-        const dt = window.parseLocalDate(w.date);
-        return dt.getMonth() === curM && dt.getFullYear() === curY;
-      });
-    } else if (currentWorkoutFilter === '90') {
-      const limitDate = new Date();
-      limitDate.setDate(now.getDate() - 90);
-      filteredWorkouts = allExWorkouts.filter(w => window.parseLocalDate(w.date) >= limitDate);
-    }
+  // ---------- zdarzenia ----------
+  function init() {
+    $('workoutDate').value = U.iso(Date.now());
+    renderSeries(3);
+    $('exerciseSelect').addEventListener('change', onExerciseChange);
+    $('seriesCount').addEventListener('change', onCountChange);
+    $('statExerciseSelect').addEventListener('change', renderStats);
 
-    const weightsForStats = filteredWorkouts.map(w => w.avgWeight);
-    const wAvg = document.getElementById('workoutAvgResult');
-    const wMed = document.getElementById('workoutMedResult');
-    if (wAvg) wAvg.innerText = window.getAverage(weightsForStats) + ' kg';
-    if (wMed) wMed.innerText = window.getMedian(weightsForStats) + ' kg';
-
-    window.drawChart('workoutChart', weightsForStats, 'all', 'kg');
-  };
-
-  window.renderCalendar = function() {
-    const title = document.getElementById('calendarMonthTitle'), grid = document.getElementById('calendarDaysGrid'), info = document.getElementById('calendarSelectedInfo');
-    if (!grid) return;
-    grid.innerHTML = ''; info.style.display = 'none';
-    const y = currentCalendarDate.getFullYear(), m = currentCalendarDate.getMonth();
-    title.innerText = `${["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"][m]} ${y}`;
-    
-    const firstDay = (new Date(y, m, 1).getDay() || 7) - 1;
-    const totalDays = new Date(y, m + 1, 0).getDate();
-    const map = {};
-    (window.workoutData || []).forEach(w => { if(w.date) { const iso = window.formatDateISO(window.parseLocalDate(w.date)); if(!map[iso]) map[iso] = []; map[iso].push(w); } });
-
-    for (let i = 0; i < firstDay; i++) {
-      const ed = document.createElement('div'); ed.className = 'calendar-day empty'; grid.appendChild(ed);
-    }
-    for (let day = 1; day <= totalDays; day++) {
-      const iso = window.formatDateISO(new Date(y, m, day));
-      const dayDiv = document.createElement('div'); dayDiv.className = 'calendar-day';
-      if (iso === window.formatDateISO(new Date())) dayDiv.classList.add('today');
-      if (map[iso]) {
-        dayDiv.classList.add('workout-day');
-        dayDiv.innerHTML = `<span>${day}</span><span class="workout-badge">🏋️</span>`;
-        dayDiv.onclick = () => {
-          let html = `<strong style="color:var(--primary)">📅 ${window.formatDate(iso)}:</strong><ul style="margin:4px 0 0 16px; padding:0;">`;
-          map[iso].forEach(i => {
-            const seriesSummary = (i.weights || []).map((w, idx) => `${w} kg x ${window.formatReps(i.reps && i.reps[idx] ? i.reps[idx] : 8)}`).join(', ');
-            html += `<li><strong>${i.exercise}:</strong> ${seriesSummary}</li>`;
-          });
-          info.innerHTML = html + `</ul>`; info.style.display = 'block';
-        };
-      } else { dayDiv.innerText = day; }
-      grid.appendChild(dayDiv);
-    }
-  };
-
-  window.prevCalendarMonth = function() { currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1); window.renderCalendar(); };
-  window.nextCalendarMonth = function() { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1); window.renderCalendar(); };
-
-  function renderWorkoutList() {
-    const list = document.getElementById('workoutDataList'); if(!list) return;
-    list.innerHTML = '';
-    const grouped = {};
-    (window.workoutData || []).forEach(w => { if(w.date) { const k = window.formatDate(w.date); if(!grouped[k]) grouped[k] = []; grouped[k].push(w); } });
-    Object.keys(grouped).reverse().forEach((dt, idx) => {
-      const head = document.createElement('div'); head.className = 'accordion-header';
-      head.onclick = () => window.toggleAccordion(head);
-      head.innerHTML = `<span>📅 ${dt} (${grouped[dt].length})</span><span class="accordion-arrow">${idx===0?'▼':'▶'}</span>`;
-      const content = document.createElement('div'); content.className = `accordion-content ${idx===0?'open':''}`;
-      grouped[dt].forEach(i => {
-        const d = document.createElement('div'); d.className = 'data-item';
-        const seriesSummary = (i.weights || []).map((w, idx) => `${w} kg x ${window.formatReps(i.reps && i.reps[idx] ? i.reps[idx] : 8)}`).join('<br>');
-        d.innerHTML = `<div><strong>${i.exercise}</strong><br><small>${seriesSummary}</small></div><strong>śr. ${(i.avgWeight||0).toFixed(1)} kg</strong>`;
-        content.appendChild(d);
-      });
-      list.appendChild(head); list.appendChild(content);
+    $('workoutFilterGroup').addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      $('workoutFilterGroup').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+      state.filter = b.dataset.filter;
+      renderStats();
     });
-  }
 
-  // NASŁUCHIWACZE ZDARZEŃ TRENINGOWYCH
-  const workoutForm = document.getElementById('workoutForm');
-  if (workoutForm) {
-    workoutForm.addEventListener('submit', async (e) => {
+    $('calendarTitle').parentElement.addEventListener('click', e => {
+      const b = e.target.closest('[data-nav]');
+      if (!b) return;
+      state.cal = new Date(state.cal.getFullYear(), state.cal.getMonth() + +b.dataset.nav, 1); // dzień 1 – bez przeskoków miesięcy
+      renderCalendar();
+    });
+    $('calendarGrid').addEventListener('click', e => {
+      const d = e.target.closest('[data-iso]');
+      if (d) showDay(d.dataset.iso);
+    });
+
+    $('workoutForm').addEventListener('submit', async e => {
       e.preventDefault();
-      const date = document.getElementById('workoutDate').value;
-      const exercise = document.getElementById('exerciseSelect').value;
-      const seriesCount = parseInt(document.getElementById('seriesCount').value);
+      const date = $('workoutDate').value, exercise = $('exerciseSelect').value;
       if (!date || !exercise) return;
-
-      const weights = [], reps = [];
-      for (let i = 1; i <= seriesCount; i++) {
-        const wInp = document.getElementById(`seriesWeight_${i}`);
-        const rInp = document.getElementById(`seriesReps_${i}`);
-        if (wInp) weights.push(parseFloat(wInp.value) || 0);
-        if (rInp) reps.push(parseInt(rInp.value) || 0);
-      }
-      const avgWeight = weights.length ? weights.reduce((a, b) => a + b, 0) / weights.length : 0;
-
-      window.workoutData.push({ date, exercise, series: seriesCount, weights, reps, avgWeight });
-      window.workoutData.sort((a, b) => window.parseLocalDate(a.date) - window.parseLocalDate(b.date));
-      window.updateApp();
-
-      await window.firebaseFunctions.addData('Treningi', { 
-        Data: date, Cwiczenie: exercise, Serie: seriesCount, Wagi: weights, Powtorzenia: reps 
-      });
-      window.fetchFromFirebaseFast();
+      const rows = readSeries();
+      const weights = rows.map(r => parseFloat(r[0]) || 0), reps = rows.map(r => parseInt(r[1]) || 0);
+      const rec = { date, ts: U.ts(date), exercise, weights, reps, avgWeight: U.avg(weights) || 0 };
+      D.workouts.push(rec); D.workouts.sort(U.byTs); App.invalidate();
+      const id = await App.run(
+        () => App.db.addData('Treningi', { Data: date, Cwiczenie: exercise, Serie: weights.length, Wagi: weights, Powtorzenia: reps }),
+        () => U.drop(D.workouts, rec));
+      if (id) rec.id = id;
     });
   }
 
-  const exSel = document.getElementById('exerciseSelect');
-  if (exSel) exSel.onchange = handleExerciseChangeForWeights;
-  const seriesCnt = document.getElementById('seriesCount');
-  if (seriesCnt) seriesCnt.onchange = () => handleExerciseChangeForWeights();
-
-  const statExSel = document.getElementById('statExerciseSelect');
-  if (statExSel) statExSel.onchange = () => window.updateWorkoutStatsAndChart();
-
-  document.querySelectorAll('#workoutFilterGroup button').forEach(btn => btn.addEventListener('click', (e) => {
-    document.querySelectorAll('#workoutFilterGroup button').forEach(b => b.classList.remove('active'));
-    e.target.classList.add('active'); 
-    currentWorkoutFilter = e.target.getAttribute('data-filter'); 
-    window.updateWorkoutStatsAndChart();
-  }));
+  App.register('workout', { collections: ['Treningi', 'Cwiczenia'], parse, init, render });
+})();
 </script>
