@@ -1,240 +1,227 @@
-<div class="subtabs-nav">
-  <button class="subtab-btn active" onclick="switchSubTab('weight-settings', this)">Waga</button>
-  <button class="subtab-btn" onclick="switchSubTab('workout-settings', this)">Treningi</button>
-  <button class="subtab-btn" onclick="switchSubTab('body-settings', this)">Obwody</button>
-  <button class="subtab-btn" onclick="switchSubTab('general-settings', this)">Ogólne</button>
+<div class="subtabs-nav" id="settingsNav">
+  <button class="subtab-btn active" data-sub="weight">Waga</button>
+  <button class="subtab-btn" data-sub="workout">Treningi</button>
+  <button class="subtab-btn" data-sub="body">Obwody</button>
+  <button class="subtab-btn" data-sub="general">Ogólne</button>
 </div>
 
-<div id="subtab-weight-settings" class="subtab-content active">
-  <div class="card">
-    <h2>Edycja wpisów wagi</h2>
-    <div id="editWeightList" class="edit-list"></div>
-  </div>
+<div class="subtab-content active" data-panel="weight">
+  <div class="card"><h2>Edycja wpisów wagi</h2><div id="editWeightList" class="edit-list"></div></div>
 </div>
 
-<div id="subtab-workout-settings" class="subtab-content">
+<div class="subtab-content" data-panel="workout">
   <div class="card">
     <h2>Nazwy Ćwiczeń (Baza)</h2>
     <div class="form-group">
       <input type="text" id="newExerciseInput" placeholder="Nowe ćwiczenie">
-      <button type="button" class="btn-primary" onclick="addExerciseName()">Dodaj</button>
+      <button type="button" class="btn-primary" data-act="add-exercise">Dodaj</button>
     </div>
-    <div id="editExercisesList" class="edit-list" style="margin-top: 12px;"></div>
+    <div id="editExercisesList" class="edit-list mt"></div>
   </div>
-  <div class="card">
-    <h2>Edycja Treningów</h2>
-    <div id="editWorkoutList" class="edit-list"></div>
-  </div>
+  <div class="card"><h2>Edycja Treningów</h2><div id="editWorkoutList" class="edit-list"></div></div>
 </div>
 
-<div id="subtab-body-settings" class="subtab-content">
+<div class="subtab-content" data-panel="body">
   <div class="card">
     <h2>Nazwy Obwodów (Baza)</h2>
     <div class="form-group">
       <input type="text" id="newBodyPartInput" placeholder="Nowy obwód">
-      <button type="button" class="btn-primary" onclick="addBodyPartName()">Dodaj</button>
+      <button type="button" class="btn-primary" data-act="add-part">Dodaj</button>
     </div>
-    <div id="editBodyPartsList" class="edit-list" style="margin-top: 12px;"></div>
+    <div id="editBodyPartsList" class="edit-list mt"></div>
   </div>
-  <div class="card">
-    <h2>Edycja Pomiarów Obwodów</h2>
-    <div id="editBodyList" class="edit-list"></div>
-  </div>
+  <div class="card"><h2>Edycja Pomiarów Obwodów</h2><div id="editBodyList" class="edit-list"></div></div>
 </div>
 
-<div id="subtab-general-settings" class="subtab-content">
+<div class="subtab-content" data-panel="general">
   <div class="card">
     <h2>Wygląd Aplikacji</h2>
-    <button class="btn-secondary" style="width:100%; margin-bottom: 10px;" onclick="toggleTheme()">Przełącz Motyw (Jasny/Ciemny)</button>
-    <div class="form-group" style="margin-bottom: 15px;">
-      <button class="btn-secondary" style="flex:1;" onclick="changeFontSize(-1)">Tekst A-</button>
-      <button class="btn-secondary" style="flex:1;" onclick="changeFontSize(1)">Tekst A+</button>
+    <button class="btn-secondary full" data-act="theme">Przełącz Motyw (Jasny/Ciemny)</button>
+    <div class="form-group mt">
+      <button class="btn-secondary" style="flex:1" data-act="font" data-d="-1">Tekst A-</button>
+      <button class="btn-secondary" style="flex:1" data-act="font" data-d="1">Tekst A+</button>
     </div>
-
+  </div>
+  <div class="card">
     <h2>Zabezpieczenie PIN</h2>
-    <div class="form-field" style="margin-bottom: 8px;">
+    <div class="form-field">
       <label>Nowy PIN (domyślnie 1234)</label>
-      <input type="password" id="newPinInput" placeholder="Wpisz 4 cyfry" maxlength="4">
+      <input type="password" id="newPinInput" inputmode="numeric" placeholder="Wpisz 4 cyfry" maxlength="4">
     </div>
-    <button class="btn-primary" style="width:100%; margin-bottom: 8px;" onclick="saveNewPin()">Zapisz nowy PIN</button>
-    <button class="btn-danger" style="width:100%;" onclick="clearPinProtection()">Usuń PIN / Wyloguj z sesji</button>
+    <button class="btn-primary full mt" data-act="pin">Zapisz nowy PIN</button>
+    <button class="btn-danger full mt" data-act="logout">Wyloguj z sesji</button>
   </div>
 </div>
 
 <script>
-  window.switchSubTab = function(subtabId, btn) {
-    document.querySelectorAll('.subtab-content').forEach(c => c.classList.remove('active'));
-    document.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(`subtab-${subtabId}`).classList.add('active');
-    btn.classList.add('active');
+(() => {
+  const { util: U, data: D } = App;
+  const $ = id => document.getElementById(id);
+  const root = $('tab-settings');
+  const state = { sub: 'weight' };
+
+  // rodzaj wpisu -> kolekcja Firestore + lista w App.data
+  const KINDS = {
+    weight:   { coll: 'Waga',      list: () => D.weight },
+    workout:  { coll: 'Treningi',  list: () => D.workouts },
+    body:     { coll: 'Obwody',    list: () => D.body },
+    exercise: { coll: 'Cwiczenia', list: () => D.exercises }
   };
 
-  window.renderSettingsLists = function() {
-    const weightData = window.weightData || [];
-    const exercisesList = window.exercisesList || [];
-    const bodyPartsList = window.bodyPartsList || [];
-    const workoutData = window.workoutData || [];
-    const bodyMeasurementsData = window.bodyMeasurementsData || [];
+  const ctl = (kind, id) => `<div class="btn-row">
+    <button class="btn-secondary" data-act="toggle" data-kind="${kind}" data-id="${id}">Edytuj</button>
+    <button class="btn-danger" data-act="delete" data-kind="${kind}" data-id="${id}">Usuń</button></div>`;
+  const item = (kind, r, label, fields) => `
+    <div class="edit-item col">
+      <div class="between"><span>${label}</span>${ctl(kind, r.id ?? '')}</div>
+      <div class="edit-panel" id="edit-${kind}-${r.id}" hidden>${fields}
+        <button class="btn-primary" data-act="save" data-kind="${kind}" data-id="${r.id ?? ''}">Zapisz zmianę</button>
+      </div>
+    </div>`;
+  const field = (name, type, value, label = '', extra = '') =>
+    `<div class="form-field">${label ? `<label>${label}</label>` : ''}<input type="${type}" data-f="${name}" value="${U.esc(value)}" ${extra}></div>`;
 
-    const wList = document.getElementById('editWeightList'); 
-    if(wList) {
-      wList.innerHTML = '';
-      [...weightData].reverse().forEach(i => {
-        const d = document.createElement('div'); d.className = 'edit-item';
-        d.style.flexDirection = 'column'; d.style.alignItems = 'stretch';
-        d.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
-            <span>${window.formatDate(i.date)}: <strong>${i.weight} kg</strong></span>
-            <div style="display:flex; gap:6px;">
-              <button class="btn-secondary" onclick="toggleInlineEdit('weight_${i.id}')">Edytuj</button>
-              <button class="btn-danger" onclick="deleteRecord('Waga','${i.id}')">Usuń</button>
-            </div>
-          </div>
-          <div id="edit_weight_${i.id}" style="display:none; margin-top:8px; gap:6px; flex-direction:column;">
-            <input type="date" id="edit_w_date_${i.id}" value="${i.date}">
-            <input type="number" id="edit_w_val_${i.id}" step="0.1" value="${i.weight}">
-            <button class="btn-primary" onclick="saveEditedWeight('${i.id}')">Zapisz zmianę</button>
-          </div>`;
-        wList.appendChild(d);
-      });
+  // Listy renderujemy tylko dla aktualnie otwartej podzakładki
+  const renderers = {
+    weight() {
+      $('editWeightList').innerHTML = [...D.weight].reverse().map(r => item('weight', r,
+        `${U.fmtDate(r.date)}: <strong>${r.weight} kg</strong>`,
+        field('date', 'date', U.iso(r.ts)) + field('weight', 'number', r.weight, '', 'step="0.1"'))).join('');
+    },
+    workout() {
+      $('editExercisesList').innerHTML = D.exercises.map(e => `<div class="edit-item"><span>${U.esc(e.name)}</span>
+        <button class="btn-danger" data-act="delete" data-kind="exercise" data-id="${e.id}">Usuń</button></div>`).join('');
+      $('editWorkoutList').innerHTML = [...D.workouts].reverse().map(r => item('workout', r,
+        `${U.fmtDate(r.date)} - <strong>${U.esc(r.exercise)}</strong>`,
+        field('date', 'date', U.iso(r.ts), 'Data') +
+        field('weights', 'text', r.weights.join(', '), 'Ciężary w seriach (np. 30, 32.5, 35)') +
+        field('reps', 'text', r.reps.join(', '), 'Powtórzenia w seriach (np. 8, 8, 8)'))).join('');
+    },
+    body() {
+      $('editBodyPartsList').innerHTML = D.bodyParts.map(p => `<div class="edit-item"><span>${U.esc(p.name)}</span>
+        <button class="btn-danger" data-act="delete-part" data-name="${U.esc(p.name)}">Usuń</button></div>`).join('');
+      $('editBodyList').innerHTML = [...D.body].reverse().map(r => item('body', r,
+        `${U.fmtDate(r.date)} - <strong>${U.esc(r.part)}</strong>: ${r.size} cm`,
+        field('date', 'date', U.iso(r.ts)) + field('size', 'number', r.size, '', 'step="0.1"'))).join('');
+    },
+    general() {}
+  };
+
+  // ---------- operacje na danych (lokalnie od razu, w bazie w tle, z cofnięciem przy błędzie) ----------
+  async function patch(kind, rec, fields, dbFields) {
+    const list = KINDS[kind].list(), old = { ...rec };
+    Object.assign(rec, fields);
+    list.sort(U.byTs);
+    App.invalidate();
+    await App.run(() => App.db.updateData(KINDS[kind].coll, rec.id, dbFields), () => { Object.assign(rec, old); list.sort(U.byTs); });
+  }
+
+  async function save(kind, id) {
+    const rec = KINDS[kind].list().find(r => r.id === id), panel = $(`edit-${kind}-${id}`);
+    if (!rec || !panel) return;
+    const f = n => panel.querySelector(`[data-f="${n}"]`).value;
+    const date = f('date'), ts = U.ts(date);
+    if (!date || isNaN(ts)) return;
+
+    if (kind === 'weight') {
+      const weight = U.num(f('weight'));
+      if (!isNaN(weight)) await patch(kind, rec, { date, ts, weight }, { Data: date, Waga: weight });
+    } else if (kind === 'body') {
+      const size = U.num(f('size'));
+      if (!isNaN(size)) await patch(kind, rec, { date, ts, size }, { Data: date, Partia: rec.part, Wymiar: size });
+    } else if (kind === 'workout') {
+      const nums = (s, conv) => s.split(',').map(x => conv(x.trim().replace(',', '.'))).filter(n => !isNaN(n));
+      const weights = nums(f('weights'), parseFloat), reps = nums(f('reps'), parseInt);
+      if (weights.length) await patch(kind, rec, { date, ts, weights, reps, avgWeight: U.avg(weights) },
+        { Data: date, Cwiczenie: rec.exercise, Serie: weights.length, Wagi: weights, Powtorzenia: reps });
     }
+  }
 
-    const exList = document.getElementById('editExercisesList'); 
-    if(exList) {
-      exList.innerHTML = '';
-      exercisesList.forEach(i => {
-        const d = document.createElement('div'); d.className = 'edit-item';
-        d.innerHTML = `<span>${i.name}</span><button class="btn-danger" onclick="deleteRecord('Cwiczenia','${i.id}')">Usuń</button>`;
-        exList.appendChild(d);
-      });
-    }
+  async function remove(kind, id) {
+    if (!id || !confirm('Usunąć wpis?')) return;
+    const list = KINDS[kind].list(), i = list.findIndex(r => r.id === id);
+    if (i < 0) return;
+    const [rec] = list.splice(i, 1);
+    App.invalidate();
+    await App.run(() => App.db.deleteData(KINDS[kind].coll, id), () => list.splice(i, 0, rec));
+  }
 
-    const bpList = document.getElementById('editBodyPartsList'); 
-    if(bpList) {
-      bpList.innerHTML = '';
-      bodyPartsList.forEach(i => {
-        const d = document.createElement('div'); d.className = 'edit-item';
-        d.innerHTML = `<span>${i.name}</span><button class="btn-danger" onclick="deleteRecord('Cwiczenia','${i.id}')">Usuń</button>`;
-        bpList.appendChild(d);
-      });
-    }
-
-    const woList = document.getElementById('editWorkoutList'); 
-    if(woList) {
-      woList.innerHTML = '';
-      [...workoutData].reverse().forEach(i => {
-        const d = document.createElement('div'); d.className = 'edit-item';
-        d.style.flexDirection = 'column'; d.style.alignItems = 'stretch';
-        d.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
-            <span>${window.formatDate(i.date)} - <strong>${i.exercise}</strong></span>
-            <div style="display:flex; gap:6px;">
-              <button class="btn-secondary" onclick="toggleInlineEdit('workout_${i.id}')">Edytuj</button>
-              <button class="btn-danger" onclick="deleteRecord('Treningi','${i.id}')">Usuń</button>
-            </div>
-          </div>
-          <div id="edit_workout_${i.id}" style="display:none; margin-top:8px; gap:6px; flex-direction:column;">
-            <div class="form-field"><label>Data</label><input type="date" id="edit_wo_date_${i.id}" value="${i.date}"></div>
-            <div class="form-field"><label>Ciężary w seriach (np. 30, 32.5, 35)</label><input type="text" id="edit_wo_weights_${i.id}" value="${(i.weights||[]).join(', ')}"></div>
-            <div class="form-field"><label>Powtórzenia w seriach (np. 8, 8, 8)</label><input type="text" id="edit_wo_reps_${i.id}" value="${(i.reps||[]).join(', ')}"></div>
-            <button class="btn-primary" onclick="saveEditedWorkout('${i.id}', '${i.exercise}')">Zapisz zmianę</button>
-          </div>`;
-        woList.appendChild(d);
-      });
-    }
-
-    const bList = document.getElementById('editBodyList'); 
-    if(bList) {
-      bList.innerHTML = '';
-      [...bodyMeasurementsData].reverse().forEach(i => {
-        const d = document.createElement('div'); d.className = 'edit-item';
-        d.style.flexDirection = 'column'; d.style.alignItems = 'stretch';
-        d.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
-            <span>${window.formatDate(i.date)} - <strong>${i.part}</strong>: ${i.size} cm</span>
-            <div style="display:flex; gap:6px;">
-              <button class="btn-secondary" onclick="toggleInlineEdit('body_${i.id}')">Edytuj</button>
-              <button class="btn-danger" onclick="deleteRecord('Obwody','${i.id}')">Usuń</button>
-            </div>
-          </div>
-          <div id="edit_body_${i.id}" style="display:none; margin-top:8px; gap:6px; flex-direction:column;">
-            <input type="date" id="edit_b_date_${i.id}" value="${i.date}">
-            <input type="number" id="edit_b_val_${i.id}" step="0.1" value="${i.size}">
-            <button class="btn-primary" onclick="saveEditedBody('${i.id}', '${i.part}')">Zapisz zmianę</button>
-          </div>`;
-        bList.appendChild(d);
-      });
-    }
-  };
-
-  window.toggleInlineEdit = function(id) {
-    const el = document.getElementById(`edit_${id}`);
-    if (el) el.style.display = el.style.display === 'flex' ? 'none' : 'flex';
-  };
-
-  window.saveEditedWeight = async function(id) {
-    const date = document.getElementById(`edit_w_date_${id}`).value;
-    const weight = parseFloat(document.getElementById(`edit_w_val_${id}`).value);
-    if (!date || isNaN(weight)) return;
-    await window.firebaseFunctions.updateData('Waga', id, { Data: date, Waga: weight });
-    await window.fetchFromFirebaseFast();
-  };
-
-  window.saveEditedWorkout = async function(id, exercise) {
-    const date = document.getElementById(`edit_wo_date_${id}`).value;
-    const weightsStr = document.getElementById(`edit_wo_weights_${id}`).value;
-    const repsStr = document.getElementById(`edit_wo_reps_${id}`).value;
-    const weights = weightsStr.split(',').map(w => parseFloat(w.trim().replace(',', '.'))).filter(v => !isNaN(v));
-    const reps = repsStr.split(',').map(r => parseInt(r.trim())).filter(v => !isNaN(v));
-    if (!date || weights.length === 0) return;
-    await window.firebaseFunctions.updateData('Treningi', id, { Data: date, Cwiczenie: exercise, Wagi: weights, Powtorzenia: reps });
-    await window.fetchFromFirebaseFast();
-  };
-
-  window.saveEditedBody = async function(id, part) {
-    const date = document.getElementById(`edit_b_date_${id}`).value;
-    const size = parseFloat(document.getElementById(`edit_b_val_${id}`).value);
-    if (!date || isNaN(size)) return;
-    await window.firebaseFunctions.updateData('Obwody', id, { Data: date, Partia: part, Wymiar: size });
-    await window.fetchFromFirebaseFast();
-  };
-
-  window.deleteRecord = async function(coll, id) {
-    if(!confirm("Usunąć wpis?")) return;
-    await window.firebaseFunctions.deleteData(coll, id);
-    await window.fetchFromFirebaseFast();
-  };
-
-  window.addExerciseName = async function() {
-    const inp = document.getElementById('newExerciseInput');
-    if (!inp || !inp.value.trim()) return;
-    const name = inp.value.trim();
+  async function addExercise() {
+    const inp = $('newExerciseInput'), name = inp.value.trim();
+    if (!name) return;
     inp.value = '';
-    await window.firebaseFunctions.addData('Cwiczenia', { Nazwa: name });
-    await window.fetchFromFirebaseFast();
-  };
+    const rec = { id: undefined, name };
+    D.exercises.push(rec); App.invalidate();
+    const id = await App.run(() => App.db.addData('Cwiczenia', { Nazwa: name }), () => U.drop(D.exercises, rec));
+    if (id) rec.id = id;
+  }
 
-  window.addBodyPartName = async function() {
-    const inp = document.getElementById('newBodyPartInput');
-    if (!inp || !inp.value.trim()) return;
-    const name = inp.value.trim();
+  async function addPart() {
+    const inp = $('newBodyPartInput'), name = inp.value.trim();
+    if (!name) return;
+    if (D.bodyParts.some(p => p.name.toLowerCase() === name.toLowerCase())) { alert('Taki obwód już istnieje.'); return; }
     inp.value = '';
-    await window.firebaseFunctions.addData('Obwody', { Partia: name, Wymiar: 0 });
-    await window.fetchFromFirebaseFast();
-  };
+    const part = { id: 'part_' + Date.now(), name, docIds: [], legacyIds: [] };
+    D.bodyParts.push(part); App.invalidate();
+    const id = await App.run(() => App.db.addData('Obwody', { Partia: name, Wymiar: 0 }), () => U.drop(D.bodyParts, part));
+    if (id) part.docIds.push(id);
+  }
 
-  window.saveNewPin = function() {
-    const inp = document.getElementById('newPinInput');
-    if (!inp || inp.value.length !== 4) { alert("PIN musi składać się z 4 cyfr!"); return; }
-    localStorage.setItem('settings_pin', inp.value);
-    alert("PIN został pomyślnie zmieniony.");
+  // Usuwa definicję partii razem ze wszystkimi jej pomiarami (inaczej partia wróciłaby po odświeżeniu)
+  async function removePart(name) {
+    const part = D.bodyParts.find(p => p.name === name);
+    if (!part || !confirm(`Usunąć obwód „${name}” wraz ze wszystkimi jego pomiarami?`)) return;
+    const ok = await App.run(async () => {
+      await Promise.all([
+        ...part.docIds.map(id => App.db.deleteData('Obwody', id)),
+        ...part.legacyIds.map(id => App.db.removeField('Cwiczenia', id, 'ObwodyBaza'))
+      ]);
+      return true;
+    });
+    if (!ok) return;
+    U.drop(D.bodyParts, part);
+    D.body = D.body.filter(b => b.part.toLowerCase() !== name.toLowerCase());
+    App.invalidate();
+  }
+
+  function savePin() {
+    const inp = $('newPinInput');
+    if (!/^\d{4}$/.test(inp.value)) { alert('PIN musi składać się z 4 cyfr!'); return; }
+    App.pinSave(inp.value);
     inp.value = '';
+    alert('PIN został pomyślnie zmieniony.');
+  }
+
+  // ---------- zdarzenia: jedna delegacja na całą zakładkę ----------
+  const actions = {
+    toggle: d => { const p = $(`edit-${d.kind}-${d.id}`); if (p) p.hidden = !p.hidden; },
+    save: d => d.id && save(d.kind, d.id),
+    delete: d => remove(d.kind, d.id),
+    'delete-part': d => removePart(d.name),
+    'add-exercise': addExercise,
+    'add-part': addPart,
+    theme: () => App.toggleTheme(),
+    font: d => App.changeFont(+d.d),
+    pin: savePin,
+    logout: () => App.logout()
   };
 
-  window.clearPinProtection = function() {
-    sessionStorage.removeItem('app_authenticated');
-    sessionStorage.removeItem('pin_authenticated');
-    alert("Sesja została zakończona. Odśwież stronę, aby zalogować się ponownie.");
-    location.reload();
-  };
+  function showSub(sub) {
+    state.sub = sub;
+    root.querySelectorAll('.subtab-btn').forEach(b => b.classList.toggle('active', b.dataset.sub === sub));
+    root.querySelectorAll('.subtab-content').forEach(p => p.classList.toggle('active', p.dataset.panel === sub));
+    renderers[sub]();
+  }
+
+  function init() {
+    root.addEventListener('click', e => {
+      const sub = e.target.closest('[data-sub]');
+      if (sub) return showSub(sub.dataset.sub);
+      const el = e.target.closest('[data-act]');
+      if (el) actions[el.dataset.act]?.(el.dataset);
+    });
+  }
+
+  App.register('settings', { init, render: () => renderers[state.sub]() });
+})();
 </script>
