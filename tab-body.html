@@ -2,225 +2,204 @@
   <h2>Dodaj pomiar obwodu</h2>
   <form id="bodyForm">
     <div class="form-group">
-      <div class="form-field">
-        <label>Data</label>
-        <input type="date" id="bodyDate" required>
-      </div>
+      <div class="form-field"><label>Data</label><input type="date" id="bodyDate" required></div>
       <div class="form-field">
         <label>Partia Ciała (z Bazy)</label>
-        <select id="bodySelect" required><option value="">Pobieranie obwodów...</option></select>
+        <select id="bodySelect" required><option value="">Wybierz obwód...</option></select>
       </div>
     </div>
-
     <div class="form-field">
       <label>Wymiar (cm)</label>
       <div class="series-row">
-        <button type="button" class="step-btn" onclick="adjustBodySize(-0.5)">−</button>
-        <input type="number" id="bodySizeInput" class="series-input" step="0.1" value="80.0" required>
-        <button type="button" class="step-btn" onclick="adjustBodySize(0.5)">+</button>
+        <button type="button" class="step-btn" data-step="-0.5">−</button>
+        <input type="number" id="bodySizeInput" class="series-input" step="0.1" inputmode="decimal" value="80.0" required>
+        <button type="button" class="step-btn" data-step="0.5">+</button>
       </div>
     </div>
-
     <button type="submit" class="btn-primary">Zapisz obwód</button>
   </form>
 </div>
 
 <div class="card">
   <h2>Statystyki obwodu</h2>
-  <div class="form-field" style="margin-bottom: 12px;">
+  <div class="form-field">
     <label>Wybierz partię ciała</label>
-    <select id="statBodySelect" onchange="window.handleBodyStatChange()">
-      <option value="">Wybierz obwód...</option>
-    </select>
+    <select id="statBodySelect"><option value="">Wybierz obwód...</option></select>
   </div>
-
-  <div class="btn-group" id="bodyPeriodFilterGroup">
-    <button type="button" onclick="window.setBodyPeriod('week', this)">Tydzień</button>
-    <button type="button" class="active" onclick="window.setBodyPeriod('month', this)">Miesiąc</button>
-    <button type="button" onclick="window.setBodyPeriod('3months', this)">3 Miesiące</button>
-    <button type="button" onclick="window.setBodyPeriod('all', this)">Wszystko</button>
+  <div class="btn-group" id="bodyPeriodGroup">
+    <button type="button" data-period="7">Tydzień</button>
+    <button type="button" class="active" data-period="30">Miesiąc</button>
+    <button type="button" data-period="90">3 Miesiące</button>
+    <button type="button" data-period="all">Wszystko</button>
   </div>
-  
-  <div class="filter-result-box" style="margin-top:10px;">
-    <div><span>Średni obwód</span><strong id="bodyAvgResult">-</strong></div>
-    <div><span>Mediana obwodu</span><strong id="bodyMedResult">-</strong></div>
+  <div class="filter-result-box">
+    <div><span>Średni obwód</span><strong id="bodyAvg">-</strong></div>
+    <div><span>Mediana obwodu</span><strong id="bodyMed">-</strong></div>
   </div>
 </div>
 
 <div class="card">
   <h2>Wykres postępu obwodu</h2>
-  <canvas id="bodyChart"></canvas>
+  <div class="chart-box"><canvas id="bodyChart"></canvas></div>
 </div>
 
 <div class="card">
   <h2>Historia obwodów</h2>
-  <div id="bodyDataList"></div>
+  <div id="bodyHistory" class="history"></div>
 </div>
 
 <script>
-  if (typeof window.currentBodyPeriod === 'undefined') {
-    window.currentBodyPeriod = 'month';
+(() => {
+  const { util: U, data: D } = App;
+  const $ = id => document.getElementById(id);
+  const state = { period: '30' };
+
+  // ---------- dane ----------
+  // Partie ciała są definiowane przez dokumenty kolekcji Obwody (bez daty) oraz – dla starych danych – pole ObwodyBaza w Cwiczenia.
+  // Każda partia pamięta ID swoich dokumentów, żeby ustawienia mogły ją poprawnie usunąć.
+  function parse(raw) {
+    const parts = new Map();
+    const part = name => {
+      const k = name.toLowerCase();
+      if (!parts.has(k)) parts.set(k, { id: 'part_' + parts.size, name, docIds: [], legacyIds: [] });
+      return parts.get(k);
+    };
+    raw.Cwiczenia.forEach(i => { const n = String(i.ObwodyBaza ?? '').trim(); if (n) part(n).legacyIds.push(i.id); });
+
+    const items = raw.Obwody.map(i => {
+      const name = String(U.pick(i, 'Partia', 'part', 'Part', 'name') ?? '').trim();
+      if (name) part(name).docIds.push(i.id);
+      return { i, name };
+    });
+
+    D.body = [];
+    for (const { i, name: given } of items) {
+      let name = given, date = U.pick(i, 'Data', 'date', 'data') || '';
+      for (const [k, v] of Object.entries(i)) { // stare formaty: data jako klucz/wartość, partia jako dowolne pole
+        if (k === 'id') continue;
+        if (!date && (U.DATE_RE.test(k) || U.DATE_RE.test(v))) date = U.DATE_RE.test(k) ? k : v;
+        if (!name && typeof v === 'string' && v.length > 1 && isNaN(v) && parts.has(v.toLowerCase())) name = v;
+      }
+      const size = U.num(U.pick(i, 'Wymiar', 'size', 'wymiar', 'Wartosc'));
+      if (date && name && !isNaN(size)) D.body.push({ id: i.id, date, ts: U.ts(date), part: parts.get(name.toLowerCase()).name, size });
+    }
+    D.body.sort(U.byTs);
+    D.bodyParts = [...parts.values()];
   }
 
-  window.renderBodyTab = function() {
-    const bDate = document.getElementById('bodyDate');
-    if (bDate && !bDate.value) bDate.valueAsDate = new Date();
+  function fillSelects() {
+    const opts = '<option value="">Wybierz obwód...</option>' +
+      D.bodyParts.map(p => `<option value="${U.esc(p.name)}">${U.esc(p.name)}</option>`).join('');
+    for (const id of ['bodySelect', 'statBodySelect']) {
+      const el = $(id), cur = el.value;
+      el.innerHTML = opts;
+      el.value = cur;
+      if (el.selectedIndex < 0) el.selectedIndex = 0;
+      if (id === 'statBodySelect' && el.selectedIndex === 0 && D.bodyParts.length) el.selectedIndex = 1;
+    }
+  }
 
-    populateBodySelects();
-    renderBodyList();
-    window.handleBodyStatChange();
-  };
+  // ---------- statystyki i wykres ----------
+  function measurements() {
+    const name = $('statBodySelect').value.toLowerCase();
+    if (!name) return [];
+    const from = state.period === 'all' ? 0 : U.daysAgo(+state.period);
+    return D.body.filter(b => b.ts >= from && b.part.toLowerCase() === name);
+  }
 
-  function populateBodySelects() {
-    const bodyPartsList = window.bodyPartsList || [];
-    ['bodySelect', 'statBodySelect'].forEach(id => {
-      const el = document.getElementById(id);
-      if(el) {
-        const cur = el.value;
-        el.innerHTML = '<option value="">Wybierz obwód...</option>';
-        bodyPartsList.forEach(item => {
-          const opt = document.createElement('option'); 
-          opt.value = item.name; 
-          opt.textContent = item.name;
-          el.appendChild(opt);
-        });
+  // Wykres obwodu: linia z wypełnieniem pod spodem, podpisane minimum i maksimum
+  function drawChart(rows) {
+    const canvas = $('bodyChart'), w = canvas.parentElement.clientWidth;
+    if (!w) return;
+    const h = 180, dpr = window.devicePixelRatio || 1, ctx = canvas.getContext('2d');
+    canvas.width = w * dpr; canvas.height = h * dpr; canvas.style.height = h + 'px';
+    ctx.scale(dpr, dpr);
+    const c = { line: U.css('--primary'), muted: U.css('--text-muted') };
+    ctx.font = '11px sans-serif'; ctx.fillStyle = c.muted;
+    if (rows.length < 2) { ctx.textAlign = 'center'; ctx.fillText('Za mało danych w okresie', w / 2, h / 2); return; }
 
-        if (id === 'statBodySelect' && !cur && el.options.length > 1) {
-          el.selectedIndex = 1;
-        } else if (cur) {
-          el.value = cur;
-        }
+    const vals = rows.map(r => r.size), lo = Math.min(...vals), hi = Math.max(...vals), span = (hi - lo) || 1;
+    const min = lo - span * .3, max = hi + span * .3, L = 36, R = 12, T = 12, B = 24;
+    const X = i => L + i / (vals.length - 1) * (w - L - R);
+    const Y = v => T + (1 - (v - min) / (max - min)) * (h - T - B);
+
+    ctx.beginPath(); ctx.moveTo(X(0), h - B);
+    vals.forEach((v, i) => ctx.lineTo(X(i), Y(v)));
+    ctx.lineTo(X(vals.length - 1), h - B); ctx.closePath();
+    ctx.fillStyle = c.line; ctx.globalAlpha = .15; ctx.fill(); ctx.globalAlpha = 1;
+
+    ctx.strokeStyle = c.line; ctx.lineWidth = 2.5; ctx.lineJoin = 'round'; ctx.beginPath();
+    vals.forEach((v, i) => i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v)));
+    ctx.stroke();
+    if (vals.length <= 40) { ctx.fillStyle = c.line; vals.forEach((v, i) => { ctx.beginPath(); ctx.arc(X(i), Y(v), 3, 0, 7); ctx.fill(); }); }
+
+    ctx.fillStyle = c.muted; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText(hi.toFixed(1), L - 6, Y(hi)); ctx.fillText(lo.toFixed(1), L - 6, Y(lo));
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left'; ctx.fillText(U.fmtDate(rows[0].date).slice(0, 5), L, h - B + 6);
+    ctx.textAlign = 'right'; ctx.fillText(U.fmtDate(rows[rows.length - 1].date).slice(0, 5), w - R, h - B + 6);
+  }
+
+  function renderStats() {
+    const rows = measurements(), sizes = rows.map(r => r.size);
+    $('bodyAvg').textContent = U.f1(U.avg(sizes), 'cm');
+    $('bodyMed').textContent = U.f1(U.median(sizes), 'cm');
+    drawChart(rows);
+  }
+
+  function renderHistory() {
+    const groups = [...U.group(D.body, b => U.fmtDate(b.date))].reverse();
+    $('bodyHistory').innerHTML = groups.map(([dt, items], idx) => `
+      <details class="accordion" ${idx === 0 ? 'open' : ''}>
+        <summary><span>📅 ${dt} (${items.length})</span></summary>
+        <div class="accordion-body">${items.map(i =>
+          `<div class="data-item"><span>${U.esc(i.part)}</span><strong>${i.size.toFixed(1)} cm</strong></div>`).join('')}</div>
+      </details>`).join('') || '<div class="muted center">Brak pomiarów obwodów</div>';
+  }
+
+  function render() { fillSelects(); renderHistory(); renderStats(); }
+
+  // ---------- zdarzenia ----------
+  function init() {
+    $('bodyDate').value = U.iso(Date.now());
+    $('statBodySelect').addEventListener('change', renderStats);
+
+    // po wybraniu partii podpowiedz ostatni pomiar
+    $('bodySelect').addEventListener('change', () => {
+      const name = $('bodySelect').value.toLowerCase();
+      const last = name && D.body.findLast(b => b.part.toLowerCase() === name);
+      if (last) $('bodySizeInput').value = last.size.toFixed(1);
+    });
+
+    $('bodyForm').addEventListener('click', e => {
+      const b = e.target.closest('[data-step]');
+      if (!b) return;
+      const inp = $('bodySizeInput');
+      inp.value = Math.max(0, (parseFloat(inp.value) || 0) + +b.dataset.step).toFixed(1);
+    });
+
+    $('bodyPeriodGroup').addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      $('bodyPeriodGroup').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+      state.period = b.dataset.period;
+      renderStats();
+    });
+
+    $('bodyForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const date = $('bodyDate').value, part = $('bodySelect').value, size = U.num($('bodySizeInput').value);
+      if (!date || !part || isNaN(size)) return;
+      const rec = { date, ts: U.ts(date), part, size };
+      D.body.push(rec); D.body.sort(U.byTs); App.invalidate();
+      const id = await App.run(() => App.db.addData('Obwody', { Data: date, Partia: part, Wymiar: size }), () => U.drop(D.body, rec));
+      if (id) {
+        rec.id = id;
+        D.bodyParts.find(p => p.name === part)?.docIds.push(id); // żeby usunięcie partii objęło też ten pomiar
       }
     });
   }
 
-  window.adjustBodySize = function(delta) {
-    const inp = document.getElementById('bodySizeInput');
-    if (!inp) return;
-    const cur = parseFloat(inp.value) || 0;
-    inp.value = (Math.max(0, cur + delta)).toFixed(1);
-  };
-
-  window.setBodyPeriod = function(period, btn) {
-    window.currentBodyPeriod = period;
-
-    const group = document.getElementById('bodyPeriodFilterGroup');
-    if (group) {
-      group.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-    }
-    if (btn) btn.classList.add('active');
-
-    window.handleBodyStatChange();
-  };
-
-  function getFilteredBodyData() {
-    const sel = document.getElementById('statBodySelect');
-    if (!sel || !sel.value) return [];
-    
-    const bodyMeasurementsData = window.bodyMeasurementsData || [];
-    const filteredByPart = bodyMeasurementsData.filter(b => b.part && b.part.trim().toLowerCase() === sel.value.trim().toLowerCase());
-
-    const now = new Date();
-    now.setHours(23, 59, 59, 999);
-
-    let limitDate = new Date(0); 
-
-    if (window.currentBodyPeriod === 'week') {
-      limitDate = new Date();
-      limitDate.setDate(now.getDate() - 7);
-      limitDate.setHours(0, 0, 0, 0);
-    } else if (window.currentBodyPeriod === 'month') {
-      limitDate = new Date();
-      limitDate.setDate(now.getDate() - 30);
-      limitDate.setHours(0, 0, 0, 0);
-    } else if (window.currentBodyPeriod === '3months') {
-      limitDate = new Date();
-      limitDate.setDate(now.getDate() - 90);
-      limitDate.setHours(0, 0, 0, 0);
-    }
-
-    return filteredByPart.filter(b => {
-      if (window.currentBodyPeriod === 'all') return true;
-      const dt = window.parseLocalDate(b.date);
-      return !isNaN(dt.getTime()) && dt >= limitDate;
-    });
-  }
-
-  window.handleBodyStatChange = function() {
-    const timeFiltered = getFilteredBodyData();
-    const sizes = timeFiltered.map(b => b.size);
-
-    const bAvg = document.getElementById('bodyAvgResult');
-    const bMed = document.getElementById('bodyMedResult');
-    if (bAvg) bAvg.innerText = window.getAverage(sizes) + ' cm';
-    if (bMed) bMed.innerText = window.getMedian(sizes) + ' cm';
-
-    window.drawBodyChart();
-  };
-
-  window.drawBodyChart = function() {
-    const timeFiltered = getFilteredBodyData();
-    const sizes = timeFiltered.map(b => b.size);
-    window.drawChart('bodyChart', sizes, 'all', 'cm');
-  };
-
-  function renderBodyList() {
-    const list = document.getElementById('bodyDataList'); 
-    if (!list) return;
-    list.innerHTML = '';
-    
-    const bodyMeasurementsData = window.bodyMeasurementsData || [];
-    if (!bodyMeasurementsData.length) {
-      list.innerHTML = '<div style="text-align:center; padding:10px; color:var(--text-muted);">Brak pomiarów obwodów</div>';
-      return;
-    }
-
-    const grouped = {};
-    bodyMeasurementsData.forEach(b => { 
-      if (b.date) { 
-        const k = window.formatDate(b.date); 
-        if (!grouped[k]) grouped[k] = []; 
-        grouped[k].push(b); 
-      } 
-    });
-
-    Object.keys(grouped).reverse().forEach((dt, idx) => {
-      const head = document.createElement('div'); 
-      head.className = 'accordion-header';
-      head.onclick = () => window.toggleAccordion(head);
-      head.innerHTML = `<span>📅 ${dt} (${grouped[dt].length})</span><span class="accordion-arrow">${idx === 0 ? '▼' : '▶'}</span>`;
-      
-      const content = document.createElement('div'); 
-      content.className = `accordion-content ${idx === 0 ? 'open' : ''}`;
-      
-      grouped[dt].forEach(i => {
-        const d = document.createElement('div'); 
-        d.className = 'data-item';
-        d.innerHTML = `<span>${i.part}</span><strong>${i.size.toFixed(1)} cm</strong>`;
-        content.appendChild(d);
-      });
-      
-      list.appendChild(head); 
-      list.appendChild(content);
-    });
-  }
-
-  const bodyForm = document.getElementById('bodyForm');
-  if (bodyForm && !bodyForm.dataset.listenerAttached) {
-    bodyForm.dataset.listenerAttached = 'true';
-    bodyForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const date = document.getElementById('bodyDate').value;
-      const part = document.getElementById('bodySelect').value;
-      const size = parseFloat(document.getElementById('bodySizeInput').value);
-      if (!date || !part || isNaN(size)) return;
-
-      window.bodyMeasurementsData.push({ date, part, size });
-      window.bodyMeasurementsData.sort((a, b) => window.parseLocalDate(a.date) - window.parseLocalDate(b.date));
-      window.updateApp();
-
-      await window.firebaseFunctions.addData('Obwody', { Data: date, Partia: part, Wymiar: size });
-      window.fetchFromFirebaseFast();
-    });
-  }
+  App.register('body', { collections: ['Obwody', 'Cwiczenia'], parse, init, render });
+})();
 </script>
