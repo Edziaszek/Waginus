@@ -219,3 +219,23 @@ details.accordion[open] > summary::after { content: '▼'; }
 }
 .segmented button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .stat-sub { font-size: .72rem; color: var(--text-muted); margin-top: 2px; min-height: 1em; }
+
+/* ---------- Zwijane sekcje (strona główna) ---------- */
+details.fold {
+  background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+details.fold > summary {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  min-height: 52px; padding: 12px 14px; font-weight: bold; font-size: 1rem;
+  cursor: pointer; list-style: none; user-select: none; touch-action: manipulation;
+}
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary::after {
+  content: ''; flex: none; width: 9px; height: 9px; margin-right: 4px;
+  border-right: 2px solid var(--text-muted); border-bottom: 2px solid var(--text-muted);
+  transform: rotate(45deg); transition: transform .2s;
+}
+details.fold[open] > summary::after { transform: rotate(-135deg); }
+details.fold > summary:active { background: var(--box-bg); border-radius: 12px; }
+.fold-body { padding: 0 14px 14px; }
