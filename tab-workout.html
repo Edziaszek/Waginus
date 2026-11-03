@@ -30,15 +30,15 @@
     <label>Wybierz ćwiczenie</label>
     <select id="statExerciseSelect"><option value="">Wybierz ćwiczenie...</option></select>
   </div>
-  <div class="btn-group" id="workoutFilterGroup">
-    <button type="button" class="active" data-filter="week">Ten tydzień</button>
-    <button type="button" data-filter="month">Ten miesiąc</button>
-    <button type="button" data-filter="90">90 dni</button>
-    <button type="button" data-filter="all">Wszystko</button>
+  <div class="segmented" id="workoutFilterGroup" role="group" aria-label="Okres statystyk">
+    <button type="button" class="active" aria-pressed="true" data-filter="week">Tydzień</button>
+    <button type="button" aria-pressed="false" data-filter="month">Miesiąc</button>
+    <button type="button" aria-pressed="false" data-filter="90">90 dni</button>
+    <button type="button" aria-pressed="false" data-filter="all">Wszystko</button>
   </div>
   <div class="stats-row">
-    <div class="stat-box"><div class="stat-lbl">Średnia waga</div><div class="stat-val" id="workoutAvg">-</div></div>
-    <div class="stat-box"><div class="stat-lbl">Mediana waga</div><div class="stat-val" id="workoutMed">-</div></div>
+    <div class="stat-box"><div class="stat-lbl">Największy ciężar</div><div class="stat-val" id="workoutMax">-</div><div class="stat-sub" id="workoutMaxSub"></div></div>
+    <div class="stat-box"><div class="stat-lbl">Najniższy ciężar</div><div class="stat-val" id="workoutMin">-</div><div class="stat-sub" id="workoutMinSub"></div></div>
   </div>
   <div class="chart-box"><canvas id="workoutChart"></canvas></div>
 </div>
@@ -167,10 +167,24 @@
     ctx.textAlign = 'right'; ctx.fillText(U.fmtDate(rows[rows.length - 1].date).slice(0, 5), w - P, h - B + 6);
   }
 
+  // Najcięższa i najlżejsza seria (>0 kg) spośród wszystkich sesji z wybranego okresu
+  function extremes(rows) {
+    let max = null, min = null;
+    for (const w of rows) w.weights.forEach((kg, i) => {
+      if (kg <= 0) return;
+      const hit = { kg, reps: repsAt(w, i) };
+      if (!max || kg > max.kg) max = hit;
+      if (!min || kg < min.kg) min = hit;
+    });
+    return { max, min };
+  }
+
   function renderStats() {
-    const rows = sessions(), vals = rows.map(r => r.avgWeight);
-    $('workoutAvg').textContent = U.f1(U.avg(vals), 'kg');
-    $('workoutMed').textContent = U.f1(U.median(vals), 'kg');
+    const rows = sessions(), { max, min } = extremes(rows);
+    for (const [key, hit] of [['workoutMax', max], ['workoutMin', min]]) {
+      $(key).textContent = hit ? `${hit.kg} kg` : '-';
+      $(key + 'Sub').textContent = hit ? U.reps(hit.reps) : '';
+    }
     drawChart(rows);
   }
 
@@ -225,7 +239,10 @@
     $('workoutFilterGroup').addEventListener('click', e => {
       const b = e.target.closest('button');
       if (!b) return;
-      $('workoutFilterGroup').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+      $('workoutFilterGroup').querySelectorAll('button').forEach(x => {
+        x.classList.toggle('active', x === b);
+        x.setAttribute('aria-pressed', x === b);
+      });
       state.filter = b.dataset.filter;
       renderStats();
     });
