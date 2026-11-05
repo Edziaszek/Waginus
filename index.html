@@ -17,12 +17,13 @@
   <header class="top-bar">
     <div class="top-bar-title">📊 Dziennik Formy</div>
     <div class="top-controls">
+      <button class="icon-btn" id="statusBtn" aria-label="Status połączenia"><span class="dot busy" id="statusDot"></span></button>
       <button class="icon-btn" id="themeBtn" aria-label="Zmień motyw"><span id="themeIcon">🌙</span></button>
       <button class="icon-btn" data-font="-1" aria-label="Mniejszy tekst">A-</button>
       <button class="icon-btn" data-font="1" aria-label="Większy tekst">A+</button>
     </div>
+    <div class="status-pop" id="statusPop" role="status" hidden></div>
   </header>
-  <div id="status" class="busy">⏳ Łączenie z Firebase...</div>
   <!-- Sekcje #tab-<nazwa> tworzy app.js na podstawie przycisków poniżej -->
 </div>
 
