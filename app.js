@@ -66,6 +66,7 @@
 
   const tabs = {};
   const dirty = new Set();
+  let conn = { msg: 'Łączenie z Firebase…', kind: 'busy', detail: '', syncedAt: null };
   let active = 'main';
   let fontSize = parseInt(localStorage.getItem('app_font_size')) || 16;
 
@@ -82,35 +83,42 @@
       renderActive();
     },
 
-    status(msg, kind = '') {
-      const el = document.getElementById('status');
-      el.textContent = msg;
-      el.className = kind;
+    // Stan połączenia: tylko kolorowa kropka w pasku górnym; szczegóły pojawiają się po kliknięciu.
+    // kind: 'busy' (żółta, pulsuje) | 'ok' (zielona) | 'err' (czerwona)
+    status(msg, kind = 'busy', detail = '') {
+      conn = { msg, kind, detail, syncedAt: kind === 'ok' ? Date.now() : conn.syncedAt };
+      document.getElementById('statusDot').className = 'dot ' + kind;
+      document.getElementById('statusBtn').title = msg;
+      if (!document.getElementById('statusPop').hidden) renderStatusPop();
     },
 
     // Operacja zapisu z obsługą błędu: pokazuje błąd i woła rollback (cofnięcie zmiany optymistycznej).
     async run(op, rollback) {
-      try { return await op(); }
-      catch (e) {
+      try {
+        App.status('Zapisywanie…', 'busy');
+        const res = await op();
+        App.status('Zapisano w Firebase', 'ok');
+        return res;
+      } catch (e) {
         console.error(e);
-        App.status('🔴 Błąd zapisu – zmiana cofnięta', 'err');
+        App.status('Błąd zapisu – zmiana została cofnięta', 'err', e?.message || String(e));
         rollback?.();
         App.invalidate();
       }
     },
 
     async reload() {
-      App.status('⏳ Pobieranie danych...', 'busy');
+      App.status('Pobieranie danych…', 'busy');
       try {
         const names = [...new Set(Object.values(tabs).flatMap(t => t.collections || []))];
         const docs = await Promise.all(names.map(n => App.db.getData(n)));
         const raw = Object.fromEntries(names.map((n, i) => [n, docs[i]]));
         Object.values(tabs).forEach(t => t.parse?.(raw));
-        App.status('🟢 Połączono z Firebase', 'ok');
+        App.status('Połączono z Firebase', 'ok');
         App.invalidate();
       } catch (e) {
         console.error(e);
-        App.status('🔴 Błąd połączenia – dotknij, aby ponowić', 'err');
+        App.status('Błąd połączenia z Firebase', 'err', e?.message || String(e));
       }
     },
 
@@ -143,6 +151,21 @@
       location.reload();
     }
   };
+
+  function renderStatusPop() {
+    const esc = App.util.esc, time = conn.syncedAt ? new Date(conn.syncedAt).toLocaleTimeString('pl-PL') : null;
+    document.getElementById('statusPop').innerHTML = `
+      <div class="status-pop-title"><span class="dot ${conn.kind}"></span><strong>${esc(conn.msg)}</strong></div>
+      ${conn.detail ? `<div class="status-pop-detail">${esc(conn.detail)}</div>` : ''}
+      ${time ? `<div class="muted status-pop-time">Ostatnia udana operacja: ${time}</div>` : ''}
+      <button class="btn-secondary full" data-reload>Odśwież dane z Firebase</button>`;
+  }
+  function toggleStatusPop() {
+    const pop = document.getElementById('statusPop');
+    pop.hidden = !pop.hidden;
+    if (!pop.hidden) renderStatusPop();
+  }
+  function closeStatusPop() { document.getElementById('statusPop').hidden = true; }
 
   function renderActive() {
     if (!dirty.has(active) || !tabs[active]) return;
@@ -201,7 +224,7 @@
     }
     syncThemeIcon();
     try { await Promise.all([loadTabs(), firebaseReady()]); }
-    catch (e) { console.error(e); App.status('🔴 Nie udało się załadować Firebase', 'err'); return; }
+    catch (e) { console.error(e); App.status('Nie udało się załadować Firebase', 'err', e?.message || String(e)); return; }
     await App.reload();
   }
 
@@ -213,7 +236,9 @@
     const f = t.closest('[data-font]');
     if (f) return App.changeFont(+f.dataset.font);
     if (t.closest('#themeBtn')) return App.toggleTheme();
-    if (t.closest('#status.err')) App.reload();
+    if (t.closest('#statusBtn')) return toggleStatusPop();
+    if (t.closest('[data-reload]')) { closeStatusPop(); return App.reload(); }
+    if (!t.closest('#statusPop')) closeStatusPop(); // klik poza okienkiem je zamyka
   });
 
   // Przerysuj wykresy po zmianie szerokości (obrót ekranu, zmiana okna)
