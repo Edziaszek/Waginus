@@ -145,6 +145,15 @@
       App.invalidate();
     },
 
+    getHeight() {
+      const h = parseFloat(localStorage.getItem('settings_height'));
+      return h > 0 ? h : null;
+    },
+    setHeight(cm) {
+      localStorage.setItem('settings_height', cm);
+      App.invalidate();
+    },
+
     logout() {
       sessionStorage.removeItem('app_authenticated');
       sessionStorage.removeItem('pin_authenticated');
