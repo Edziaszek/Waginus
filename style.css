@@ -254,3 +254,8 @@ details.fold > summary:active { background: var(--box-bg); border-radius: 12px; 
 .status-pop-title { display: flex; align-items: center; gap: 8px; }
 .status-pop-detail { font-size: .8rem; padding: 8px; border-radius: 6px; background: var(--box-bg); word-break: break-word; }
 .status-pop-time { font-size: .75rem; }
+
+/* ---------- Reakcja przycisków głównych: wciśnięcie i potwierdzenie „Dodano” ---------- */
+button.btn-primary { transition: background-color .2s, filter .15s, transform .1s; touch-action: manipulation; }
+button.btn-primary:active { filter: brightness(.78); transform: scale(.98); }
+button.btn-primary.done { background: #16a34a; color: #fff; }
