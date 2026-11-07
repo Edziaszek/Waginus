@@ -268,7 +268,7 @@
       D.workouts.push(rec); D.workouts.sort(U.byTs); App.invalidate();
       const id = await App.run(
         () => App.db.addData('Treningi', { Data: date, Cwiczenie: exercise, Serie: weights.length, Wagi: weights, Powtorzenia: reps }),
-        () => U.drop(D.workouts, rec));
+        () => U.drop(D.workouts, rec), e.submitter);
       if (id) rec.id = id;
     });
   }
