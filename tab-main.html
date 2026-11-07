@@ -14,6 +14,24 @@
 </details>
 
 <details class="fold">
+  <summary>💪 Mięśnie – pracujące w treningu</summary>
+  <div class="fold-body">
+    <div class="between">
+      <button type="button" class="btn-secondary" id="mmPrev" aria-label="Poprzedni trening">◀</button>
+      <strong id="mmDate">-</strong>
+      <button type="button" class="btn-secondary" id="mmNext" aria-label="Następny trening">▶</button>
+    </div>
+    <div class="mm-chips" id="mmChips"></div>
+    <div class="mm-views" id="mmViews">
+      <figure><svg id="mmFront" viewBox="0 0 200 410" role="img" aria-label="Model człowieka – widok z przodu"></svg><figcaption>Przód</figcaption></figure>
+      <figure><svg id="mmBack" viewBox="0 0 200 410" role="img" aria-label="Model człowieka – widok z tyłu"></svg><figcaption>Tył</figcaption></figure>
+    </div>
+    <div class="mm-legend"><span><i class="lg on"></i> główne</span><span><i class="lg on2"></i> pomocnicze</span></div>
+    <div class="mm-info" id="mmInfo"></div>
+  </div>
+</details>
+
+<details class="fold">
   <summary>🏃‍♂️ Rekordy i ostatnie wyniki w kardio</summary>
   <div class="fold-body stack" id="mainCardio"></div>
 </details>
@@ -132,8 +150,190 @@
     }).join('');
   }
 
+
+  // =====================================================================
+  //  MODEL MIĘŚNI
+  //  Mięśnie przypisujemy ćwiczeniom: (1) ręcznie w Ustawieniach → Treningi (pole "Miesnie" w bazie),
+  //  a jeśli tego nie ma – (2) automatycznie po słowach kluczowych w nazwie (tabela RULES poniżej).
+  // =====================================================================
+  const MUSCLES = [
+    ['chest', 'Klatka piersiowa'], ['shoulders', 'Barki'], ['biceps', 'Biceps'], ['triceps', 'Triceps'],
+    ['forearms', 'Przedramiona'], ['abs', 'Brzuch'], ['obliques', 'Mięśnie skośne brzucha'],
+    ['traps', 'Czworoboczne (kaptury)'], ['lats', 'Najszersze grzbietu'], ['lowerback', 'Dolny odcinek grzbietu'],
+    ['glutes', 'Pośladki'], ['quads', 'Czworogłowe ud'], ['adductors', 'Przywodziciele ud'], ['hamstrings', 'Dwugłowe ud'], ['calves', 'Łydki']
+  ].map(([id, label]) => ({ id, label }));
+  const LABEL = Object.fromEntries(MUSCLES.map(m => [m.id, m.label]));
+
+  // [słowa kluczowe w nazwie, mięśnie główne, mięśnie pomocnicze] – pierwsza pasująca reguła wygrywa, więc szczegółowe są wyżej.
+  const RULES = [
+    // --- maszyny Nautilus (Inspiration / Instinct / Impact / Leverage) i ich polskie odpowiedniki – szczegółowe najpierw ---
+    [['pec fly/rear', 'pec fly / rear', 'pec fly/ rear', 'pec fly rear', 'dual pec'], ['chest', 'shoulders'], ['traps']],
+    [['multi-press', 'multi press', 'shoulder chest'], ['chest', 'shoulders'], ['triceps']],
+    [['abduction / adduction', 'abduction/adduction', 'abduction/ adduction', 'abduction adduction', 'abductor/adductor', 'abductor / adductor', 'abductor adductor'], ['glutes', 'adductors'], []],
+    [['abduction'], ['glutes', 'adductors'], []],   // maszyna Nautilus Abduction/Adduction pracuje w obu kierunkach
+    [['abductor', 'odwodziciel', 'odwodząc', 'odwodzac', 'odwodzenie ud', 'odwodzenie nóg', 'odwodzenie nog'], ['glutes'], []],
+    [['adductor', 'adduction', 'przywodziciel', 'przywodząc', 'przywodzac', 'przywodzenie'], ['adductors'], []],
+    [['leg press', 'suwnica', 'wyciskanie nogami', 'hack'], ['quads', 'glutes'], ['hamstrings']],
+    [['prostowanie nóg', 'prostowanie nog', 'prostowanie podudzi', 'leg extension'], ['quads'], []],
+    [['uginanie nóg', 'uginanie nog', 'zginanie nóg', 'zginanie nog', 'uginanie podudzi', 'leg curl'], ['hamstrings'], ['calves']],
+    // --- ćwiczenia wolne i inne ---
+    [['przysiad', 'squat', 'wykrok', 'wypad', 'lunge', 'step-up', 'wejścia na', 'wejscia na'], ['quads', 'glutes'], ['hamstrings', 'lowerback', 'abs']],
+    [['martwy', 'martwego', 'rdl', 'rumuński', 'rumunski', 'deadlift'], ['hamstrings', 'glutes', 'lowerback'], ['traps', 'lats', 'forearms']],
+    [['prostowniki', 'good morning', 'dzień dobry', 'dzien dobry', 'hiperekstensj', 'back extension', 'prostowanie grzbietu', 'prostowanie tułowia', 'prostowanie tulowia', 'wyprosty'], ['lowerback'], ['glutes', 'hamstrings']],
+    [['hip thrust', 'mostek', 'pośladk', 'posladk', 'glute', 'kickback', 'multi-hip', 'multi hip', 'hip extension', 'wyprost biodra'], ['glutes'], ['hamstrings']],
+    [['łydk', 'lydk', 'calf', 'wspięcia', 'wspiecia'], ['calves'], []],
+    [['francusk', 'tricep', 'pushdown', 'prostowanie ramion', 'prostowanie przedramion', 'skull'], ['triceps'], ['shoulders']],
+    [['dipy', 'dips', 'dip', 'poręcz', 'porecz'], ['triceps', 'chest'], ['shoulders']],
+    [['rotary torso', 'torso rotation', 'rotacja tułowia', 'rotacja tulowia', 'skręty tułowia', 'skrety tulowia', 'skręt tułowia', 'skret tulowia'], ['obliques'], ['abs']],
+    [['brzuch', 'brzusz', 'abdominal', 'ab crunch', 'plank', 'deska', 'scyzoryk', 'spięcia', 'spiecia', 'allah', 'crunch', 'unoszenie nóg', 'unoszenie nog', 'wznosy nóg', 'wznosy nog', 'leg raise', 'hollow', 'core', 'russian twist', 'skłony', 'sklony'], ['abs'], ['obliques']],
+    [['wyciskanie żołnierskie', 'wyciskanie zolnierskie', 'nad głowę', 'nad glowe', 'ohp', 'arnold', 'military', 'barki', 'shoulder press', 'press barków', 'press barkow', 'wyciskanie barków', 'wyciskanie barkow'], ['shoulders'], ['triceps', 'traps']],
+    [['wznosy', 'face pull', 'odwodzenie ramion', 'lateral raise', 'boczne', 'deltoid raise', 'delt raise', 'total delts', 'rear delt', 'tylny akton', 'tylne aktony', 'odwrotne rozpiętki', 'odwrotne rozpietki', 'reverse fly'], ['shoulders'], ['traps']],
+    [['wyciskanie', 'ciężarki na ławce', 'ciezarki na lawce', 'chest press', 'incline press', 'decline press', 'klatk', 'rozpiętk', 'rozpietk', 'pompk', 'bench', 'butterfly', 'motylek', 'krzyżowanie', 'krzyzowanie', 'pec fly', 'pec deck', 'pectoral'], ['chest'], ['shoulders', 'triceps']],
+    [['szrugs', 'shrug', 'kaptur'], ['traps'], ['forearms']],
+    [['pullover', 'pull-over'], ['lats'], ['chest', 'triceps']],
+    [['podciąganie', 'podciaganie', 'ściąganie', 'sciaganie', 'drążek', 'drazek', 'lat pull', 'pull down', 'pull-down', 'pulldown', 'pull lift', 'dual lat', 'vertical row', 'low row', 'high row', 'seated row', 'cable row', 'wiosłowanie', 'wioslowanie', 'wiosło', 'wioslo', 'przyciąganie', 'przyciaganie', 'chin-up', 'chin up', 'assisted chin', 'pull-up', 'pull up', 'plecy', 'grzbiet'], ['lats', 'traps'], ['biceps', 'forearms']],
+    [['nadgarstk', 'wrist', 'przedramion'], ['forearms'], []],
+    [['uginanie', 'biceps', 'młotk', 'motk', 'hammer', 'modlitewnik', 'curl', 'scott'], ['biceps'], ['forearms']]
+  ];
+
+  const guess = name => {
+    const n = String(name).toLowerCase(), r = RULES.find(([keys]) => keys.some(k => n.includes(k)));
+    return r ? { primary: r[1], secondary: r[2] } : null;
+  };
+  const resolve = name => {
+    const ex = D.exercises.find(e => e.name.toLowerCase() === String(name).toLowerCase());
+    return ex && (ex.muscles?.length || ex.muscles2?.length) ? { primary: ex.muscles, secondary: ex.muscles2 || [], own: true } : guess(name);
+  };
+  App.muscles = { list: MUSCLES, label: LABEL, guess, resolve }; // używane przez Ustawienia
+
+  // ---------- rysunek: uproszczony manekin (lewa połowa rysowana, prawa to lustrzane odbicie) ----------
+  const BODY = [
+    ['M85 26 a15 18 0 1 0 30 0 a15 18 0 1 0 -30 0Z', false],                                           // głowa
+    ['M92 42H108V58H92Z', false],                                                                      // szyja
+    ['M62 62Q100 52 138 62L134 120Q130 160 126 190L122 214Q100 222 78 214L74 190Q70 160 66 120Z', false], // tułów
+    ['M60 64Q44 68 43 84L40 138H55L62 92Z', true],                                                     // ramię
+    ['M40 138H55L51 202H42Z', true],                                                                   // przedramię
+    ['M42 200H51L53 220Q46 226 41 220Z', true],                                                        // dłoń
+    ['M71 208L100 212L97 300Q86 308 74 300Z', true],                                                   // udo
+    ['M74 304Q86 310 97 304L93 380Q86 388 79 380Z', true],                                             // łydka
+    ['M79 380H93L97 398Q86 404 74 398Z', true]                                                         // stopa
+  ];
+  const DELT = 'M62 62Q47 64 43 84L48 100Q58 90 64 76Z', FOREARM = 'M40 142H55L51 200H42Z', CALF = 'M75 308Q86 312 96 308L92 372Q86 378 80 372Z';
+  const FRONT = [
+    ['shoulders', DELT, true],
+    ['chest', 'M66 70Q82 66 99 74L99 108Q82 114 68 104Q64 88 66 70Z', true],
+    ['biceps', 'M45 104Q50 100 56 104L54 130L43 132Z', true],
+    ['forearms', FOREARM, true],
+    ['abs', 'M88 114H99V136H88Z', true], ['abs', 'M88 139H99V161H88Z', true], ['abs', 'M88 164H99V186H88Z', true],
+    ['obliques', 'M70 118L84 118L86 190L76 196Q72 160 70 118Z', true],
+    ['quads', 'M72 214L89 215L89 296Q82 300 75 294Z', true],
+    ['adductors', 'M90 216L99 216L97 288Q93 292 90 288Z', true],
+    ['calves', CALF, true]
+  ];
+  const BACK = [
+    ['lats', 'M68 94L82 100L98 140V170Q84 170 74 154Q68 124 68 94Z', true],
+    ['traps', 'M100 54Q88 58 76 66L84 88L100 122L116 88L124 66Q112 58 100 54Z', false],
+    ['shoulders', DELT, true],
+    ['triceps', 'M44 104Q50 100 57 104L55 132L42 134Z', true],
+    ['forearms', FOREARM, true],
+    ['lowerback', 'M86 174H99V206Q92 208 88 204Z', true],
+    ['glutes', 'M72 206Q86 200 99 208V238Q84 244 72 232Z', true],
+    ['hamstrings', 'M72 244L99 242L97 298Q86 304 75 296Z', true],
+    ['calves', CALF, true]
+  ];
+  const MIRROR = 'transform="translate(200 0) scale(-1 1)"';
+  const shape = (d, mirror, attrs) => `<path ${attrs} d="${d}"/>` + (mirror ? `<path ${attrs} d="${d}" ${MIRROR}/>` : '');
+  const buildSvg = muscles =>
+    BODY.map(([d, m]) => shape(d, m, 'class="mm-body"')).join('') +
+    muscles.map(([id, d, m]) => shape(d, m, `class="mm" data-m="${id}"`)).join('');
+
+  // ---------- stan i rysowanie ----------
+  const mm = { idx: null, ex: null, muscle: null };   // idx null = ostatni trening
+
+  function levelsFor(names) {   // id mięśnia -> 2 (główny) / 1 (pomocniczy) + kto go angażuje
+    const level = new Map(), by = new Map(), unknown = [];
+    for (const name of names) {
+      const r = resolve(name);
+      if (!r) { unknown.push(name); continue; }
+      for (const [ids, tier] of [[r.primary, 2], [r.secondary, 1]]) for (const id of ids) {
+        level.set(id, Math.max(level.get(id) || 0, tier));
+        (by.get(id) || by.set(id, []).get(id)).push({ name, tier });
+      }
+    }
+    return { level, by, unknown };
+  }
+
+  function renderMuscles() {
+    const days = [...new Set(D.workouts.map(w => w.ts))];   // dane są posortowane rosnąco
+    const views = $('mmViews'), info = $('mmInfo');
+    if (!days.length) {
+      views.querySelectorAll('.mm').forEach(el => el.classList.remove('on', 'on2', 'sel'));
+      $('mmDate').textContent = '-'; $('mmChips').innerHTML = ''; info.textContent = 'Brak zapisanych treningów.';
+      $('mmPrev').disabled = $('mmNext').disabled = true;
+      return;
+    }
+    const cur = mm.idx === null ? days.length - 1 : Math.min(Math.max(mm.idx, 0), days.length - 1);
+    const names = [...new Set(D.workouts.filter(w => w.ts === days[cur]).map(w => w.exercise))];
+    if (mm.ex && !names.includes(mm.ex)) mm.ex = null;
+
+    $('mmDate').textContent = U.fmtDate(U.iso(days[cur])) + (cur === days.length - 1 ? ' (ostatni)' : '');
+    $('mmPrev').disabled = cur === 0;
+    $('mmNext').disabled = cur === days.length - 1;
+
+    const { level, by, unknown } = levelsFor(mm.ex ? [mm.ex] : names);
+    views.querySelectorAll('.mm').forEach(el => {
+      const l = level.get(el.dataset.m) || 0;
+      el.classList.toggle('on', l === 2);
+      el.classList.toggle('on2', l === 1);
+      el.classList.toggle('sel', el.dataset.m === mm.muscle);
+    });
+
+    $('mmChips').innerHTML = names.map(n =>
+      `<button type="button" class="mm-chip${mm.ex === n ? ' active' : ''}${resolve(n) ? '' : ' warn'}" data-ex="${U.esc(n)}">${U.esc(n)}</button>`).join('');
+
+    let text;
+    if (mm.muscle) {
+      const src = by.get(mm.muscle) || [];
+      const main = src.filter(s => s.tier === 2).map(s => U.esc(s.name)), aux = src.filter(s => s.tier === 1).map(s => U.esc(s.name));
+      text = `<strong>${LABEL[mm.muscle]}</strong><br>` + (src.length
+        ? (main.length ? `Główny: ${main.join(', ')}<br>` : '') + (aux.length ? `Pomocniczy: ${aux.join(', ')}` : '')
+        : '<span class="muted">Nie był angażowany w tym treningu.</span>');
+    } else {
+      text = `<span class="muted">Dotknij mięśnia, aby zobaczyć, które ćwiczenia go angażują, albo ćwiczenia powyżej, aby zobaczyć tylko jego mięśnie.</span>`;
+    }
+    if (unknown.length) text += `<br><span class="accent">Brak przypisania mięśni: ${unknown.map(U.esc).join(', ')}. Ustaw je w Ustawieniach → Treningi.</span>`;
+    info.innerHTML = text;
+  }
+
+  function initMuscles() {
+    $('mmFront').innerHTML = buildSvg(FRONT);
+    $('mmBack').innerHTML = buildSvg(BACK);
+    $('mmViews').addEventListener('click', e => {
+      const m = e.target.closest('.mm');
+      if (!m) return;
+      mm.muscle = mm.muscle === m.dataset.m ? null : m.dataset.m;
+      renderMuscles();
+    });
+    $('mmChips').addEventListener('click', e => {
+      const c = e.target.closest('[data-ex]');
+      if (!c) return;
+      mm.ex = mm.ex === c.dataset.ex ? null : c.dataset.ex;
+      renderMuscles();
+    });
+    const step = d => {
+      const n = new Set(D.workouts.map(w => w.ts)).size, cur = mm.idx === null ? n - 1 : mm.idx, next = cur + d;
+      if (next < 0 || next > n - 1) return;
+      mm.idx = next === n - 1 ? null : next;   // powrót na ostatni = znów podąża za nowymi treningami
+      mm.ex = null;
+      renderMuscles();
+    };
+    $('mmPrev').addEventListener('click', () => step(-1));
+    $('mmNext').addEventListener('click', () => step(1));
+  }
+
   App.register('main', {
-    render() { renderWeight(); renderBody(); renderWorkouts(); renderCardio(); }
+    init: initMuscles,
+    render() { renderWeight(); renderBody(); renderWorkouts(); renderMuscles(); renderCardio(); }
   });
 })();
 </script>
