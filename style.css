@@ -296,3 +296,16 @@ label.check input { flex: none; width: 20px; height: 20px; padding: 0; }
 }
 .m-chip.s2 { background: var(--primary); color: var(--primary-text); border-color: var(--primary); font-weight: bold; }
 .m-chip.s1 { border: 2px solid var(--primary); color: var(--primary); font-weight: bold; }
+
+/* ---------- Logowanie / rejestracja ---------- */
+body.locked #app, body.locked .bottom-nav { display: none; }
+.auth-screen { width: 100%; max-width: 420px; margin-top: 8vh; }
+.auth-card { display: flex; flex-direction: column; gap: 12px; }
+.auth-card h2 { margin: 0; text-align: center; font-size: 1.2rem; }
+.auth-card p { margin: 0; line-height: 1.5; }
+.auth-card .segmented { margin: 0; }
+.auth-hint { font-size: .8rem; }
+.auth-msg { padding: 10px; border-radius: 8px; background: #fecaca; color: #7f1d1d; font-size: .9rem; line-height: 1.4; }
+.auth-msg.ok { background: #bbf7d0; color: #14532d; }
+.link-btn { background: none; border: none; color: var(--primary); font-size: .9rem; padding: 10px; cursor: pointer; text-decoration: underline; }
+code.uid { display: block; margin-top: 4px; padding: 8px; border-radius: 6px; background: var(--box-bg); font-size: .75rem; word-break: break-all; user-select: all; }
