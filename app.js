@@ -93,11 +93,12 @@
     },
 
     // Operacja zapisu z obsługą błędu: pokazuje błąd i woła rollback (cofnięcie zmiany optymistycznej).
-    async run(op, rollback) {
+    async run(op, rollback, btn) {
       try {
         App.status('Zapisywanie…', 'busy');
         const res = await op();
         App.status('Zapisano w Firebase', 'ok');
+        App.flash(btn);
         return res;
       } catch (e) {
         console.error(e);
@@ -105,6 +106,20 @@
         rollback?.();
         App.invalidate();
       }
+    },
+
+    // Potwierdzenie na przycisku: „✓ Dodano” na 5 s, potem powrót do pierwotnego tekstu.
+    // Ponowne wywołanie w trakcie odlicza 5 s od nowa (pierwotny tekst zapamiętywany jest tylko raz).
+    flash(btn, text = 'Dodano') {
+      if (!btn) return;
+      if (btn._flashTimer) clearTimeout(btn._flashTimer); else btn.dataset.label = btn.textContent;
+      btn.textContent = '✓ ' + text;
+      btn.classList.add('done');
+      btn._flashTimer = setTimeout(() => {
+        btn.textContent = btn.dataset.label;
+        btn.classList.remove('done');
+        btn._flashTimer = null;
+      }, 5000);
     },
 
     async reload() {
