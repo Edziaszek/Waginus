@@ -259,3 +259,40 @@ details.fold > summary:active { background: var(--box-bg); border-radius: 12px; 
 button.btn-primary { transition: background-color .2s, filter .15s, transform .1s; touch-action: manipulation; }
 button.btn-primary:active { filter: brightness(.78); transform: scale(.98); }
 button.btn-primary.done { background: #16a34a; color: #fff; }
+
+/* ---------- Model mięśni ---------- */
+.mm-views { display: flex; gap: 8px; margin-top: 8px; }
+.mm-views figure { flex: 1; margin: 0; text-align: center; min-width: 0; }
+.mm-views svg { width: 100%; height: auto; max-height: 440px; display: block; }
+.mm-views figcaption { font-size: .75rem; color: var(--text-muted); font-weight: bold; }
+.mm-body { fill: var(--card-border); stroke: var(--card-border); stroke-width: 1; }   /* bez szwów: części ciała zlewają się w jedną sylwetkę */
+.mm { fill: var(--text-muted); fill-opacity: .2; stroke: var(--card-bg); stroke-width: 1; cursor: pointer; transition: fill .25s, fill-opacity .25s; }
+.mm.on2 { fill: var(--primary); fill-opacity: .45; }
+.mm.on { fill: var(--primary); fill-opacity: 1; }
+.mm.sel { stroke: var(--text-main); stroke-width: 2.5; }
+.mm-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
+.mm-chip {
+  min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--card-border);
+  background: var(--box-bg); color: var(--text-main); font-size: .85rem; cursor: pointer; touch-action: manipulation;
+}
+.mm-chip.active { background: var(--primary); color: var(--primary-text); border-color: var(--primary); font-weight: bold; }
+.mm-chip.warn { border-style: dashed; }
+.mm-legend { display: flex; justify-content: center; gap: 16px; margin-top: 8px; font-size: .75rem; color: var(--text-muted); }
+.mm-legend .lg { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; background: var(--primary); }
+.mm-legend .lg.on2 { opacity: .45; }
+.mm-info { margin-top: 10px; padding: 10px; background: var(--box-bg); border-radius: 8px; font-size: .9rem; line-height: 1.45; }
+.check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+label.check {
+  display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid var(--card-border); background: var(--box-bg); color: var(--text-main); font-size: .85rem; font-weight: normal;
+}
+label.check input { flex: none; width: 20px; height: 20px; padding: 0; }
+
+/* Przełącznik mięśnia w ustawieniach: brak → główny (pełny) → pomocniczy (obrys) */
+.m-chip {
+  min-height: 44px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--card-border);
+  background: var(--box-bg); color: var(--text-main); font-size: .85rem; cursor: pointer; touch-action: manipulation;
+  transition: background-color .15s, color .15s;
+}
+.m-chip.s2 { background: var(--primary); color: var(--primary-text); border-color: var(--primary); font-weight: bold; }
+.m-chip.s1 { border: 2px solid var(--primary); color: var(--primary); font-weight: bold; }
