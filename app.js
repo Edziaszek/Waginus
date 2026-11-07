@@ -139,7 +139,6 @@
     },
 
     switchTab(name) {
-      if (name === 'settings' && !pinOk('pin_authenticated', 'PIN do Ustawień:')) { alert('Błędny PIN!'); return; }
       active = name;
       document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === `tab-${name}`));
       document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
@@ -162,17 +161,16 @@
     },
 
     getHeight() {
-      const h = parseFloat(localStorage.getItem('settings_height'));
+      const h = parseFloat(localStorage.getItem(heightKey()));
       return h > 0 ? h : null;
     },
     setHeight(cm) {
-      localStorage.setItem('settings_height', cm);
+      localStorage.setItem(heightKey(), cm);
       App.invalidate();
     },
 
-    logout() {
-      sessionStorage.removeItem('app_authenticated');
-      sessionStorage.removeItem('pin_authenticated');
+    async logout() {
+      try { await window.firebaseAuth.logout(); } catch (e) { console.error(e); }
       location.reload();
     }
   };
@@ -192,6 +190,8 @@
   }
   function closeStatusPop() { document.getElementById('statusPop').hidden = true; }
 
+  const heightKey = () => 'settings_height_' + (window.firebaseAuth?.user?.uid ?? '');
+
   function renderActive() {
     if (!dirty.has(active) || !tabs[active]) return;
     dirty.delete(active);
@@ -200,13 +200,6 @@
 
   function syncThemeIcon() {
     document.getElementById('themeIcon').textContent = root.dataset.theme === 'dark' ? '☀️' : '🌙';
-  }
-
-  function pinOk(sessionKey, question) {
-    if (sessionStorage.getItem(sessionKey) === 'true') return true;
-    if (prompt(question) !== (localStorage.getItem('settings_pin') || '1234')) return false;
-    sessionStorage.setItem(sessionKey, 'true');
-    return true;
   }
 
   // Pobiera tab-<nazwa>.html, wstawia HTML do sekcji i uruchamia skrypty w kolejności zakładek.
@@ -243,13 +236,17 @@
   });
 
   async function boot() {
-    if (!pinOk('app_authenticated', 'Wprowadź PIN dostępowy:')) {
-      document.body.innerHTML = '<div class="denied"><h2>⛔ Brak dostępu</h2><p>Wprowadzono nieprawidłowy PIN.</p></div>';
+    syncThemeIcon();
+    try {
+      await firebaseReady();
+      await Auth.gate();   // ekran logowania/rejestracji – wraca po zalogowaniu z potwierdzonym e-mailem
+    } catch (e) {
+      console.error(e);
+      Auth.fatal('Nie udało się załadować Firebase. Sprawdź połączenie z internetem i odśwież stronę.');
       return;
     }
-    syncThemeIcon();
-    try { await Promise.all([loadTabs(), firebaseReady()]); }
-    catch (e) { console.error(e); App.status('Nie udało się załadować Firebase', 'err', e?.message || String(e)); return; }
+    window.firebaseAuth.onChange(u => { if (!u) location.reload(); });   // wylogowanie (także w innej karcie) czyści widok
+    await loadTabs();
     await App.reload();
   }
 
@@ -273,6 +270,5 @@
     timer = setTimeout(() => { if (innerWidth !== lastW) { lastW = innerWidth; App.invalidate(); } }, 150);
   });
 
-  App.pinSave = pin => localStorage.setItem('settings_pin', pin);
   boot();
 })();
