@@ -195,7 +195,7 @@
       if (!date || !part || isNaN(size)) return;
       const rec = { date, ts: U.ts(date), part, size };
       D.body.push(rec); D.body.sort(U.byTs); App.invalidate();
-      const id = await App.run(() => App.db.addData('Obwody', { Data: date, Partia: part, Wymiar: size }), () => U.drop(D.body, rec));
+      const id = await App.run(() => App.db.addData('Obwody', { Data: date, Partia: part, Wymiar: size }), () => U.drop(D.body, rec), e.submitter);
       if (id) {
         rec.id = id;
         D.bodyParts.find(p => p.name === part)?.docIds.push(id); // żeby usunięcie partii objęło też ten pomiar
