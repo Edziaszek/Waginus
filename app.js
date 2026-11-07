@@ -112,6 +112,7 @@
     // Ponowne wywołanie w trakcie odlicza 5 s od nowa (pierwotny tekst zapamiętywany jest tylko raz).
     flash(btn, text = 'Dodano') {
       if (!btn) return;
+      text = btn.dataset.done || text;   // data-done="Zapisano" zmienia tekst potwierdzenia
       if (btn._flashTimer) clearTimeout(btn._flashTimer); else btn.dataset.label = btn.textContent;
       btn.textContent = '✓ ' + text;
       btn.classList.add('done');
