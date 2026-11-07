@@ -17,6 +17,8 @@
       <input type="text" id="newExerciseInput" placeholder="Nowe ćwiczenie">
       <button type="button" class="btn-primary" data-act="add-exercise">Dodaj</button>
     </div>
+    <button type="button" class="btn-primary full mt" data-act="sync-muscles" data-done="Zapisano">Zapisz dopasowane mięśnie w bazie</button>
+    <div class="muted mt" id="muscleSyncInfo" style="font-size:.8rem"></div>
     <div id="editExercisesList" class="edit-list mt"></div>
   </div>
   <div class="card"><h2>Edycja Treningów</h2><div id="editWorkoutList" class="edit-list"></div></div>
@@ -103,6 +105,23 @@
   const field = (name, type, value, label = '', extra = '') =>
     `<div class="form-field">${label ? `<label>${label}</label>` : ''}<input type="${type}" data-f="${name}" value="${U.esc(value)}" ${extra}></div>`;
 
+  // Mięśnie ćwiczenia – stan przycisku: 2 = główny, 1 = pomocniczy, 0 = brak.
+  // Dopóki ćwiczenie nie ma zapisanych mięśni w bazie, pokazujemy podpowiedź z automatycznego dopasowania po nazwie.
+  const muscleSet = e => (e.muscles?.length || e.muscles2?.length)
+    ? { primary: e.muscles, secondary: e.muscles2 || [], own: true }
+    : (App.muscles?.guess(e.name) ?? { primary: [], secondary: [] });
+  const muscleBoxes = e => {
+    const r = muscleSet(e), st = id => r.primary.includes(id) ? 2 : r.secondary.includes(id) ? 1 : 0;
+    return `<div class="muted" style="font-size:.8rem">Dotykaj mięśni: główny → pomocniczy → brak.${r.own ? '' : ' To na razie podpowiedź z nazwy – zapisz, aby trafiła do bazy.'}</div>
+      <div class="check-grid">${(App.muscles?.list ?? []).map(m =>
+        `<button type="button" class="m-chip s${st(m.id)}" data-act="cycle-m" data-m="${m.id}" data-s="${st(m.id)}">${m.label}</button>`).join('')}</div>`;
+  };
+  const muscleSummary = e => {
+    const r = App.muscles?.resolve(e.name), L = ids => ids.map(id => App.muscles.label[id]).join(', ');
+    if (!r || !(r.primary.length || r.secondary.length)) return '<small class="muted">Mięśnie: brak przypisania</small>';
+    return `<small class="muted">Mięśnie${r.own ? '' : ' (auto, jeszcze nie w bazie)'}: ${L(r.primary)}${r.secondary.length ? ' · pomocnicze: ' + L(r.secondary) : ''}</small>`;
+  };
+
   // Listy renderujemy tylko dla aktualnie otwartej podzakładki
   const renderers = {
     weight() {
@@ -111,8 +130,13 @@
         field('date', 'date', U.iso(r.ts)) + field('weight', 'number', r.weight, '', 'step="0.1"'))).join('');
     },
     workout() {
-      $('editExercisesList').innerHTML = D.exercises.map(e => `<div class="edit-item"><span>${U.esc(e.name)}</span>
-        <button class="btn-danger" data-act="delete" data-kind="exercise" data-id="${e.id}">Usuń</button></div>`).join('');
+      $('editExercisesList').innerHTML = D.exercises.map(e => item('exercise', e,
+        `${U.esc(e.name)}<br>${muscleSummary(e)}`, muscleBoxes(e))).join('');
+      const pending = D.exercises.filter(e => !(e.muscles?.length || e.muscles2?.length));
+      const auto = pending.filter(e => App.muscles?.guess(e.name)), manual = pending.filter(e => !App.muscles?.guess(e.name));
+      $('muscleSyncInfo').innerHTML = pending.length
+        ? `Ćwiczeń bez mięśni w bazie: ${pending.length}.${auto.length ? ` Rozpoznane automatycznie: ${auto.length}.` : ''}${manual.length ? ` Do ręcznego przypisania: <strong>${manual.map(e => U.esc(e.name)).join(', ')}</strong>.` : ''}`
+        : 'Wszystkie ćwiczenia mają zapisane mięśnie w bazie.';
       $('editWorkoutList').innerHTML = [...D.workouts].reverse().map(r => item('workout', r,
         `${U.fmtDate(r.date)} - <strong>${U.esc(r.exercise)}</strong>`,
         field('date', 'date', U.iso(r.ts), 'Data') +
@@ -158,6 +182,7 @@
   async function save(kind, id) {
     const rec = KINDS[kind].list().find(r => r.id === id), panel = $(`edit-${kind}-${id}`);
     if (!rec || !panel) return;
+    if (kind === 'exercise') return saveMuscles(rec, panel);
     const f = n => panel.querySelector(`[data-f="${n}"]`).value;
     const date = f('date'), ts = U.ts(date);
     if (!date || isNaN(ts)) return;
@@ -181,6 +206,19 @@
     }
   }
 
+  async function saveMuscles(rec, panel) {
+    const chips = [...panel.querySelectorAll('[data-m]')];
+    const main = chips.filter(c => c.dataset.s === '2').map(c => c.dataset.m);
+    const aux = chips.filter(c => c.dataset.s === '1').map(c => c.dataset.m);
+    const old = [rec.muscles, rec.muscles2];
+    rec.muscles = main; rec.muscles2 = aux;
+    App.invalidate();
+    await App.run(() => (main.length || aux.length)
+        ? App.db.updateData('Cwiczenia', rec.id, { Miesnie: main, MiesnieDodatkowe: aux })
+        : Promise.all([App.db.removeField('Cwiczenia', rec.id, 'Miesnie'), App.db.removeField('Cwiczenia', rec.id, 'MiesnieDodatkowe')]),
+      () => { [rec.muscles, rec.muscles2] = old; });
+  }
+
   async function remove(kind, id) {
     if (!id || !confirm('Usunąć wpis?')) return;
     const list = KINDS[kind].list(), i = list.findIndex(r => r.id === id);
@@ -190,13 +228,26 @@
     await App.run(() => App.db.deleteData(KINDS[kind].coll, id), () => list.splice(i, 0, rec));
   }
 
+  // Zapisuje w bazie mięśnie rozpoznane po nazwie dla wszystkich ćwiczeń, które jeszcze nie mają własnych
+  async function syncMuscles(_, btn) {
+    const todo = D.exercises.filter(e => e.id && !(e.muscles?.length || e.muscles2?.length) && App.muscles?.guess(e.name));
+    if (!todo.length) { alert('Nie ma nic do zapisania – rozpoznane ćwiczenia mają już mięśnie w bazie.'); return; }
+    const olds = todo.map(e => [e, e.muscles, e.muscles2]);
+    todo.forEach(e => { const g = App.muscles.guess(e.name); e.muscles = g.primary; e.muscles2 = g.secondary; });
+    App.invalidate();
+    await App.run(() => Promise.all(todo.map(e => App.db.updateData('Cwiczenia', e.id, { Miesnie: e.muscles, MiesnieDodatkowe: e.muscles2 }))),
+      () => olds.forEach(([e, m, m2]) => { e.muscles = m; e.muscles2 = m2; }), btn);
+  }
+
   async function addExercise(_, btn) {
     const inp = $('newExerciseInput'), name = inp.value.trim();
     if (!name) return;
     inp.value = '';
-    const rec = { id: undefined, name };
+    const g = App.muscles?.guess(name);   // rozpoznana nazwa = mięśnie od razu zapisane w bazie razem z ćwiczeniem
+    const rec = { id: undefined, name, muscles: g ? g.primary : [], muscles2: g ? g.secondary : [] };
     D.exercises.push(rec); App.invalidate();
-    const id = await App.run(() => App.db.addData('Cwiczenia', { Nazwa: name }), () => U.drop(D.exercises, rec), btn);
+    const fields = { Nazwa: name, ...(g && { Miesnie: g.primary, MiesnieDodatkowe: g.secondary }) };
+    const id = await App.run(() => App.db.addData('Cwiczenia', fields), () => U.drop(D.exercises, rec), btn);
     if (id) rec.id = id;
   }
 
@@ -282,6 +333,8 @@
     delete: d => remove(d.kind, d.id),
     'delete-part': d => removePart(d.name),
     'add-exercise': addExercise,
+    'sync-muscles': syncMuscles,
+    'cycle-m': (d, el) => { const s = { 0: 2, 2: 1, 1: 0 }[+d.s]; el.dataset.s = s; el.className = 'm-chip s' + s; },
     'add-ctype': addCardioType,
     'delete-ctype': d => removeCardioType(d.name),
     'add-part': addPart,
