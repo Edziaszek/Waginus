@@ -66,13 +66,17 @@
     <button class="btn-primary full mt" data-act="save-height">Zapisz wzrost</button>
   </div>
   <div class="card">
-    <h2>Zabezpieczenie PIN</h2>
-    <div class="form-field">
-      <label>Nowy PIN (domyślnie 1234)</label>
-      <input type="password" id="newPinInput" inputmode="numeric" placeholder="Wpisz 4 cyfry" maxlength="4">
-    </div>
-    <button class="btn-primary full mt" data-act="pin">Zapisz nowy PIN</button>
-    <button class="btn-danger full mt" data-act="logout">Wyloguj z sesji</button>
+    <h2>Konto</h2>
+    <div class="data-item"><span>Zalogowany jako</span><strong id="accEmail">-</strong></div>
+    <div class="data-item col"><span class="muted">Identyfikator konta (UID)</span><code class="uid" id="accUid">-</code></div>
+    <button class="btn-secondary full mt" data-act="reset-pass">Wyślij e-mail ze zmianą hasła</button>
+    <button class="btn-danger full mt" data-act="logout">Wyloguj</button>
+  </div>
+  <div class="card" id="migrateCard" hidden>
+    <h2>Import starych danych</h2>
+    <div class="muted" style="font-size:.85rem">Znaleziono dane zapisane przed wprowadzeniem kont. Skopiuj je do tego konta (oryginały zostają). Ponowny import nadpisze późniejsze zmiany w skopiowanych wpisach.</div>
+    <button class="btn-primary full mt" data-act="migrate" data-done="Zaimportowano">Zaimportuj dane sprzed logowania</button>
+    <div class="muted mt" id="migrateInfo" style="font-size:.8rem"></div>
   </div>
 </div>
 
@@ -167,7 +171,13 @@
         `${U.fmtDate(r.date)} - <strong>${U.esc(r.part)}</strong>: ${r.size} cm`,
         field('date', 'date', U.iso(r.ts)) + field('size', 'number', r.size, '', 'step="0.1"'))).join('');
     },
-    general() { $('heightInput').value = App.getHeight() ?? ''; }
+    general() {
+      $('heightInput').value = App.getHeight() ?? '';
+      const u = window.firebaseAuth?.user;
+      $('accEmail').textContent = u?.email ?? '-';
+      $('accUid').textContent = u?.uid ?? '-';
+      checkLegacy();
+    }
   };
 
   // ---------- operacje na danych (lokalnie od razu, w bazie w tle, z cofnięciem przy błędzie) ----------
@@ -311,19 +321,33 @@
     App.invalidate();
   }
 
+  let legacyChecked = false;
+  async function checkLegacy() {   // karta importu pojawia się tylko, jeśli są stare dane i konto ma do nich dostęp
+    if (legacyChecked) return;
+    legacyChecked = true;
+    try { $('migrateCard').hidden = !(await App.db.legacyFound()); } catch (e) { console.error(e); }
+  }
+
+  async function migrate(_, btn) {
+    if (!confirm('Skopiować stare dane (sprzed logowania) do Twojego konta? Oryginały zostaną nietknięte.')) return;
+    const n = await App.run(() => App.db.migrateLegacy(), null, btn);
+    if (n !== undefined) { $('migrateInfo').textContent = `Skopiowano dokumentów: ${n}.`; await App.reload(); }
+  }
+
+  async function resetPass() {
+    const email = window.firebaseAuth?.user?.email;
+    if (!email) return;
+    try {
+      await window.firebaseAuth.reset(email);
+      alert(`Wysłaliśmy e-mail z linkiem do zmiany hasła na adres ${email}.`);
+    } catch (e) { console.error(e); alert('Nie udało się wysłać e-maila. Spróbuj za chwilę.'); }
+  }
+
   function saveHeight() {
     const cm = U.num($('heightInput').value);
     if (!(cm >= 100 && cm <= 250)) { alert('Podaj wzrost w centymetrach (100–250).'); return; }
     App.setHeight(cm);
     alert('Wzrost został zapisany.');
-  }
-
-  function savePin() {
-    const inp = $('newPinInput');
-    if (!/^\d{4}$/.test(inp.value)) { alert('PIN musi składać się z 4 cyfr!'); return; }
-    App.pinSave(inp.value);
-    inp.value = '';
-    alert('PIN został pomyślnie zmieniony.');
   }
 
   // ---------- zdarzenia: jedna delegacja na całą zakładkę ----------
@@ -341,7 +365,8 @@
     theme: () => App.toggleTheme(),
     font: d => App.changeFont(+d.d),
     'save-height': saveHeight,
-    pin: savePin,
+    'reset-pass': resetPass,
+    migrate,
     logout: () => App.logout()
   };
 
