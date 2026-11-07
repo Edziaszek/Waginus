@@ -190,13 +190,13 @@
     await App.run(() => App.db.deleteData(KINDS[kind].coll, id), () => list.splice(i, 0, rec));
   }
 
-  async function addExercise() {
+  async function addExercise(_, btn) {
     const inp = $('newExerciseInput'), name = inp.value.trim();
     if (!name) return;
     inp.value = '';
     const rec = { id: undefined, name };
     D.exercises.push(rec); App.invalidate();
-    const id = await App.run(() => App.db.addData('Cwiczenia', { Nazwa: name }), () => U.drop(D.exercises, rec));
+    const id = await App.run(() => App.db.addData('Cwiczenia', { Nazwa: name }), () => U.drop(D.exercises, rec), btn);
     if (id) rec.id = id;
   }
 
@@ -208,7 +208,7 @@
     }
   }
 
-  async function addCardioType() {
+  async function addCardioType(_, btn) {
     const inp = $('newCardioTypeInput'), name = inp.value.trim();
     if (!name) return;
     if (D.cardioTypes.some(t => t.name.toLowerCase() === name.toLowerCase())) { alert('Taki rodzaj już istnieje.'); return; }
@@ -216,7 +216,7 @@
     const rec = { id: undefined, name };
     D.cardioTypes.push(rec); App.invalidate();
     const id = await App.run(async () => { await materializeTypes(); return App.db.addData('KardioTypy', { Nazwa: name }); },
-      () => U.drop(D.cardioTypes, rec));
+      () => U.drop(D.cardioTypes, rec), btn);
     if (id) rec.id = id;
   }
 
@@ -232,14 +232,14 @@
     }, () => D.cardioTypes.splice(i, 0, rec));
   }
 
-  async function addPart() {
+  async function addPart(_, btn) {
     const inp = $('newBodyPartInput'), name = inp.value.trim();
     if (!name) return;
     if (D.bodyParts.some(p => p.name.toLowerCase() === name.toLowerCase())) { alert('Taki obwód już istnieje.'); return; }
     inp.value = '';
     const part = { id: 'part_' + Date.now(), name, docIds: [], legacyIds: [] };
     D.bodyParts.push(part); App.invalidate();
-    const id = await App.run(() => App.db.addData('Obwody', { Partia: name, Wymiar: 0 }), () => U.drop(D.bodyParts, part));
+    const id = await App.run(() => App.db.addData('Obwody', { Partia: name, Wymiar: 0 }), () => U.drop(D.bodyParts, part), btn);
     if (id) part.docIds.push(id);
   }
 
@@ -304,7 +304,7 @@
       const sub = e.target.closest('[data-sub]');
       if (sub) return showSub(sub.dataset.sub);
       const el = e.target.closest('[data-act]');
-      if (el) actions[el.dataset.act]?.(el.dataset);
+      if (el) actions[el.dataset.act]?.(el.dataset, el);
     });
   }
 
