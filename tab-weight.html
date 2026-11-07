@@ -196,7 +196,7 @@
       $('weightInput').value = '';
       const rec = { date, ts: U.ts(date), weight };
       D.weight.push(rec); D.weight.sort(U.byTs); App.invalidate();
-      const id = await App.run(() => App.db.addData('Waga', { Data: date, Waga: weight }), () => U.drop(D.weight, rec));
+      const id = await App.run(() => App.db.addData('Waga', { Data: date, Waga: weight }), () => U.drop(D.weight, rec), e.submitter);
       if (id) rec.id = id;
     });
   }
