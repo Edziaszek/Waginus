@@ -62,7 +62,12 @@
   // ---------- dane ----------
   function parse(raw) {
     D.exercises = raw.Cwiczenia
-      .map(i => ({ id: i.id, name: String(U.pick(i, 'Nazwa', 'Cwiczenie', 'exercise') ?? '').trim() }))
+      .map(i => ({
+        id: i.id, name: String(U.pick(i, 'Nazwa', 'Cwiczenie', 'exercise') ?? '').trim(),
+        // mięśnie zapisane w bazie: główne (Miesnie) i pomocnicze (MiesnieDodatkowe)
+        muscles: Array.isArray(i.Miesnie) ? i.Miesnie.filter(x => typeof x === 'string') : [],
+        muscles2: Array.isArray(i.MiesnieDodatkowe) ? i.MiesnieDodatkowe.filter(x => typeof x === 'string') : []
+      }))
       .filter(e => e.name);
 
     // wartość może być tablicą, napisem "30, 32.5" albo liczbą
