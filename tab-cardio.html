@@ -180,7 +180,7 @@
       D.cardio.push(rec); D.cardio.sort(U.byTs); App.invalidate();
       const id = await App.run(
         () => App.db.addData('Kardio', { Data: date, Typ: type, Czas: duration, Dystans: distance, Tempo: pace, Tetno: heartRate }),
-        () => U.drop(D.cardio, rec));
+        () => U.drop(D.cardio, rec), e.submitter);
       if (id) rec.id = id;
     });
   }
