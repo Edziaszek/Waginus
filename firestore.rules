@@ -35,7 +35,7 @@ service cloud.firestore {
     // Wpisz UID wszystkich dotychczasowych kont (Firebase Console → Authentication → Users → kolumna "User UID").
     // Każde inne konto zakłada się jako zwykły użytkownik, a rolę zmienia mu dopiero administrator.
     function isFounder() {
-      return request.auth.uid in ['mLH3udQUozTaKYOBTPdypj7A3xw1', 'WPISZ_UID_KONTA_2'];
+      return request.auth.uid in ['UFpFqqSzaHSL0Lu1uLjto7hSl032', 'WPISZ_UID_KONTA_2'];
     }
 
     // Poprawny kształt profilu (ogranicza pola i zakresy – nikt nie wpisze śmieci)
