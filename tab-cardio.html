@@ -7,21 +7,22 @@
       <select id="cardioTypeSelect" required><option value="">Wybierz aktywność...</option></select>
     </div>
     <div class="form-field">
-      <label>Czas treningu</label>
-      <div class="unit-field"><input type="text" id="cardioDuration" placeholder="np. 45 min lub 1:15:00" required><i>czas</i></div>
+      <label>Czas treningu (GG:MM:SS)</label>
+      <div class="time-row">
+        <div class="unit-field"><input type="number" id="cardioH" min="0" max="99" step="1" inputmode="numeric" value="0" aria-label="Godziny" required><i>g</i></div>
+        <div class="unit-field"><input type="number" id="cardioM" min="0" max="59" step="1" inputmode="numeric" value="0" aria-label="Minuty" required><i>min</i></div>
+        <div class="unit-field"><input type="number" id="cardioS" min="0" max="59" step="1" inputmode="numeric" value="0" aria-label="Sekundy" required><i>s</i></div>
+      </div>
     </div>
     <div class="form-field">
       <label>Dystans</label>
       <div class="unit-field"><input type="number" id="cardioDistance" step="0.01" inputmode="decimal" placeholder="np. 5.2" required><i>km</i></div>
     </div>
     <div class="form-field">
-      <label>Średnie tempo</label>
-      <div class="unit-field"><input type="text" id="cardioPace" placeholder="np. 5:30" required><i>min/km</i></div>
-    </div>
-    <div class="form-field">
       <label>Średnie tętno</label>
       <div class="unit-field"><input type="number" id="cardioHeartRate" step="1" inputmode="numeric" placeholder="np. 145" required><i>bpm</i></div>
     </div>
+    <div class="stat-box"><div class="stat-lbl">Średnie tempo (liczone automatycznie)</div><div class="stat-val" id="cardioPacePreview">-</div></div>
     <button type="submit" class="btn-primary">Zapisz Kardio</button>
   </form>
 </div>
@@ -56,29 +57,26 @@
   const $ = id => document.getElementById(id);
   const state = { filter: 'week' };
 
-  // "45 min", "45", "1:15:00", "45:30" -> minuty
-  const toMinutes = s => {
-    s = String(s).trim();
-    if (s.includes(':')) {
-      const p = s.split(':').map(x => parseInt(x) || 0);
-      return p.length === 3 ? p[0] * 60 + p[1] + p[2] / 60 : p.length === 2 ? p[0] + p[1] / 60 : 0;
-    }
-    return parseFloat(s.replace(',', '.')) || 0;
-  };
-
   // ---------- dane ----------
   function parse(raw) {
     D.cardioTypes = raw.KardioTypy
-      .map(i => ({ id: i.id, name: String(U.pick(i, 'Nazwa', 'Typ', 'type') ?? '').trim() })).filter(t => t.name);
-    if (!D.cardioTypes.length) D.cardioTypes = ['Bieżnia', 'Rowerek', 'Orbitrek', 'Spacer'].map((name, i) => ({ id: 'default_' + i, name }));
+      .map(i => ({
+        id: i.id, name: String(U.pick(i, 'Nazwa', 'Typ', 'type') ?? '').trim(),
+        // mięśnie zapisane w bazie: główne (Miesnie) i pomocnicze (MiesnieDodatkowe) – pokazują się na manekinie
+        muscles: Array.isArray(i.Miesnie) ? i.Miesnie.filter(x => typeof x === 'string') : [],
+        muscles2: Array.isArray(i.MiesnieDodatkowe) ? i.MiesnieDodatkowe.filter(x => typeof x === 'string') : []
+      })).filter(t => t.name);
+    if (!D.cardioTypes.length) D.cardioTypes = ['Bieżnia', 'Rowerek', 'Orbitrek', 'Spacer'].map((name, i) => ({ id: 'default_' + i, name, muscles: [], muscles2: [] }));
 
     D.cardio = raw.Kardio.map(i => {
-      const date = U.pick(i, 'Data', 'date') || '', duration = String(U.pick(i, 'Czas', 'duration') ?? '');
+      const date = U.pick(i, 'Data', 'date') || '', rawTime = String(U.pick(i, 'Czas', 'duration') ?? '');
+      const secs = U.parseDuration(rawTime), distance = U.num(U.pick(i, 'Dystans', 'distance')) || 0;
       return {
-        id: i.id, date, ts: U.ts(date), duration,
+        id: i.id, date, ts: U.ts(date),
+        duration: secs > 0 ? U.fmtDuration(secs) : rawTime,                 // starsze zapisy pokazujemy jako GG:MM:SS
         type: U.pick(i, 'Typ', 'type') || 'Bieżnia',
-        distance: U.num(U.pick(i, 'Dystans', 'distance')) || 0,
-        pace: U.pick(i, 'Tempo', 'pace') || '',
+        distance,
+        pace: U.pace(secs, distance) || String(U.pick(i, 'Tempo', 'pace') ?? ''),   // tempo zawsze z czasu i dystansu
         heartRate: parseInt(U.pick(i, 'Tetno', 'heartRate')) || 0
       };
     }).filter(r => r.date && !isNaN(r.ts)).sort(U.byTs);
@@ -136,7 +134,7 @@
 
   function renderStats() {
     const rows = sessions();
-    const km = rows.reduce((s, r) => s + r.distance, 0), min = rows.reduce((s, r) => s + toMinutes(r.duration), 0);
+    const km = rows.reduce((s, r) => s + r.distance, 0), min = rows.reduce((s, r) => s + (U.parseDuration(r.duration) || 0), 0) / 60;
     $('cardioDistTotal').textContent = km.toFixed(2) + ' km';
     $('cardioTimeTotal').textContent = min >= 60 ? `${Math.floor(min / 60)}h ${Math.round(min % 60)} min` : Math.round(min) + ' min';
     drawChart(rows);
@@ -150,7 +148,7 @@
         <div class="accordion-body">${items.map(i => `
           <div class="data-item">
             <div><strong>${U.esc(i.type)}</strong><br>
-              <small class="muted">Czas: ${U.esc(i.duration)} | Tempo: ${U.esc(i.pace)} min/km | Tętno: ${i.heartRate} bpm</small></div>
+              <small class="muted">Czas: ${U.esc(i.duration)} | Tempo: ${U.esc(i.pace || '-')} min/km | Tętno: ${i.heartRate} bpm</small></div>
             <strong class="accent">${i.distance} km</strong>
           </div>`).join('')}</div>
       </details>`).join('') || '<div class="muted center">Brak wpisów kardio</div>';
@@ -170,18 +168,36 @@
       renderStats();
     });
 
+    // podgląd tempa na żywo
+    const readTime = () => {
+      const h = parseInt($('cardioH').value) || 0, m = parseInt($('cardioM').value) || 0, sec = parseInt($('cardioS').value) || 0;
+      return { h, m, sec, total: h * 3600 + m * 60 + sec };
+    };
+    const updatePace = () => {
+      const p = U.pace(readTime().total, U.num($('cardioDistance').value));
+      $('cardioPacePreview').textContent = p ? p + ' min/km' : '-';
+    };
+    ['cardioH', 'cardioM', 'cardioS', 'cardioDistance'].forEach(id => $(id).addEventListener('input', updatePace));
+
     $('cardioForm').addEventListener('submit', async e => {
       e.preventDefault();
       const date = $('cardioDate').value, type = $('cardioTypeSelect').value;
       if (!date || !type) return;
-      const duration = $('cardioDuration').value.trim(), pace = $('cardioPace').value.trim();
-      const distance = U.num($('cardioDistance').value), heartRate = parseInt($('cardioHeartRate').value);
+      const t = readTime(), distance = U.num($('cardioDistance').value), heartRate = parseInt($('cardioHeartRate').value);
+      if (t.m > 59 || t.sec > 59) return alert('Minuty i sekundy muszą mieścić się w zakresie 0–59.');
+      if (!(t.total > 0)) return alert('Podaj czas treningu większy od zera.');
+      if (!(distance > 0)) return alert('Podaj dystans większy od zera – na jego podstawie liczymy tempo.');
+      const duration = U.fmtDuration(t.total), pace = U.pace(t.total, distance);
       const rec = { date, ts: U.ts(date), type, duration, distance, pace, heartRate };
       D.cardio.push(rec); D.cardio.sort(U.byTs); App.invalidate();
       const id = await App.run(
         () => App.db.addData('Kardio', { Data: date, Typ: type, Czas: duration, Dystans: distance, Tempo: pace, Tetno: heartRate }),
         () => U.drop(D.cardio, rec), e.submitter);
-      if (id) rec.id = id;
+      if (id) {
+        rec.id = id;
+        ['cardioH', 'cardioM', 'cardioS'].forEach(k => { $(k).value = 0; });   // czyścimy formularz pod następny trening
+        $('cardioDistance').value = ''; $('cardioHeartRate').value = ''; updatePace();
+      }
     });
   }
 
