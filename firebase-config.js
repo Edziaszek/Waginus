@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, deleteField, writeBatch, query, limit }
+import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, deleteDoc, doc, updateDoc, deleteField, writeBatch }
   from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
          sendEmailVerification, sendPasswordResetEmail }
@@ -19,8 +19,8 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 auth.languageCode = 'pl';   // e-maile weryfikacyjne i resetu hasła po polsku
 
-// Kolekcje sprzed wprowadzenia kont (jedna wspólna baza) – używane tylko do jednorazowego importu
-const LEGACY = ['Waga', 'Treningi', 'Cwiczenia', 'Obwody', 'Kardio', 'KardioTypy'];
+// Kolekcje z danymi użytkownika (podkolekcje users/{uid}/...)
+const COLLECTIONS = ['Waga', 'Treningi', 'Cwiczenia', 'Obwody', 'Kardio', 'KardioTypy'];
 
 // ---------- Konta: hasła obsługuje wyłącznie Firebase Authentication (solone hasze po stronie serwera Google) ----------
 window.firebaseAuth = {
@@ -62,21 +62,29 @@ window.firebaseFunctions = {
   updateData: (name, id, fields) => updateDoc(ref(name, id), fields),
   removeField: (name, id, field) => updateDoc(ref(name, id), { [field]: deleteField() }),
 
-  // Czy w starych, wspólnych kolekcjach są jakieś dane do zaimportowania? (brak uprawnień = false)
-  async legacyFound() {
-    for (const name of LEGACY) {
-      try { if (!(await getDocs(query(collection(db, name), limit(1)))).empty) return true; } catch { /* brak dostępu */ }
-    }
-    return false;
+  // ---------- Profile: profiles/{uid} – wzrost, rok urodzenia, płeć, rola (admin / user), status ----------
+  async getProfile(id) {
+    const snap = await getDoc(doc(db, 'profiles', id));
+    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
   },
-  // Kopiuje stare dane do folderu zalogowanego użytkownika (te same ID, oryginały zostają). Zwraca liczbę dokumentów.
-  async migrateLegacy() {
+  async createProfile(id, data) {
+    await setDoc(doc(db, 'profiles', id), data);
+    return { id, ...data };
+  },
+  updateProfile: (id, fields) => updateDoc(doc(db, 'profiles', id), fields),
+
+  // --- tylko dla administratora (egzekwują to reguły bazy, nie ta aplikacja) ---
+  async listProfiles() {
+    return (await getDocs(collection(db, 'profiles'))).docs.map(d => ({ id: d.id, ...d.data() }));
+  },
+  // Kasuje wszystkie dane wskazanego użytkownika (jego podkolekcje). Zwraca liczbę usuniętych dokumentów.
+  async wipeUserData(id) {
     let total = 0;
-    for (const name of LEGACY) {
-      const docs = (await getDocs(collection(db, name))).docs;
+    for (const name of COLLECTIONS) {
+      const docs = (await getDocs(collection(db, 'users', id, name))).docs;
       for (let i = 0; i < docs.length; i += 400) {            // limit Firestore: 500 operacji na paczkę
         const batch = writeBatch(db);
-        docs.slice(i, i + 400).forEach(d => batch.set(ref(name, d.id), d.data()));
+        docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
         await batch.commit();
       }
       total += docs.length;
