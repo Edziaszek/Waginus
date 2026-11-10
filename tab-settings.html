@@ -32,6 +32,8 @@
       <input type="text" id="newCardioTypeInput" placeholder="Nowy rodzaj (np. Bieżnia)">
       <button type="button" class="btn-primary" data-act="add-ctype">Dodaj</button>
     </div>
+    <button type="button" class="btn-primary full mt" data-act="sync-cmuscles" data-done="Zapisano">Zapisz dopasowane mięśnie w bazie</button>
+    <div class="muted mt" id="cmuscleSyncInfo" style="font-size:.8rem"></div>
     <div id="editCardioTypesList" class="edit-list mt"></div>
   </div>
   <div class="card"><h2>Edycja Kardio</h2><div id="editCardioList" class="edit-list"></div></div>
@@ -103,15 +105,19 @@
     workout:  { coll: 'Treningi',  list: () => D.workouts },
     cardio:   { coll: 'Kardio',    list: () => D.cardio },
     body:     { coll: 'Obwody',    list: () => D.body },
-    exercise: { coll: 'Cwiczenia', list: () => D.exercises }
+    exercise: { coll: 'Cwiczenia', list: () => D.exercises },
+    ctype:    { coll: 'KardioTypy', list: () => D.cardioTypes }
   };
 
-  const ctl = (kind, id) => `<div class="btn-row">
+  // Rodzaje kardio usuwamy po nazwie (osobna akcja: obsługuje też domyślne rodzaje, których jeszcze nie ma w bazie)
+  const ctl = (kind, id, r) => `<div class="btn-row">
     <button class="btn-secondary" data-act="toggle" data-kind="${kind}" data-id="${id}">Edytuj</button>
-    <button class="btn-danger" data-act="delete" data-kind="${kind}" data-id="${id}">Usuń</button></div>`;
+    ${kind === 'ctype'
+      ? `<button class="btn-danger" data-act="delete-ctype" data-name="${U.esc(r.name)}">Usuń</button>`
+      : `<button class="btn-danger" data-act="delete" data-kind="${kind}" data-id="${id}">Usuń</button>`}</div>`;
   const item = (kind, r, label, fields) => `
     <div class="edit-item col">
-      <div class="between"><span>${label}</span>${ctl(kind, r.id ?? '')}</div>
+      <div class="between"><span>${label}</span>${ctl(kind, r.id ?? '', r)}</div>
       <div class="edit-panel" id="edit-${kind}-${r.id}" hidden>${fields}
         <button class="btn-primary" data-act="save" data-kind="${kind}" data-id="${r.id ?? ''}">Zapisz zmianę</button>
       </div>
@@ -124,17 +130,19 @@
 
   // Mięśnie ćwiczenia – stan przycisku: 2 = główny, 1 = pomocniczy, 0 = brak.
   // Dopóki ćwiczenie nie ma zapisanych mięśni w bazie, pokazujemy podpowiedź z automatycznego dopasowania po nazwie.
-  const muscleSet = e => (e.muscles?.length || e.muscles2?.length)
+  const guessFor = kind => kind === 'ctype' ? App.muscles?.guessCardio : App.muscles?.guess;
+  const resolveFor = kind => kind === 'ctype' ? App.muscles?.resolveCardio : App.muscles?.resolve;
+  const muscleSet = (e, kind) => (e.muscles?.length || e.muscles2?.length)
     ? { primary: e.muscles, secondary: e.muscles2 || [], own: true }
-    : (App.muscles?.guess(e.name) ?? { primary: [], secondary: [] });
-  const muscleBoxes = e => {
-    const r = muscleSet(e), st = id => r.primary.includes(id) ? 2 : r.secondary.includes(id) ? 1 : 0;
+    : (guessFor(kind)?.(e.name) ?? { primary: [], secondary: [] });
+  const muscleBoxes = (e, kind = 'exercise') => {
+    const r = muscleSet(e, kind), st = id => r.primary.includes(id) ? 2 : r.secondary.includes(id) ? 1 : 0;
     return `<div class="muted" style="font-size:.8rem">Dotykaj mięśni: główny → pomocniczy → brak.${r.own ? '' : ' To na razie podpowiedź z nazwy – zapisz, aby trafiła do bazy.'}</div>
       <div class="check-grid">${(App.muscles?.list ?? []).map(m =>
         `<button type="button" class="m-chip s${st(m.id)}" data-act="cycle-m" data-m="${m.id}" data-s="${st(m.id)}">${m.label}</button>`).join('')}</div>`;
   };
-  const muscleSummary = e => {
-    const r = App.muscles?.resolve(e.name), L = ids => ids.map(id => App.muscles.label[id]).join(', ');
+  const muscleSummary = (e, kind = 'exercise') => {
+    const r = resolveFor(kind)?.(e.name), L = ids => ids.map(id => App.muscles.label[id]).join(', ');
     if (!r || !(r.primary.length || r.secondary.length)) return '<small class="muted">Mięśnie: brak przypisania</small>';
     return `<small class="muted">Mięśnie${r.own ? '' : ' (auto, jeszcze nie w bazie)'}: ${L(r.primary)}${r.secondary.length ? ' · pomocnicze: ' + L(r.secondary) : ''}</small>`;
   };
@@ -161,8 +169,13 @@
         field('reps', 'text', r.reps.join(', '), 'Powtórzenia w seriach (np. 8, 8, 8)'))).join('');
     },
     cardio() {
-      $('editCardioTypesList').innerHTML = D.cardioTypes.map(t => `<div class="edit-item"><span>${U.esc(t.name)}</span>
-        <button class="btn-danger" data-act="delete-ctype" data-name="${U.esc(t.name)}">Usuń</button></div>`).join('');
+      $('editCardioTypesList').innerHTML = D.cardioTypes.map(c => item('ctype', c,
+        `${U.esc(c.name)}<br>${muscleSummary(c, 'ctype')}`, muscleBoxes(c, 'ctype'))).join('');
+      const pending = D.cardioTypes.filter(c => !(c.muscles?.length || c.muscles2?.length));
+      const auto = pending.filter(c => App.muscles?.guessCardio(c.name)), manual = pending.filter(c => !App.muscles?.guessCardio(c.name));
+      $('cmuscleSyncInfo').innerHTML = pending.length
+        ? `Rodzajów bez mięśni w bazie: ${pending.length}.${auto.length ? ` Rozpoznane automatycznie: ${auto.length}.` : ''}${manual.length ? ` Do ręcznego przypisania: <strong>${manual.map(c => U.esc(c.name)).join(', ')}</strong>.` : ''}`
+        : 'Wszystkie rodzaje mają zapisane mięśnie w bazie.';
       // lista rodzajów w edycji zawiera też rodzaj wpisu, który zniknął z bazy – żeby go nie zgubić przy zapisie
       const typeSelect = cur => {
         const names = [...new Set([...D.cardioTypes.map(t => t.name), cur])];
@@ -172,9 +185,9 @@
       $('editCardioList').innerHTML = [...D.cardio].reverse().map(r => item('cardio', r,
         `${U.fmtDate(r.date)} - <strong>${U.esc(r.type)}</strong>: ${r.distance} km`,
         field('date', 'date', U.iso(r.ts), 'Data') + typeSelect(r.type) +
-        field('duration', 'text', r.duration, 'Czas (np. 45 min lub 1:15:00)') +
+        field('duration', 'text', r.duration, 'Czas (GG:MM:SS)', 'placeholder="GG:MM:SS" inputmode="numeric"') +
         field('distance', 'number', r.distance, 'Dystans (km)', 'step="0.01"') +
-        field('pace', 'text', r.pace, 'Średnie tempo (min/km)') +
+        '<div class="muted" style="font-size:.8rem">Średnie tempo zostanie przeliczone automatycznie z czasu i dystansu.</div>' +
         field('hr', 'number', r.heartRate, 'Średnie tętno (bpm)', 'step="1"'))).join('');
     },
     body() {
@@ -208,7 +221,7 @@
   async function save(kind, id) {
     const rec = KINDS[kind].list().find(r => r.id === id), panel = $(`edit-${kind}-${id}`);
     if (!rec || !panel) return;
-    if (kind === 'exercise') return saveMuscles(rec, panel);
+    if (kind === 'exercise' || kind === 'ctype') return saveMuscles(kind, rec, panel);
     const f = n => panel.querySelector(`[data-f="${n}"]`).value;
     const date = f('date'), ts = U.ts(date);
     if (!date || isNaN(ts)) return;
@@ -220,9 +233,12 @@
       const size = U.num(f('size'));
       if (!isNaN(size)) await patch(kind, rec, { date, ts, size }, { Data: date, Partia: rec.part, Wymiar: size });
     } else if (kind === 'cardio') {
-      const type = f('type'), duration = f('duration').trim(), pace = f('pace').trim();
+      const type = f('type'), secs = U.parseDuration(f('duration'));
       const distance = U.num(f('distance')), heartRate = parseInt(f('hr')) || 0;
-      if (!isNaN(distance)) await patch(kind, rec, { date, ts, type, duration, distance, pace, heartRate },
+      if (!(secs > 0)) { alert('Podaj czas w formacie GG:MM:SS (np. 00:45:30).'); return; }
+      if (!(distance > 0)) { alert('Podaj dystans większy od zera – na jego podstawie liczymy tempo.'); return; }
+      const duration = U.fmtDuration(secs), pace = U.pace(secs, distance);   // jednolity czas i tempo liczone automatycznie
+      await patch(kind, rec, { date, ts, type, duration, distance, pace, heartRate },
         { Data: date, Typ: type, Czas: duration, Dystans: distance, Tempo: pace, Tetno: heartRate });
     } else if (kind === 'workout') {
       const nums = (s, conv) => s.split(',').map(x => conv(x.trim().replace(',', '.'))).filter(n => !isNaN(n));
@@ -232,17 +248,20 @@
     }
   }
 
-  async function saveMuscles(rec, panel) {
+  async function saveMuscles(kind, rec, panel) {
+    const coll = KINDS[kind].coll;
     const chips = [...panel.querySelectorAll('[data-m]')];
     const main = chips.filter(c => c.dataset.s === '2').map(c => c.dataset.m);
     const aux = chips.filter(c => c.dataset.s === '1').map(c => c.dataset.m);
     const old = [rec.muscles, rec.muscles2];
     rec.muscles = main; rec.muscles2 = aux;
     App.invalidate();
-    await App.run(() => (main.length || aux.length)
-        ? App.db.updateData('Cwiczenia', rec.id, { Miesnie: main, MiesnieDodatkowe: aux })
-        : Promise.all([App.db.removeField('Cwiczenia', rec.id, 'Miesnie'), App.db.removeField('Cwiczenia', rec.id, 'MiesnieDodatkowe')]),
-      () => { [rec.muscles, rec.muscles2] = old; });
+    await App.run(async () => {
+      if (kind === 'ctype') await materializeTypes();   // domyślny rodzaj z pamięci najpierw trafia do bazy (zmienia jego id)
+      return (main.length || aux.length)
+        ? App.db.updateData(coll, rec.id, { Miesnie: main, MiesnieDodatkowe: aux })
+        : Promise.all([App.db.removeField(coll, rec.id, 'Miesnie'), App.db.removeField(coll, rec.id, 'MiesnieDodatkowe')]);
+    }, () => { [rec.muscles, rec.muscles2] = old; });
   }
 
   async function remove(kind, id) {
@@ -281,8 +300,24 @@
   // inaczej po odświeżeniu zniknęłaby i został tylko nowo dodany rodzaj.
   async function materializeTypes() {
     for (const t of D.cardioTypes.filter(t => String(t.id).startsWith('default_'))) {
-      t.id = await App.db.addData('KardioTypy', { Nazwa: t.name });
+      const g = (t.muscles?.length || t.muscles2?.length) ? { primary: t.muscles, secondary: t.muscles2 || [] } : App.muscles?.guessCardio(t.name);
+      if (g) { t.muscles = g.primary; t.muscles2 = g.secondary; }
+      t.id = await App.db.addData('KardioTypy', { Nazwa: t.name, ...(g && { Miesnie: g.primary, MiesnieDodatkowe: g.secondary }) });
     }
+  }
+
+  // Zapisuje w bazie mięśnie rozpoznane po nazwie dla wszystkich rodzajów kardio, które jeszcze nie mają własnych
+  async function syncCardioMuscles(_, btn) {
+    const todo = D.cardioTypes.filter(c => !(c.muscles?.length || c.muscles2?.length) && App.muscles?.guessCardio(c.name));
+    if (!todo.length) { alert('Nie ma nic do zapisania – rozpoznane rodzaje mają już mięśnie w bazie.'); return; }
+    const olds = todo.map(c => [c, c.muscles, c.muscles2]);
+    todo.forEach(c => { const g = App.muscles.guessCardio(c.name); c.muscles = g.primary; c.muscles2 = g.secondary; });
+    App.invalidate();
+    await App.run(async () => {
+      const real = todo.filter(c => c.id && !String(c.id).startsWith('default_'));
+      await Promise.all(real.map(c => App.db.updateData('KardioTypy', c.id, { Miesnie: c.muscles, MiesnieDodatkowe: c.muscles2 })));
+      await materializeTypes();   // domyślne rodzaje z pamięci zapisujemy razem z mięśniami
+    }, () => olds.forEach(([c, m, m2]) => { c.muscles = m; c.muscles2 = m2; }), btn);
   }
 
   async function addCardioType(_, btn) {
@@ -290,9 +325,11 @@
     if (!name) return;
     if (D.cardioTypes.some(t => t.name.toLowerCase() === name.toLowerCase())) { alert('Taki rodzaj już istnieje.'); return; }
     inp.value = '';
-    const rec = { id: undefined, name };
+    const g = App.muscles?.guessCardio(name);   // rozpoznana nazwa = mięśnie od razu zapisane w bazie razem z rodzajem
+    const rec = { id: undefined, name, muscles: g ? g.primary : [], muscles2: g ? g.secondary : [] };
     D.cardioTypes.push(rec); App.invalidate();
-    const id = await App.run(async () => { await materializeTypes(); return App.db.addData('KardioTypy', { Nazwa: name }); },
+    const fields = { Nazwa: name, ...(g && { Miesnie: g.primary, MiesnieDodatkowe: g.secondary }) };
+    const id = await App.run(async () => { await materializeTypes(); return App.db.addData('KardioTypy', fields); },
       () => U.drop(D.cardioTypes, rec), btn);
     if (id) rec.id = id;
   }
@@ -474,6 +511,7 @@
     'sync-muscles': syncMuscles,
     'cycle-m': (d, el) => { const s = { 0: 2, 2: 1, 1: 0 }[+d.s]; el.dataset.s = s; el.className = 'm-chip s' + s; },
     'add-ctype': addCardioType,
+    'sync-cmuscles': syncCardioMuscles,
     'delete-ctype': d => removeCardioType(d.name),
     'add-part': addPart,
     theme: () => App.toggleTheme(),
