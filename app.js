@@ -57,6 +57,29 @@
       return m;
     },
     drop(arr, item) { const i = arr.indexOf(item); if (i >= 0) arr.splice(i, 1); },
+    // Czas treningu: kanoniczny zapis to "GG:MM:SS". Parser przyjmuje też starsze zapisy ("45 min", "45:30" = MM:SS, "1,5").
+    parseDuration(s) {
+      s = String(s ?? '').trim();
+      if (!s) return NaN;
+      if (s.includes(':')) {
+        const p = s.split(':').map(x => parseInt(x, 10));
+        if (p.length > 3 || p.some(isNaN)) return NaN;
+        while (p.length < 3) p.unshift(0);
+        return p[0] * 3600 + p[1] * 60 + p[2];
+      }
+      const m = parseFloat(s.replace(',', '.'));
+      return isNaN(m) ? NaN : Math.round(m * 60);
+    },
+    fmtDuration(sec) {
+      sec = Math.round(sec);
+      return `${pad(Math.floor(sec / 3600))}:${pad(Math.floor(sec % 3600 / 60))}:${pad(sec % 60)}`;
+    },
+    // Średnie tempo w min/km jako "M:SS" (pusty napis, gdy brak czasu lub dystansu)
+    pace(sec, km) {
+      if (!(sec > 0 && km > 0)) return '';
+      const p = Math.round(sec / km);
+      return `${Math.floor(p / 60)}:${pad(p % 60)}`;
+    },
     reps(n) {
       const c = parseInt(n) || 0, t = Math.abs(c) % 100, o = Math.abs(c) % 10;
       if (c === 1) return '1 powtórzenie';
