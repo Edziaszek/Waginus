@@ -137,6 +137,7 @@
   }
 
   function fatal(text) {
+    document.body.classList.add('locked');   // ukryj aplikację, pokaż tylko komunikat
     const $ = mount(`<div class="card auth-card"><h2>⚠️ Błąd</h2><p id="fatalMsg"></p>
       <button type="button" class="btn-primary" id="fatalRetry">Spróbuj ponownie</button></div>`);
     $('fatalMsg').textContent = text;
