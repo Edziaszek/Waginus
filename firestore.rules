@@ -2,26 +2,87 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ---------- funkcje pomocnicze ----------
+
     // Dostęp tylko dla zalogowanych z POTWIERDZONYM adresem e-mail
-    function verified() {
+    function signedIn() {
       return request.auth != null && request.auth.token.email_verified == true;
     }
-    // Tylko znane kolekcje – nikt nie założy własnych, śmieciowych
+    // Tylko znane kolekcje danych
     function known(c) {
       return c in ['Waga', 'Treningi', 'Cwiczenia', 'Obwody', 'Kardio', 'KardioTypy'];
     }
-
-    // Dane użytkownika: każdy widzi i zmienia wyłącznie własny folder users/{jego uid}/...
-    match /users/{uid}/{coll}/{docId} {
-      allow read, delete: if verified() && request.auth.uid == uid && known(coll);
-      allow create, update: if verified() && request.auth.uid == uid && known(coll)
-                            && request.resource.data.size() <= 15;   // ogranicza rozdmuchiwanie dokumentów
+    function profilePath(id) {
+      return /databases/$(database)/documents/profiles/$(id);
+    }
+    function me() {
+      return get(profilePath(request.auth.uid)).data;
+    }
+    // Administrator = ma profil z Rola == 'admin' i konto nie jest usunięte
+    function isAdmin() {
+      return signedIn()
+        && exists(profilePath(request.auth.uid))
+        && me().Rola == 'admin'
+        && me().get('Status', 'aktywny') == 'aktywny';
+    }
+    // Konto aktywne (nie usunięte przez administratora). Brak profilu = nowe konto, które dopiero go tworzy.
+    function active() {
+      return !exists(profilePath(request.auth.uid))
+        || me().get('Status', 'aktywny') != 'usuniety';
     }
 
-    // TYMCZASOWE – tylko do jednorazowego importu starych danych (sprzed kont).
-    // Wpisz swoje UID (Ustawienia → Ogólne → Konto). Po imporcie USUŃ ten blok!
-    match /{legacy}/{docId} {
-      allow read: if verified() && request.auth.uid == 'WPISZ_TUTAJ_SWOJE_UID' && known(legacy);
+    // KONTA ZAŁOŻYCIELSKIE – jedyne, które mogą od razu dostać rolę administratora.
+    // Wpisz UID wszystkich dotychczasowych kont (Firebase Console → Authentication → Users → kolumna "User UID").
+    // Każde inne konto zakłada się jako zwykły użytkownik, a rolę zmienia mu dopiero administrator.
+    function isFounder() {
+      return request.auth.uid in ['mLH3udQUozTaKYOBTPdypj7A3xw1', 'WPISZ_UID_KONTA_2'];
+    }
+
+    // Poprawny kształt profilu (ogranicza pola i zakresy – nikt nie wpisze śmieci)
+    function validProfile(d) {
+      return d.keys().hasOnly(['Email', 'Rola', 'Status', 'Wzrost', 'RokUrodzenia', 'Plec', 'Utworzono'])
+        && d.Rola in ['admin', 'user']
+        && d.get('Status', 'aktywny') in ['aktywny', 'usuniety']
+        && (d.get('Wzrost', null) == null || (d.Wzrost is number && d.Wzrost >= 100 && d.Wzrost <= 250))
+        && (d.get('RokUrodzenia', null) == null || (d.RokUrodzenia is int && d.RokUrodzenia >= 1900 && d.RokUrodzenia <= 2100))
+        && d.get('Plec', '') in ['', 'M', 'K', 'I'];
+    }
+
+    // ---------- profile: profiles/{uid} ----------
+    match /profiles/{uid} {
+      // własny profil widzi właściciel; wszystkie – administrator
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+
+      // Utworzenie własnego profilu: e-mail musi zgadzać się z kontem, a rola 'admin' tylko dla kont założycielskich
+      allow create: if signedIn() && request.auth.uid == uid
+                    && validProfile(request.resource.data)
+                    && request.resource.data.Email == request.auth.token.email
+                    && request.resource.data.get('Status', 'aktywny') == 'aktywny'
+                    && (request.resource.data.Rola == 'user' || isFounder());
+
+      // Zmiana: administrator może wszystko (rola, status, dane); zwykły użytkownik tylko swoje dane,
+      // bez ruszania roli, statusu i e-maila
+      allow update: if signedIn() && validProfile(request.resource.data) && (
+                      isAdmin()
+                      || (request.auth.uid == uid && active()
+                          && request.resource.data.Rola == resource.data.Rola
+                          && request.resource.data.Email == resource.data.Email
+                          && request.resource.data.get('Status', 'aktywny') == resource.data.get('Status', 'aktywny'))
+                    );
+      // usuwanie profili jest zablokowane – "usunięcie" użytkownika to Status == 'usuniety'
+    }
+
+    // ---------- dane użytkownika: users/{uid}/{kolekcja}/{dokument} ----------
+    match /users/{uid}/{coll}/{docId} {
+      // Odczyt i usuwanie: właściciel (jeśli konto aktywne) albo administrator.
+      // Administrator potrzebuje tego wyłącznie do wyczyszczenia danych usuwanego użytkownika.
+      allow read, delete: if signedIn() && known(coll)
+                          && ((request.auth.uid == uid && active()) || isAdmin());
+
+      // Zapis tylko do własnego folderu i tylko dla aktywnego konta
+      allow create, update: if signedIn() && known(coll)
+                            && request.auth.uid == uid && active()
+                            && request.resource.data.size() <= 15;
     }
 
     // Wszystko inne jest domyślnie zablokowane.
