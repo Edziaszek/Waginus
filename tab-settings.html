@@ -4,6 +4,7 @@
   <button class="subtab-btn" data-sub="cardio">Kardio</button>
   <button class="subtab-btn" data-sub="body">Obwody</button>
   <button class="subtab-btn" data-sub="general">Ogólne</button>
+  <button class="subtab-btn" data-sub="admin" hidden>Admin</button>
 </div>
 
 <div class="subtab-content active" data-panel="weight">
@@ -58,25 +59,34 @@
     </div>
   </div>
   <div class="card">
-    <h2>Twój wzrost (do obliczania BMI)</h2>
+    <h2>Twój profil</h2>
     <div class="form-field">
-      <label>Wzrost w centymetrach</label>
+      <label>Wzrost (do obliczania BMI)</label>
       <div class="unit-field"><input type="number" id="heightInput" min="100" max="250" step="1" inputmode="numeric" placeholder="np. 178"><i>cm</i></div>
     </div>
-    <button class="btn-primary full mt" data-act="save-height">Zapisz wzrost</button>
+    <div class="form-group mt">
+      <div class="form-field"><label>Rok urodzenia</label><input type="number" id="yearInput" min="1900" max="2100" step="1" inputmode="numeric" placeholder="np. 1995"></div>
+      <div class="form-field"><label>Płeć</label>
+        <select id="sexSelect"><option value="">—</option><option value="M">Mężczyzna</option><option value="K">Kobieta</option><option value="I">Inna / nie podaję</option></select></div>
+    </div>
+    <button class="btn-primary full mt" data-act="save-profile" data-done="Zapisano">Zapisz profil</button>
   </div>
   <div class="card">
     <h2>Konto</h2>
     <div class="data-item"><span>Zalogowany jako</span><strong id="accEmail">-</strong></div>
+    <div class="data-item"><span>Rola</span><span class="role-badge" id="accRole">-</span></div>
     <div class="data-item col"><span class="muted">Identyfikator konta (UID)</span><code class="uid" id="accUid">-</code></div>
     <button class="btn-secondary full mt" data-act="reset-pass">Wyślij e-mail ze zmianą hasła</button>
     <button class="btn-danger full mt" data-act="logout">Wyloguj</button>
   </div>
-  <div class="card" id="migrateCard" hidden>
-    <h2>Import starych danych</h2>
-    <div class="muted" style="font-size:.85rem">Znaleziono dane zapisane przed wprowadzeniem kont. Skopiuj je do tego konta (oryginały zostają). Ponowny import nadpisze późniejsze zmiany w skopiowanych wpisach.</div>
-    <button class="btn-primary full mt" data-act="migrate" data-done="Zaimportowano">Zaimportuj dane sprzed logowania</button>
-    <div class="muted mt" id="migrateInfo" style="font-size:.8rem"></div>
+</div>
+
+<div class="subtab-content" data-panel="admin">
+  <div class="card">
+    <h2>Zarządzanie użytkownikami</h2>
+    <div class="muted" style="font-size:.8rem">Awaryjna zmiana hasła wysyła użytkownikowi e-mail z linkiem do ustawienia nowego – administrator nigdy nie poznaje cudzego hasła.</div>
+    <button class="btn-secondary full mt" data-act="admin-refresh">Odśwież listę</button>
+    <div id="adminUsers" class="edit-list mt" style="max-height:none"></div>
   </div>
 </div>
 
@@ -106,6 +116,9 @@
         <button class="btn-primary" data-act="save" data-kind="${kind}" data-id="${r.id ?? ''}">Zapisz zmianę</button>
       </div>
     </div>`;
+  const ROLE = { admin: 'Administrator', user: 'Użytkownik' };
+  const SEX = { '': '—', M: 'Mężczyzna', K: 'Kobieta', I: 'Inna / nie podaję' };
+  const sexOptions = cur => Object.entries(SEX).map(([v, l]) => `<option value="${v}" ${v === (cur || '') ? 'selected' : ''}>${l}</option>`).join('');
   const field = (name, type, value, label = '', extra = '') =>
     `<div class="form-field">${label ? `<label>${label}</label>` : ''}<input type="${type}" data-f="${name}" value="${U.esc(value)}" ${extra}></div>`;
 
@@ -172,12 +185,15 @@
         field('date', 'date', U.iso(r.ts)) + field('size', 'number', r.size, '', 'step="0.1"'))).join('');
     },
     general() {
-      $('heightInput').value = App.getHeight() ?? '';
-      const u = window.firebaseAuth?.user;
+      const p = App.profile ?? {}, u = window.firebaseAuth?.user;
+      $('heightInput').value = p.Wzrost ?? '';
+      $('yearInput').value = p.RokUrodzenia ?? '';
+      $('sexSelect').value = p.Plec ?? '';
       $('accEmail').textContent = u?.email ?? '-';
+      $('accRole').textContent = ROLE[p.Rola] ?? '-';
       $('accUid').textContent = u?.uid ?? '-';
-      checkLegacy();
-    }
+    },
+    admin() { if (App.isAdmin()) { adminUsers ? renderAdminUsers() : loadAdminUsers(); } }
   };
 
   // ---------- operacje na danych (lokalnie od razu, w bazie w tle, z cofnięciem przy błędzie) ----------
@@ -321,19 +337,6 @@
     App.invalidate();
   }
 
-  let legacyChecked = false;
-  async function checkLegacy() {   // karta importu pojawia się tylko, jeśli są stare dane i konto ma do nich dostęp
-    if (legacyChecked) return;
-    legacyChecked = true;
-    try { $('migrateCard').hidden = !(await App.db.legacyFound()); } catch (e) { console.error(e); }
-  }
-
-  async function migrate(_, btn) {
-    if (!confirm('Skopiować stare dane (sprzed logowania) do Twojego konta? Oryginały zostaną nietknięte.')) return;
-    const n = await App.run(() => App.db.migrateLegacy(), null, btn);
-    if (n !== undefined) { $('migrateInfo').textContent = `Skopiowano dokumentów: ${n}.`; await App.reload(); }
-  }
-
   async function resetPass() {
     const email = window.firebaseAuth?.user?.email;
     if (!email) return;
@@ -343,11 +346,122 @@
     } catch (e) { console.error(e); alert('Nie udało się wysłać e-maila. Spróbuj za chwilę.'); }
   }
 
-  function saveHeight() {
-    const cm = U.num($('heightInput').value);
-    if (!(cm >= 100 && cm <= 250)) { alert('Podaj wzrost w centymetrach (100–250).'); return; }
-    App.setHeight(cm);
-    alert('Wzrost został zapisany.');
+  // ---------- profil użytkownika ----------
+  // Odczyt i walidacja pól profilu (te same zasady dla własnego profilu i edycji przez administratora)
+  function readProfileFields(get) {
+    const hRaw = get('height').trim(), yRaw = get('year').trim();
+    const h = hRaw === '' ? null : U.num(hRaw), y = yRaw === '' ? null : parseInt(yRaw);
+    if (h !== null && !(h >= 100 && h <= 250)) { alert('Wzrost: podaj liczbę z zakresu 100–250 cm.'); return null; }
+    if (y !== null && !(y >= 1900 && y <= new Date().getFullYear())) { alert('Rok urodzenia: podaj poprawny rok.'); return null; }
+    return { Wzrost: h, RokUrodzenia: y, Plec: get('sex') };
+  }
+
+  async function saveProfile(_, btn) {
+    const inputs = { height: $('heightInput'), year: $('yearInput'), sex: $('sexSelect') };
+    const fields = readProfileFields(n => inputs[n].value);
+    if (!fields) return;
+    const old = { ...App.profile };
+    Object.assign(App.profile, fields);
+    App.invalidate();
+    await App.run(() => App.db.updateProfile(window.firebaseAuth.user.uid, fields), () => Object.assign(App.profile, old), btn);
+  }
+
+  // ---------- panel administratora (uprawnienia wymuszają reguły bazy – ten widok to tylko interfejs) ----------
+  let adminUsers = null;
+  const myUid = () => window.firebaseAuth.user.uid;
+  const adminUser = uid => adminUsers?.find(u => u.id === uid);
+
+  async function loadAdminUsers() {
+    const box = $('adminUsers');
+    box.innerHTML = '<div class="muted center">Ładowanie…</div>';
+    try { adminUsers = await App.db.listProfiles(); renderAdminUsers(); }
+    catch (e) { console.error(e); box.innerHTML = '<div class="muted center">Nie udało się pobrać listy użytkowników.</div>'; }
+  }
+
+  function renderAdminUsers() {
+    const me = myUid(), year = new Date().getFullYear();
+    const list = [...adminUsers].sort((a, b) => String(a.Email).localeCompare(String(b.Email)));
+    $('adminUsers').innerHTML = list.map(u => {
+      const self = u.id === me, gone = u.Status === 'usuniety';
+      const info = [ROLE[u.Rola] ?? u.Rola, u.Wzrost ? u.Wzrost + ' cm' : 'wzrost –',
+                    u.RokUrodzenia ? `${year - u.RokUrodzenia} l.` : 'wiek –', SEX[u.Plec || '']].join(' · ');
+      const buttons = gone
+        ? `<button class="btn-secondary" data-act="admin-restore" data-uid="${u.id}">Przywróć</button>
+           <button class="btn-danger" data-act="admin-wipe" data-uid="${u.id}">Wyczyść dane</button>`
+        : `<button class="btn-secondary" data-act="admin-toggle" data-uid="${u.id}">Edytuj</button>`;
+      const panel = gone ? '' : `
+        <div class="edit-panel" id="adm-${u.id}" hidden>
+          ${field('height', 'number', u.Wzrost ?? '', 'Wzrost (cm)', 'step="1"')}
+          ${field('year', 'number', u.RokUrodzenia ?? '', 'Rok urodzenia', 'step="1"')}
+          <div class="form-field"><label>Płeć</label><select data-f="sex">${sexOptions(u.Plec)}</select></div>
+          <div class="form-field"><label>Rola${self ? ' (własnej roli nie można zmienić)' : ''}</label>
+            <select data-f="role" ${self ? 'disabled' : ''}>
+              <option value="user" ${u.Rola === 'user' ? 'selected' : ''}>Użytkownik</option>
+              <option value="admin" ${u.Rola === 'admin' ? 'selected' : ''}>Administrator</option>
+            </select></div>
+          <button class="btn-primary" data-act="admin-save" data-uid="${u.id}">Zapisz zmiany</button>
+          <button class="btn-secondary" data-act="admin-reset" data-uid="${u.id}">Wyślij e-mail z resetem hasła</button>
+          ${self ? '' : `<button class="btn-danger" data-act="admin-delete" data-uid="${u.id}">Usuń użytkownika</button>`}
+        </div>`;
+      return `<div class="edit-item col">
+        <div class="between">
+          <span><strong>${U.esc(u.Email)}</strong>${self ? ' (Ty)' : ''}${gone ? ' <span class="accent">· USUNIĘTY</span>' : ''}<br><small class="muted">${U.esc(info)}</small></span>
+          <div class="btn-row">${buttons}</div>
+        </div>${panel}</div>`;
+    }).join('') || '<div class="muted center">Brak użytkowników.</div>';
+  }
+
+  async function adminSave(uid) {
+    const u = adminUser(uid), panel = $('adm-' + uid);
+    if (!u || !panel) return;
+    const get = n => panel.querySelector(`[data-f="${n}"]`).value;
+    const fields = readProfileFields(get);
+    if (!fields) return;
+    if (uid !== myUid()) {   // własnej roli nie zmieniamy – to gwarantuje, że zawsze zostaje przynajmniej jeden administrator
+      const role = get('role');
+      if (role !== u.Rola && role === 'user' && !confirm(`Odebrać uprawnienia administratora użytkownikowi ${u.Email}?`)) return;
+      fields.Rola = role;
+    }
+    const old = { ...u };
+    Object.assign(u, fields);
+    if (uid === myUid()) { Object.assign(App.profile, fields); App.invalidate(); }
+    renderAdminUsers();
+    await App.run(() => App.db.updateProfile(uid, fields), () => { Object.assign(u, old); renderAdminUsers(); });
+  }
+
+  async function adminReset(uid) {
+    const u = adminUser(uid);
+    if (!u?.Email || !confirm(`Wysłać na adres ${u.Email} e-mail z linkiem do ustawienia nowego hasła?`)) return;
+    try {
+      await window.firebaseAuth.reset(u.Email);
+      alert(`Wysłano e-mail z linkiem do zmiany hasła na adres ${u.Email}.`);
+    } catch (e) { console.error(e); alert('Nie udało się wysłać e-maila. Spróbuj za chwilę.'); }
+  }
+
+  // "Usunięcie": najpierw blokada konta (Status), potem skasowanie wszystkich jego danych
+  async function adminDelete(uid) {
+    const u = adminUser(uid);
+    if (!u || uid === myUid()) return;
+    if (!confirm(`Usunąć użytkownika ${u.Email}?\n\nZostaną trwale skasowane wszystkie jego dane (waga, treningi, kardio, obwody, ćwiczenia), a konto zostanie zablokowane. Tego nie można cofnąć.`)) return;
+    const old = u.Status;
+    u.Status = 'usuniety'; renderAdminUsers();
+    await App.run(async () => {
+      await App.db.updateProfile(uid, { Status: 'usuniety' });
+      await App.db.wipeUserData(uid);
+    }, () => { u.Status = old; renderAdminUsers(); });
+  }
+
+  async function adminWipe(uid) {   // ponowienie czyszczenia danych, gdyby poprzednie nie dokończyło się
+    const u = adminUser(uid);
+    if (!u || !confirm(`Skasować wszystkie dane użytkownika ${u.Email}?`)) return;
+    await App.run(() => App.db.wipeUserData(uid));
+  }
+
+  async function adminRestore(uid) {   // przywraca dostęp (dane skasowane przy usunięciu nie wracają)
+    const u = adminUser(uid);
+    if (!u || !confirm(`Przywrócić dostęp użytkownikowi ${u.Email}? Jego dane zostały skasowane, konto będzie puste.`)) return;
+    u.Status = 'aktywny'; renderAdminUsers();
+    await App.run(() => App.db.updateProfile(uid, { Status: 'aktywny' }), () => { u.Status = 'usuniety'; renderAdminUsers(); });
   }
 
   // ---------- zdarzenia: jedna delegacja na całą zakładkę ----------
@@ -364,9 +478,15 @@
     'add-part': addPart,
     theme: () => App.toggleTheme(),
     font: d => App.changeFont(+d.d),
-    'save-height': saveHeight,
+    'save-profile': saveProfile,
     'reset-pass': resetPass,
-    migrate,
+    'admin-refresh': () => App.isAdmin() && loadAdminUsers(),
+    'admin-toggle': d => { const p = $('adm-' + d.uid); if (p) p.hidden = !p.hidden; },
+    'admin-save': d => App.isAdmin() && adminSave(d.uid),
+    'admin-reset': d => App.isAdmin() && adminReset(d.uid),
+    'admin-delete': d => App.isAdmin() && adminDelete(d.uid),
+    'admin-wipe': d => App.isAdmin() && adminWipe(d.uid),
+    'admin-restore': d => App.isAdmin() && adminRestore(d.uid),
     logout: () => App.logout()
   };
 
@@ -386,6 +506,13 @@
     });
   }
 
-  App.register('settings', { init, render: () => renderers[state.sub]() });
+  App.register('settings', {
+    init,
+    render() {
+      root.querySelector('[data-sub="admin"]').hidden = !App.isAdmin();
+      if (state.sub === 'admin' && !App.isAdmin()) showSub('weight');
+      else renderers[state.sub]();
+    }
+  });
 })();
 </script>
