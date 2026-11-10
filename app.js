@@ -72,6 +72,7 @@
 
   const App = window.App = {
     util,
+    profile: null,   // własny profil z bazy: { Rola, Wzrost, RokUrodzenia, Plec, ... } – wczytywany po zalogowaniu
     data: { weight: [], exercises: [], workouts: [], cardio: [], cardioTypes: [], body: [], bodyParts: [] },
     get db() { return window.firebaseFunctions; },
 
@@ -161,12 +162,12 @@
     },
 
     getHeight() {
-      const h = parseFloat(localStorage.getItem(heightKey()));
+      const h = App.profile?.Wzrost;
       return h > 0 ? h : null;
     },
-    setHeight(cm) {
-      localStorage.setItem(heightKey(), cm);
-      App.invalidate();
+    // Uwaga: to tylko wygoda interfejsu. Prawdziwego egzekwowania uprawnień pilnują reguły bazy (firestore.rules).
+    isAdmin() {
+      return App.profile?.Rola === 'admin' && (App.profile.Status ?? 'aktywny') === 'aktywny';
     },
 
     async logout() {
@@ -189,8 +190,6 @@
     if (!pop.hidden) renderStatusPop();
   }
   function closeStatusPop() { document.getElementById('statusPop').hidden = true; }
-
-  const heightKey = () => 'settings_height_' + (window.firebaseAuth?.user?.uid ?? '');
 
   function renderActive() {
     if (!dirty.has(active) || !tabs[active]) return;
@@ -235,6 +234,22 @@
     setTimeout(() => rej(new Error('Timeout ładowania Firebase')), 15000);
   });
 
+  // Profil użytkownika (profiles/{uid}). Pierwsze logowanie tworzy go automatycznie.
+  async function loadProfile() {
+    const fb = App.db, u = window.firebaseAuth.user;
+    let p = await fb.getProfile(u.uid);
+    if (!p) {
+      const base = { Email: u.email, Status: 'aktywny', Wzrost: null, RokUrodzenia: null, Plec: '', Utworzono: Date.now() };
+      const old = parseFloat(localStorage.getItem('settings_height_' + u.uid));   // wzrost zapisany lokalnie przed wprowadzeniem profili
+      if (old >= 100 && old <= 250) base.Wzrost = old;
+      // Rolę administratora przyznają WYŁĄCZNIE reguły bazy (lista kont założycielskich).
+      // Klient tylko próbuje; jeśli reguły odmówią, zakłada zwykłe konto.
+      try { p = await fb.createProfile(u.uid, { ...base, Rola: 'admin' }); }
+      catch { p = await fb.createProfile(u.uid, { ...base, Rola: 'user' }); }
+    }
+    App.profile = p;
+  }
+
   async function boot() {
     syncThemeIcon();
     try {
@@ -243,6 +258,17 @@
     } catch (e) {
       console.error(e);
       Auth.fatal('Nie udało się załadować Firebase. Sprawdź połączenie z internetem i odśwież stronę.');
+      return;
+    }
+    try { await loadProfile(); }
+    catch (e) {
+      console.error(e);
+      Auth.fatal('Nie udało się wczytać profilu użytkownika. Sprawdź połączenie oraz czy reguły bazy zostały opublikowane.');
+      return;
+    }
+    if (App.profile.Status === 'usuniety') {   // konto usunięte przez administratora
+      await window.firebaseAuth.logout();
+      Auth.fatal('To konto zostało usunięte przez administratora.');
       return;
     }
     window.firebaseAuth.onChange(u => { if (!u) location.reload(); });   // wylogowanie (także w innej karcie) czyści widok
