@@ -99,7 +99,7 @@
     data: { weight: [], exercises: [], workouts: [], cardio: [], cardioTypes: [], body: [], bodyParts: [] },
     get db() { return window.firebaseFunctions; },
 
-    register(name, mod) { tabs[name] = mod; mod.init?.(); },
+    register(name, mod) { tabs[name] = mod; dirty.add(name); mod.init?.(); },
 
     // Dane się zmieniły: oznacz wszystkie zakładki jako „do odświeżenia”, narysuj aktywną.
     invalidate() {
@@ -149,23 +149,15 @@
 
     async reload() {
       App.status('Pobieranie danych…', 'busy');
-      try {
-        const names = [...new Set(Object.values(tabs).flatMap(t => t.collections || []))];
-        const docs = await Promise.all(names.map(n => App.db.getData(n)));
-        const raw = Object.fromEntries(names.map((n, i) => [n, docs[i]]));
-        Object.values(tabs).forEach(t => t.parse?.(raw));
-        App.status('Połączono z Firebase', 'ok');
-        App.invalidate();
-      } catch (e) {
-        console.error(e);
-        App.status('Błąd połączenia z Firebase', 'err', e?.message || String(e));
-      }
+      try { applyData(await fetchAll()); }
+      catch (e) { console.error(e); App.status('Błąd połączenia z Firebase', 'err', e?.message || String(e)); }
     },
 
-    switchTab(name) {
+    async switchTab(name) {
       active = name;
       document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === `tab-${name}`));
       document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+      if (!tabs[name]) await injectTab(name);   // zakładka z LAZY, która nie zdążyła wejść w tle
       renderActive();
     },
 
@@ -224,24 +216,36 @@
     document.getElementById('themeIcon').textContent = root.dataset.theme === 'dark' ? '☀️' : '🌙';
   }
 
-  // Pobiera tab-<nazwa>.html, wstawia HTML do sekcji i uruchamia skrypty w kolejności zakładek.
-  async function loadTabs() {
-    const names = [...document.querySelectorAll('.nav-item')].map(b => b.dataset.tab);
-    const app = document.getElementById('app');
-    const html = await Promise.all(names.map(n =>
-      fetch(`tab-${n}.html`, { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
-        .catch(e => { console.error(`Nie załadowano zakładki ${n}`, e); return null; })));
+  // ---------- zakładki ----------
+  // Pliki tab-*.html pobieramy OD RAZU przy starcie strony – równolegle z ładowaniem Firebase i logowaniem –
+  // więc po zalogowaniu są już na miejscu. Zakładki z LAZY (duże i niepotrzebne na starcie) wchodzą dopiero
+  // w czasie bezczynności albo przy pierwszym otwarciu.
+  const NAV_TABS = [...document.querySelectorAll('.nav-item')].map(b => b.dataset.tab);
+  const LAZY = new Set(['settings']);
+  const htmlCache = {}, injecting = {};
 
-    names.forEach((n, i) => {
-      const el = document.createElement('section');
-      el.id = `tab-${n}`;
-      el.className = 'tab-content' + (n === active ? ' active' : '');
-      app.append(el);
-      if (html[i] === null) { el.textContent = 'Nie udało się załadować zakładki.'; return; }
+  const fetchTab = n => htmlCache[n] ||= fetch(`tab-${n}.html`, { cache: 'no-cache' })
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
+    .catch(e => { console.error(`Nie załadowano zakładki ${n}`, e); delete htmlCache[n]; return null; });
 
+  NAV_TABS.forEach(n => {
+    const el = document.createElement('section');
+    el.id = `tab-${n}`;
+    el.className = 'tab-content' + (n === active ? ' active' : '');
+    if (LAZY.has(n)) el.innerHTML = '<div class="card muted center">Ładowanie…</div>';
+    document.getElementById('app').append(el);
+    if (!LAZY.has(n)) fetchTab(n);
+  });
+
+  // Wstawia HTML zakładki do jej sekcji i uruchamia jej skrypty (rejestracja przez App.register)
+  function injectTab(n) {
+    return injecting[n] ||= (async () => {
+      const el = document.getElementById(`tab-${n}`), html = await fetchTab(n);
+      if (html === null) { el.textContent = 'Nie udało się załadować zakładki.'; delete injecting[n]; return; }
       const tpl = document.createElement('template');
-      tpl.innerHTML = html[i];
+      tpl.innerHTML = html;
       const scripts = [...tpl.content.querySelectorAll('script')].map(s => { s.remove(); return s.textContent; });
+      el.textContent = '';
       el.append(tpl.content);
       scripts.forEach(code => {
         const s = document.createElement('script');
@@ -249,7 +253,19 @@
         el.append(s);
         s.remove();
       });
-    });
+    })();
+  }
+
+  // ---------- dane ----------
+  async function fetchAll() {
+    const names = [...new Set(Object.values(tabs).flatMap(t => t.collections || []))];
+    const docs = await Promise.all(names.map(n => App.db.getData(n)));   // wszystkie kolekcje równolegle
+    return Object.fromEntries(names.map((n, i) => [n, docs[i]]));
+  }
+  function applyData(raw) {
+    Object.values(tabs).forEach(t => t.parse?.(raw));
+    App.status('Połączono z Firebase', 'ok');
+    App.invalidate();
   }
 
   const firebaseReady = () => window.firebaseFunctions ? Promise.resolve() : new Promise((res, rej) => {
@@ -283,9 +299,12 @@
       Auth.fatal('Nie udało się załadować Firebase. Sprawdź połączenie z internetem i odśwież stronę.');
       return;
     }
-    try { await loadProfile(); }
-    catch (e) {
-      console.error(e);
+    for (const n of NAV_TABS) if (!LAZY.has(n)) await injectTab(n);   // pliki są już pobrane w tle
+
+    // Profil i dane nie zależą od siebie – pobieramy je równolegle (jedna runda sieciowa zamiast dwóch)
+    const [prof, data] = await Promise.allSettled([loadProfile(), fetchAll()]);
+    if (prof.status === 'rejected') {
+      console.error(prof.reason);
       Auth.fatal('Nie udało się wczytać profilu użytkownika. Sprawdź połączenie oraz czy reguły bazy zostały opublikowane.');
       return;
     }
@@ -295,8 +314,13 @@
       return;
     }
     window.firebaseAuth.onChange(u => { if (!u) location.reload(); });   // wylogowanie (także w innej karcie) czyści widok
-    await loadTabs();
-    await App.reload();
+    if (data.status === 'fulfilled') applyData(data.value);
+    else {
+      console.error(data.reason);
+      App.status('Błąd połączenia z Firebase', 'err', data.reason?.message || String(data.reason));
+    }
+    // dopiero po pierwszym narysowaniu: zakładki LAZY (np. Ustawienia) w czasie bezczynności przeglądarki
+    (window.requestIdleCallback || (f => setTimeout(f, 1500)))(() => LAZY.forEach(injectTab));
   }
 
   // Nawigacja i górny pasek – jedna delegacja zdarzeń zamiast inline onclick
@@ -307,6 +331,7 @@
     const f = t.closest('[data-font]');
     if (f) return App.changeFont(+f.dataset.font);
     if (t.closest('#themeBtn')) return App.toggleTheme();
+    if (t.closest('#reloadBtn')) { t.closest('#reloadBtn').classList.add('spin'); return location.reload(); }
     if (t.closest('#statusBtn')) return toggleStatusPop();
     if (t.closest('[data-reload]')) { closeStatusPop(); return App.reload(); }
     if (!t.closest('#statusPop')) closeStatusPop(); // klik poza okienkiem je zamyka
