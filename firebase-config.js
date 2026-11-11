@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, deleteDoc, doc, updateDoc, deleteField, writeBatch }
-  from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
+  from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore-lite.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
          sendEmailVerification, sendPasswordResetEmail }
   from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
@@ -15,8 +15,9 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+// Auth tworzymy PRZED bazą: Firestore Lite pobiera token logowania z instancji Auth przy pierwszym żądaniu.
 const auth = getAuth(app);
+const db = getFirestore(app);   // wersja Lite: kilka razy mniejsza od pełnej, zwykłe zapytania HTTP (bez streamingu i trybu offline)
 auth.languageCode = 'pl';   // e-maile weryfikacyjne i resetu hasła po polsku
 
 // Kolekcje z danymi użytkownika (podkolekcje users/{uid}/...)
