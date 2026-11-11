@@ -318,3 +318,10 @@ code.uid { display: block; margin-top: 4px; padding: 8px; border-radius: 6px; ba
 
 .mm-info ul { margin: 6px 0 0 18px; padding: 0; }
 .mm-info li { margin-bottom: 4px; }
+
+/* Przycisk odświeżania strony */
+.icon-btn svg { display: block; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#reloadBtn { display: flex; align-items: center; justify-content: center; min-width: 36px; min-height: 32px; }
+#reloadBtn.spin svg { animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { #reloadBtn.spin svg { animation: none; } }
