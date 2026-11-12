@@ -40,7 +40,8 @@ service cloud.firestore {
 
     // Poprawny kształt profilu (ogranicza pola i zakresy – nikt nie wpisze śmieci)
     function validProfile(d) {
-      return d.keys().hasOnly(['Email', 'Rola', 'Status', 'Wzrost', 'RokUrodzenia', 'Plec', 'Utworzono', 'SekcjeKolejnosc', 'SekcjeUkryte'])
+      return d.keys().hasOnly(['Email', 'Rola', 'Status', 'Wzrost', 'RokUrodzenia', 'Plec', 'Utworzono', 'SekcjeKolejnosc', 'SekcjeUkryte',
+                              'Motyw', 'AkcentJasny', 'AkcentCiemny'])
         && d.Rola in ['admin', 'user']
         && d.get('Status', 'aktywny') in ['aktywny', 'usuniety']
         && (d.get('Wzrost', null) == null || (d.Wzrost is number && d.Wzrost >= 100 && d.Wzrost <= 250))
@@ -48,7 +49,11 @@ service cloud.firestore {
         && d.get('Plec', '') in ['', 'M', 'K', 'I']
         // układ strony głównej: listy id sekcji (ograniczona długość)
         && d.get('SekcjeKolejnosc', []) is list && d.get('SekcjeKolejnosc', []).size() <= 12
-        && d.get('SekcjeUkryte', []) is list && d.get('SekcjeUkryte', []).size() <= 12;
+        && d.get('SekcjeUkryte', []) is list && d.get('SekcjeUkryte', []).size() <= 12
+        // wygląd: motyw i identyfikatory kolorów akcentu
+        && d.get('Motyw', 'light') in ['light', 'dark']
+        && d.get('AkcentJasny', '') is string && d.get('AkcentJasny', '').size() <= 20
+        && d.get('AkcentCiemny', '') is string && d.get('AkcentCiemny', '').size() <= 20;
     }
 
     // ---------- profile: profiles/{uid} ----------

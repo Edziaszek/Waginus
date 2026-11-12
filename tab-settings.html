@@ -14,10 +14,9 @@
 <div class="subtab-content" data-panel="workout">
   <div class="card">
     <h2>Nazwy Ćwiczeń (Baza)</h2>
-    <div class="form-group">
-      <input type="text" id="newExerciseInput" placeholder="Nowe ćwiczenie">
-      <button type="button" class="btn-primary" data-act="add-exercise">Dodaj</button>
-    </div>
+    <input type="text" id="newExerciseInput" placeholder="Nowe ćwiczenie" style="width:100%">
+    <div id="newExerciseMuscles" class="mt"></div>
+    <button type="button" class="btn-primary full mt" data-act="add-exercise">Dodaj ćwiczenie</button>
     <button type="button" class="btn-primary full mt" data-act="sync-muscles" data-done="Zapisano">Zapisz dopasowane mięśnie w bazie</button>
     <div class="muted mt" id="muscleSyncInfo" style="font-size:.8rem"></div>
     <div id="editExercisesList" class="edit-list mt"></div>
@@ -28,10 +27,9 @@
 <div class="subtab-content" data-panel="cardio">
   <div class="card">
     <h2>Rodzaje Aktywności (Baza)</h2>
-    <div class="form-group">
-      <input type="text" id="newCardioTypeInput" placeholder="Nowy rodzaj (np. Bieżnia)">
-      <button type="button" class="btn-primary" data-act="add-ctype">Dodaj</button>
-    </div>
+    <input type="text" id="newCardioTypeInput" placeholder="Nowy rodzaj (np. Bieżnia)" style="width:100%">
+    <div id="newCardioMuscles" class="mt"></div>
+    <button type="button" class="btn-primary full mt" data-act="add-ctype">Dodaj rodzaj</button>
     <button type="button" class="btn-primary full mt" data-act="sync-cmuscles" data-done="Zapisano">Zapisz dopasowane mięśnie w bazie</button>
     <div class="muted mt" id="cmuscleSyncInfo" style="font-size:.8rem"></div>
     <div id="editCardioTypesList" class="edit-list mt"></div>
@@ -53,9 +51,21 @@
 
 <div class="subtab-content" data-panel="general">
   <div class="card">
-    <h2>Wygląd Aplikacji</h2>
-    <button class="btn-secondary full" data-act="theme">Przełącz Motyw (Jasny/Ciemny)</button>
-    <div class="form-group mt">
+    <h2>Wygląd</h2>
+    <label>Motyw (zapisany na koncie – taki sam na każdym urządzeniu)</label>
+    <div class="segmented" id="themeSeg" role="group" aria-label="Motyw">
+      <button type="button" data-act="set-theme" data-v="light">☀️ Jasny</button>
+      <button type="button" data-act="set-theme" data-v="dark">🌙 Ciemny</button>
+    </div>
+    <label>Kolor akcentu – motyw jasny</label>
+    <div class="swatches" id="accentLight"></div>
+    <div class="muted swatch-name" id="accentLightName"></div>
+    <label>Kolor akcentu – motyw ciemny</label>
+    <div class="swatches" id="accentDark"></div>
+    <div class="muted swatch-name" id="accentDarkName"></div>
+    <div class="muted" style="font-size:.8rem">Każdy kolor ma kontrast co najmniej 4,5:1 z tłem swojego motywu (norma WCAG AA). Palety są osobne, bo żaden kolor nie jest tak czytelny jednocześnie na jasnym i na ciemnym tle.</div>
+    <label class="mt">Rozmiar tekstu (zapamiętywany tylko na tym urządzeniu)</label>
+    <div class="form-group">
       <button class="btn-secondary" style="flex:1" data-act="font" data-d="-1">Tekst A-</button>
       <button class="btn-secondary" style="flex:1" data-act="font" data-d="1">Tekst A+</button>
     </div>
@@ -142,12 +152,36 @@
   const muscleSet = (e, kind) => (e.muscles?.length || e.muscles2?.length)
     ? { primary: e.muscles, secondary: e.muscles2 || [], own: true }
     : (guessFor(kind)?.(e.name) ?? { primary: [], secondary: [] });
-  const muscleBoxes = (e, kind = 'exercise') => {
-    const r = muscleSet(e, kind), st = id => r.primary.includes(id) ? 2 : r.secondary.includes(id) ? 1 : 0;
-    return `<div class="muted" style="font-size:.8rem">Dotykaj mięśni: główny → pomocniczy → brak.${r.own ? '' : ' To na razie podpowiedź z nazwy – zapisz, aby trafiła do bazy.'}</div>
-      <div class="check-grid">${(App.muscles?.list ?? []).map(m =>
-        `<button type="button" class="m-chip s${st(m.id)}" data-act="cycle-m" data-m="${m.id}" data-s="${st(m.id)}">${m.label}</button>`).join('')}</div>`;
+  // Przyciski mięśni: stan 2 = główny, 1 = pomocniczy, 0 = brak (te same przy edycji i przy dodawaniu)
+  const chipsHtml = r => {
+    const st = id => r.primary.includes(id) ? 2 : r.secondary.includes(id) ? 1 : 0;
+    return `<div class="check-grid">${(App.muscles?.list ?? []).map(m =>
+      `<button type="button" class="m-chip s${st(m.id)}" data-act="cycle-m" data-m="${m.id}" data-s="${st(m.id)}">${m.label}</button>`).join('')}</div>`;
   };
+  const muscleBoxes = (e, kind = 'exercise') => {
+    const r = muscleSet(e, kind);
+    return `<div class="muted" style="font-size:.8rem">Dotykaj mięśni: główny → pomocniczy → brak.${r.own ? '' : ' To na razie podpowiedź z nazwy – zapisz, aby trafiła do bazy.'}</div>${chipsHtml(r)}`;
+  };
+
+  // ---------- wybór mięśni przy DODAWANIU (tak samo jak przy edycji) ----------
+  // Dopóki użytkownik nie dotknie żadnego mięśnia, przyciski podpowiadają się na bieżąco z wpisywanej nazwy.
+  const picks = { exercise: { touched: false }, ctype: { touched: false } };
+  const PICK = {
+    exercise: { input: 'newExerciseInput', box: 'newExerciseMuscles', guess: n => App.muscles?.guess(n) },
+    ctype:    { input: 'newCardioTypeInput', box: 'newCardioMuscles', guess: n => App.muscles?.guessCardio(n) }
+  };
+  function renderPicker(kind, force = false) {
+    const p = PICK[kind];
+    if (picks[kind].touched && !force) return;   // nie nadpisuj ręcznego wyboru
+    const r = p.guess($(p.input).value.trim()) ?? { primary: [], secondary: [] };
+    $(p.box).dataset.pick = kind;
+    $(p.box).innerHTML = `<div class="muted" style="font-size:.8rem">Mięśnie (opcjonalnie): dotykaj – główny → pomocniczy → brak. Podpowiadamy je z nazwy.</div>${chipsHtml(r)}`;
+  }
+  const readPicker = kind => {
+    const chips = [...$(PICK[kind].box).querySelectorAll('[data-m]')];
+    return { main: chips.filter(c => c.dataset.s === '2').map(c => c.dataset.m), aux: chips.filter(c => c.dataset.s === '1').map(c => c.dataset.m) };
+  };
+  const resetPicker = kind => { picks[kind].touched = false; renderPicker(kind, true); };
   const muscleSummary = (e, kind = 'exercise') => {
     const r = resolveFor(kind)?.(e.name), L = ids => ids.map(id => App.muscles.label[id]).join(', ');
     if (!r || !(r.primary.length || r.secondary.length)) return '<small class="muted">Mięśnie: brak przypisania</small>';
@@ -162,6 +196,7 @@
         field('date', 'date', U.iso(r.ts)) + field('weight', 'number', r.weight, '', 'step="0.1"'))).join('');
     },
     workout() {
+      renderPicker('exercise');
       $('editExercisesList').innerHTML = D.exercises.map(e => item('exercise', e,
         `${U.esc(e.name)}<br>${muscleSummary(e)}`, muscleBoxes(e))).join('');
       const pending = D.exercises.filter(e => !(e.muscles?.length || e.muscles2?.length));
@@ -176,6 +211,7 @@
         field('reps', 'text', r.reps.join(', '), 'Powtórzenia w seriach (np. 8, 8, 8)'))).join('');
     },
     cardio() {
+      renderPicker('ctype');
       $('editCardioTypesList').innerHTML = D.cardioTypes.map(c => item('ctype', c,
         `${U.esc(c.name)}<br>${muscleSummary(c, 'ctype')}`, muscleBoxes(c, 'ctype'))).join('');
       const pending = D.cardioTypes.filter(c => !(c.muscles?.length || c.muscles2?.length));
@@ -213,6 +249,7 @@
       $('accRole').textContent = ROLE[p.Rola] ?? '-';
       $('accUid').textContent = u?.uid ?? '-';
       renderLayoutList();
+      renderAppearance();
     },
     admin() { if (App.isAdmin()) { adminUsers ? renderAdminUsers() : loadAdminUsers(); } }
   };
@@ -295,11 +332,11 @@
   async function addExercise(_, btn) {
     const inp = $('newExerciseInput'), name = inp.value.trim();
     if (!name) return;
-    inp.value = '';
-    const g = App.muscles?.guess(name);   // rozpoznana nazwa = mięśnie od razu zapisane w bazie razem z ćwiczeniem
-    const rec = { id: undefined, name, muscles: g ? g.primary : [], muscles2: g ? g.secondary : [] };
+    const { main, aux } = readPicker('exercise');   // mięśnie wybrane (lub podpowiedziane z nazwy) w formularzu dodawania
+    inp.value = ''; resetPicker('exercise');
+    const rec = { id: undefined, name, muscles: main, muscles2: aux };
     D.exercises.push(rec); App.invalidate();
-    const fields = { Nazwa: name, ...(g && { Miesnie: g.primary, MiesnieDodatkowe: g.secondary }) };
+    const fields = { Nazwa: name, ...((main.length || aux.length) && { Miesnie: main, MiesnieDodatkowe: aux }) };
     const id = await App.run(() => App.db.addData('Cwiczenia', fields), () => U.drop(D.exercises, rec), btn);
     if (id) rec.id = id;
   }
@@ -332,11 +369,11 @@
     const inp = $('newCardioTypeInput'), name = inp.value.trim();
     if (!name) return;
     if (D.cardioTypes.some(t => t.name.toLowerCase() === name.toLowerCase())) { alert('Taki rodzaj już istnieje.'); return; }
-    inp.value = '';
-    const g = App.muscles?.guessCardio(name);   // rozpoznana nazwa = mięśnie od razu zapisane w bazie razem z rodzajem
-    const rec = { id: undefined, name, muscles: g ? g.primary : [], muscles2: g ? g.secondary : [] };
+    const { main, aux } = readPicker('ctype');
+    inp.value = ''; resetPicker('ctype');
+    const rec = { id: undefined, name, muscles: main, muscles2: aux };
     D.cardioTypes.push(rec); App.invalidate();
-    const fields = { Nazwa: name, ...(g && { Miesnie: g.primary, MiesnieDodatkowe: g.secondary }) };
+    const fields = { Nazwa: name, ...((main.length || aux.length) && { Miesnie: main, MiesnieDodatkowe: aux }) };
     const id = await App.run(async () => { await materializeTypes(); return App.db.addData('KardioTypy', fields); },
       () => U.drop(D.cardioTypes, rec), btn);
     if (id) rec.id = id;
@@ -409,6 +446,21 @@
     Object.assign(App.profile, fields);
     App.invalidate();
     await App.run(() => App.db.updateProfile(window.firebaseAuth.user.uid, fields), () => Object.assign(App.profile, old), btn);
+  }
+
+  // ---------- wygląd: motyw i kolory akcentu ----------
+  function renderAppearance() {
+    const P = App.palettes, p = App.profile ?? {}, theme = App.theme();
+    $('themeSeg').querySelectorAll('button').forEach(b => {
+      b.classList.toggle('active', b.dataset.v === theme);
+      b.setAttribute('aria-pressed', b.dataset.v === theme);
+    });
+    for (const [t, box, nameBox, saved] of [['light', 'accentLight', 'accentLightName', p.AkcentJasny], ['dark', 'accentDark', 'accentDarkName', p.AkcentCiemny]]) {
+      const cur = saved || P.defaults[t];
+      $(box).innerHTML = P.accents[t].map(a => `<button type="button" class="swatch${a.id === cur ? ' sel' : ''}" style="background:${a.hex};--sw-text:${P.textOn(a.hex)}"
+        data-act="set-accent" data-theme="${t}" data-id="${a.id}" aria-label="${a.name}" title="${a.name}" aria-pressed="${a.id === cur}"></button>`).join('');
+      $(nameBox).textContent = 'Wybrany: ' + (P.accents[t].find(a => a.id === cur)?.name ?? '-');
+    }
   }
 
   // ---------- układ strony głównej (zmiany robocze zapisują się dopiero przyciskiem „Zapisz układ”) ----------
@@ -554,12 +606,17 @@
     'delete-part': d => removePart(d.name),
     'add-exercise': addExercise,
     'sync-muscles': syncMuscles,
-    'cycle-m': (d, el) => { const s = { 0: 2, 2: 1, 1: 0 }[+d.s]; el.dataset.s = s; el.className = 'm-chip s' + s; },
+    'cycle-m': (d, el) => {
+      const s = { 0: 2, 2: 1, 1: 0 }[+d.s]; el.dataset.s = s; el.className = 'm-chip s' + s;
+      const pk = el.closest?.('[data-pick]')?.dataset.pick;   // dotknięcie w formularzu dodawania = ręczny wybór (przestajemy podpowiadać z nazwy)
+      if (pk) picks[pk].touched = true;
+    },
     'add-ctype': addCardioType,
     'sync-cmuscles': syncCardioMuscles,
     'delete-ctype': d => removeCardioType(d.name),
     'add-part': addPart,
-    theme: () => App.toggleTheme(),
+    'set-theme': d => App.setAppearance({ Motyw: d.v }),
+    'set-accent': d => App.setAppearance(d.theme === 'dark' ? { AkcentCiemny: d.id } : { AkcentJasny: d.id }),
     font: d => App.changeFont(+d.d),
     'save-profile': saveProfile,
     'sec-move': d => moveSection(d.id, +d.d),
@@ -585,6 +642,9 @@
   }
 
   function init() {
+    root.addEventListener('input', e => {   // podpowiedź mięśni z nazwy, dopóki nie wybrano ich ręcznie
+      for (const k of Object.keys(PICK)) if (PICK[k].input === e.target?.id) renderPicker(k);
+    });
     root.addEventListener('click', e => {
       const sub = e.target.closest('[data-sub]');
       if (sub) return showSub(sub.dataset.sub);

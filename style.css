@@ -21,6 +21,7 @@
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
   --primary: #f97316;
+  --primary-text: #0b1220;   /* ciemny tekst na jasnym akcencie: 6,7:1 (biały dawał 2,8:1) */
   --input-bg: #0f172a;
   --input-border: #475569;
   --subtab-bg: #0f172a;
@@ -258,7 +259,7 @@ details.fold > summary:active { background: var(--box-bg); border-radius: 12px; 
 /* ---------- Reakcja przycisków głównych: wciśnięcie i potwierdzenie „Dodano” ---------- */
 button.btn-primary { transition: background-color .2s, filter .15s, transform .1s; touch-action: manipulation; }
 button.btn-primary:active { filter: brightness(.78); transform: scale(.98); }
-button.btn-primary.done { background: #16a34a; color: #fff; }
+button.btn-primary.done { background: #15803d; color: #fff; }   /* biały tekst: 5,0:1 (wcześniej 3,3:1) */
 
 /* ---------- Model mięśni ---------- */
 .mm-views { display: flex; gap: 8px; margin-top: 8px; }
@@ -329,3 +330,15 @@ code.uid { display: block; margin-top: 4px; padding: 8px; border-radius: 6px; ba
 /* Strzałki zmiany kolejności sekcji – duże cele dotykowe */
 .arrow-btn { min-width: 44px; min-height: 44px; font-size: 1rem; }
 .arrow-btn:disabled { opacity: .35; cursor: default; }
+
+/* Wybór koloru akcentu */
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0 4px; }
+.swatch {
+  position: relative; width: 44px; height: 44px; padding: 0; border-radius: 50%; cursor: pointer;
+  border: 3px solid var(--card-bg); box-shadow: 0 0 0 1px var(--text-muted); touch-action: manipulation;
+  transition: transform .12s;
+}
+.swatch:active { transform: scale(.92); }
+.swatch.sel { box-shadow: 0 0 0 3px var(--text-main); }
+.swatch.sel::after { content: '✓'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--sw-text); font-size: 1.2rem; font-weight: bold; }
+.swatch-name { font-size: .8rem; margin-bottom: 12px; }

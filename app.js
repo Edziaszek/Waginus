@@ -87,6 +87,51 @@
     }
   };
 
+  // ---------- wygląd: motyw i kolor akcentu (źródłem prawdy jest profil na koncie, nie przeglądarka) ----------
+  // Palety dobrano liczbowo wg WCAG: każdy kolor ma kontrast co najmniej 4,5:1 z tłem kart i pól swojego motywu.
+  // Żaden kolor nie spełnia tego jednocześnie na jasnym i ciemnym tle (najlepszy szary daje 3,8:1), więc palety są osobne.
+  const ACCENTS = {
+    light: [
+      { id: 'blue',   name: 'Niebieski',    hex: '#2563eb' }, { id: 'indigo', name: 'Indygo',      hex: '#4338ca' },
+      { id: 'violet', name: 'Fioletowy',    hex: '#7c3aed' }, { id: 'pink',   name: 'Różowy',      hex: '#be185d' },
+      { id: 'red',    name: 'Czerwony',     hex: '#b91c1c' }, { id: 'orange', name: 'Pomarańczowy', hex: '#c2410c' },
+      { id: 'amber',  name: 'Bursztynowy',  hex: '#b45309' }, { id: 'green',  name: 'Zielony',     hex: '#15803d' },
+      { id: 'teal',   name: 'Morski',       hex: '#0f766e' }, { id: 'cyan',   name: 'Błękitny',    hex: '#0e7490' }
+    ],
+    dark: [
+      { id: 'orange', name: 'Pomarańczowy', hex: '#f97316' }, { id: 'amber',  name: 'Bursztynowy', hex: '#fbbf24' },
+      { id: 'lime',   name: 'Limonkowy',    hex: '#a3e635' }, { id: 'green',  name: 'Zielony',     hex: '#4ade80' },
+      { id: 'teal',   name: 'Morski',       hex: '#2dd4bf' }, { id: 'cyan',   name: 'Błękitny',    hex: '#22d3ee' },
+      { id: 'blue',   name: 'Niebieski',    hex: '#60a5fa' }, { id: 'violet', name: 'Fioletowy',   hex: '#a78bfa' },
+      { id: 'pink',   name: 'Różowy',       hex: '#f472b6' }, { id: 'red',    name: 'Czerwony',    hex: '#f87171' }
+    ]
+  };
+  const DEFAULT_ACCENT = { light: 'blue', dark: 'orange' };
+  const lum = hex => {
+    const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(c => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  // tekst na przycisku w kolorze akcentu: biały albo prawie czarny – zależnie od tego, co daje wyższy kontrast
+  const textOn = hex => contrast('#ffffff', hex) >= contrast('#0b1220', hex) ? '#ffffff' : '#0b1220';
+
+  function applyAppearance() {
+    const p = App.profile || {};
+    const theme = p.Motyw === 'dark' || p.Motyw === 'light' ? p.Motyw : (root.dataset.theme === 'dark' ? 'dark' : 'light');
+    const id = theme === 'dark' ? p.AkcentCiemny : p.AkcentJasny;
+    const accent = ACCENTS[theme].find(a => a.id === id) || ACCENTS[theme].find(a => a.id === DEFAULT_ACCENT[theme]);
+    const text = textOn(accent.hex);
+    root.dataset.theme = theme;
+    root.style.setProperty('--primary', accent.hex);
+    root.style.setProperty('--primary-text', text);
+    try {   // lokalna kopia WYŁĄCZNIE po to, by przy następnym wejściu strona od razu miała dobre kolory (bez migania)
+      localStorage.setItem('app_theme', theme);
+      localStorage.setItem('app_primary', accent.hex);
+      localStorage.setItem('app_primary_text', text);
+    } catch { /* tryb prywatny – pomijamy */ }
+    syncThemeIcon();
+  }
+
   const tabs = {};
   const dirty = new Set();
   let conn = { msg: 'Łączenie z Firebase…', kind: 'busy', detail: '', syncedAt: null };
@@ -161,13 +206,20 @@
       renderActive();
     },
 
-    toggleTheme() {
-      const t = root.dataset.theme === 'dark' ? 'light' : 'dark';
-      root.dataset.theme = t;
-      localStorage.setItem('app_theme', t);
-      syncThemeIcon();
-      App.invalidate(); // wykresy czytają kolory z CSS
+    theme: () => root.dataset.theme === 'dark' ? 'dark' : 'light',
+    palettes: { accents: ACCENTS, defaults: DEFAULT_ACCENT, textOn },
+
+    // Zmiana wyglądu (Motyw / AkcentJasny / AkcentCiemny): działa od razu, zapisuje się na koncie, a przy błędzie wraca.
+    async setAppearance(fields) {
+      if (!App.profile) return;
+      const old = Object.fromEntries(Object.keys(fields).map(k => [k, App.profile[k]]));
+      Object.assign(App.profile, fields);
+      applyAppearance();
+      App.invalidate();   // wykresy czytają kolory z CSS
+      await App.run(() => App.db.updateProfile(window.firebaseAuth.user.uid, fields),
+        () => { Object.assign(App.profile, old); applyAppearance(); });
     },
+    toggleTheme() { return App.setAppearance({ Motyw: App.theme() === 'dark' ? 'light' : 'dark' }); },
 
     changeFont(delta) {
       fontSize = Math.min(22, Math.max(12, fontSize + delta));
@@ -312,6 +364,11 @@
       await window.firebaseAuth.logout();
       Auth.fatal('To konto zostało usunięte przez administratora.');
       return;
+    }
+    applyAppearance();   // motyw i akcent z konta (nadpisują lokalną kopię z poprzedniej wizyty)
+    if (!App.profile.Motyw) {   // pierwsze uruchomienie po zmianie: przenieś dotychczasowy motyw z tego urządzenia na konto
+      App.profile.Motyw = App.theme();
+      App.db.updateProfile(window.firebaseAuth.user.uid, { Motyw: App.profile.Motyw }).catch(e => console.error(e));
     }
     window.firebaseAuth.onChange(u => { if (!u) location.reload(); });   // wylogowanie (także w innej karcie) czyści widok
     if (data.status === 'fulfilled') applyData(data.value);

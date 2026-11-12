@@ -6,7 +6,7 @@
   <title>Dziennik Formy</title>
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
   <!-- Motyw i rozmiar czcionki ustawiane zanim strona się narysuje (bez migotania) -->
-  <script>try{const r=document.documentElement;r.dataset.theme=localStorage.getItem('app_theme')||'light';r.style.setProperty('--font-size-base',(parseInt(localStorage.getItem('app_font_size'))||16)+'px')}catch(e){}</script>
+  <script>try{const r=document.documentElement,L=localStorage;r.dataset.theme=L.getItem('app_theme')||'light';const p=L.getItem('app_primary');if(p){r.style.setProperty('--primary',p);r.style.setProperty('--primary-text',L.getItem('app_primary_text')||'#ffffff')}r.style.setProperty('--font-size-base',(parseInt(L.getItem('app_font_size'))||16)+'px')}catch(e){}</script>
   <!-- Połączenia i moduły Firebase zaczynamy pobierać od razu, zanim przeglądarka dojdzie do skryptów -->
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
@@ -14,10 +14,10 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js">
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js">
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore-lite.js">
-  <link rel="stylesheet" href="style.css?v=11">
-  <script src="auth.js?v=11" defer></script>
-  <script src="app.js?v=11" defer></script>
-  <script type="module" src="firebase-config.js?v=11"></script>
+  <link rel="stylesheet" href="style.css?v=12">
+  <script src="auth.js?v=12" defer></script>
+  <script src="app.js?v=12" defer></script>
+  <script type="module" src="firebase-config.js?v=12"></script>
 </head>
 <body class="locked">
 
