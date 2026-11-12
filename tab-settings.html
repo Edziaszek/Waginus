@@ -74,6 +74,13 @@
     <button class="btn-primary full mt" data-act="save-profile" data-done="Zapisano">Zapisz profil</button>
   </div>
   <div class="card">
+    <h2>Strona główna</h2>
+    <div class="muted" style="font-size:.8rem">Wybierz, które sekcje widzisz na stronie głównej, i ustaw ich kolejność strzałkami. Pierwsza widoczna sekcja jest rozwinięta, pozostałe zwinięte. Układ zapisuje się na stałe na Twoim koncie.</div>
+    <div id="layoutList" class="edit-list mt" style="max-height:none"></div>
+    <button class="btn-primary full mt" data-act="save-layout" data-done="Zapisano">Zapisz układ</button>
+    <button class="btn-secondary full mt" data-act="reset-layout">Przywróć domyślny układ</button>
+  </div>
+  <div class="card">
     <h2>Konto</h2>
     <div class="data-item"><span>Zalogowany jako</span><strong id="accEmail">-</strong></div>
     <div class="data-item"><span>Rola</span><span class="role-badge" id="accRole">-</span></div>
@@ -205,6 +212,7 @@
       $('accEmail').textContent = u?.email ?? '-';
       $('accRole').textContent = ROLE[p.Rola] ?? '-';
       $('accUid').textContent = u?.uid ?? '-';
+      renderLayoutList();
     },
     admin() { if (App.isAdmin()) { adminUsers ? renderAdminUsers() : loadAdminUsers(); } }
   };
@@ -403,6 +411,43 @@
     await App.run(() => App.db.updateProfile(window.firebaseAuth.user.uid, fields), () => Object.assign(App.profile, old), btn);
   }
 
+  // ---------- układ strony głównej (zmiany robocze zapisują się dopiero przyciskiem „Zapisz układ”) ----------
+  let layoutDraft = null;
+  const draft = () => layoutDraft ||= (App.mainSections?.layout() ?? []).map(s => ({ ...s }));
+
+  function renderLayoutList() {
+    const d = draft(), labels = Object.fromEntries((App.mainSections?.list ?? []).map(s => [s.id, s.label]));
+    $('layoutList').innerHTML = d.map((s, i) => `
+      <div class="edit-item">
+        <div class="btn-row">
+          <button class="btn-secondary arrow-btn" data-act="sec-move" data-id="${s.id}" data-d="-1" aria-label="Przesuń w górę" ${i === 0 ? 'disabled' : ''}>▲</button>
+          <button class="btn-secondary arrow-btn" data-act="sec-move" data-id="${s.id}" data-d="1" aria-label="Przesuń w dół" ${i === d.length - 1 ? 'disabled' : ''}>▼</button>
+        </div>
+        <span style="flex:1">${U.esc(labels[s.id] ?? s.id)}</span>
+        <button class="m-chip ${s.on ? 's2' : 's0'}" style="min-width:96px" data-act="sec-toggle" data-id="${s.id}">${s.on ? 'Widoczna' : 'Ukryta'}</button>
+      </div>`).join('');
+  }
+
+  function moveSection(id, delta) {
+    const d = draft(), i = d.findIndex(s => s.id === id), j = i + delta;
+    if (i < 0 || j < 0 || j >= d.length) return;
+    [d[i], d[j]] = [d[j], d[i]];
+    renderLayoutList();
+  }
+  function toggleSection(id) {
+    const s = draft().find(x => x.id === id);
+    if (s) { s.on = !s.on; renderLayoutList(); }
+  }
+
+  async function saveLayout(_, btn) {
+    const d = draft(), fields = { SekcjeKolejnosc: d.map(s => s.id), SekcjeUkryte: d.filter(s => !s.on).map(s => s.id) };
+    const old = { SekcjeKolejnosc: App.profile.SekcjeKolejnosc, SekcjeUkryte: App.profile.SekcjeUkryte };
+    Object.assign(App.profile, fields);
+    layoutDraft = null;
+    App.invalidate();
+    await App.run(() => App.db.updateProfile(window.firebaseAuth.user.uid, fields), () => { Object.assign(App.profile, old); layoutDraft = null; renderLayoutList(); }, btn);
+  }
+
   // ---------- panel administratora (uprawnienia wymuszają reguły bazy – ten widok to tylko interfejs) ----------
   let adminUsers = null;
   const myUid = () => window.firebaseAuth.user.uid;
@@ -517,6 +562,10 @@
     theme: () => App.toggleTheme(),
     font: d => App.changeFont(+d.d),
     'save-profile': saveProfile,
+    'sec-move': d => moveSection(d.id, +d.d),
+    'sec-toggle': d => toggleSection(d.id),
+    'save-layout': saveLayout,
+    'reset-layout': () => { layoutDraft = (App.mainSections?.defaults() ?? []); renderLayoutList(); },
     'reset-pass': resetPass,
     'admin-refresh': () => App.isAdmin() && loadAdminUsers(),
     'admin-toggle': d => { const p = $('adm-' + d.uid); if (p) p.hidden = !p.hidden; },

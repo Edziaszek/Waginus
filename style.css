@@ -325,3 +325,7 @@ code.uid { display: block; margin-top: 4px; padding: 8px; border-radius: 6px; ba
 #reloadBtn.spin svg { animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { #reloadBtn.spin svg { animation: none; } }
+
+/* Strzałki zmiany kolejności sekcji – duże cele dotykowe */
+.arrow-btn { min-width: 44px; min-height: 44px; font-size: 1rem; }
+.arrow-btn:disabled { opacity: .35; cursor: default; }

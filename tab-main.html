@@ -1,19 +1,21 @@
-<details class="fold" open>
+<div class="card muted center" id="mainEmpty" hidden>Wszystkie sekcje są ukryte. Włączysz je w Ustawieniach → Ogólne → Strona główna.</div>
+
+<details class="fold" data-section="weight" open>
   <summary>⚖️ Waga</summary>
   <div class="fold-body stack" id="mainWeight"></div>
 </details>
 
-<details class="fold">
+<details class="fold" data-section="body">
   <summary>📏 Obwody ciała</summary>
   <div class="fold-body stack" id="mainBody"></div>
 </details>
 
-<details class="fold">
+<details class="fold" data-section="workout">
   <summary>🏋️ Rekordy i ostatnie ciężary w ćwiczeniach</summary>
   <div class="fold-body stack" id="mainWorkout"></div>
 </details>
 
-<details class="fold">
+<details class="fold" data-section="muscles">
   <summary>💪 Mięśnie – pracujące w treningu</summary>
   <div class="fold-body">
     <div class="between">
@@ -31,7 +33,7 @@
   </div>
 </details>
 
-<details class="fold">
+<details class="fold" data-section="cardio">
   <summary>🏃‍♂️ Rekordy i ostatnie wyniki w kardio</summary>
   <div class="fold-body stack" id="mainCardio"></div>
 </details>
@@ -387,9 +389,53 @@
     $('mmNext').addEventListener('click', () => step(1));
   }
 
+  // =====================================================================
+  //  UKŁAD STRONY GŁÓWNEJ: które sekcje i w jakiej kolejności (zapisane w profilu użytkownika w bazie)
+  //  Pola profilu: SekcjeKolejnosc (lista id w kolejności) i SekcjeUkryte (lista ukrytych id).
+  //  Pierwsza widoczna sekcja jest rozwinięta, reszta zwinięta.
+  // =====================================================================
+  const SECTIONS = [
+    { id: 'weight',  label: 'Waga i BMI',            render: renderWeight },
+    { id: 'body',    label: 'Obwody ciała',          render: renderBody },
+    { id: 'workout', label: 'Rekordy w ćwiczeniach', render: renderWorkouts },
+    { id: 'muscles', label: 'Mięśnie (manekin)',     render: renderMuscles },
+    { id: 'cardio',  label: 'Rekordy w kardio',      render: renderCardio }
+  ];
+
+  // Układ użytkownika: lista { id, on } w jego kolejności. Brak zapisu = domyślny; nieznane id są pomijane,
+  // a sekcje, których użytkownik jeszcze nie ma w zapisie (np. nowe), trafiają na koniec jako widoczne.
+  function layout() {
+    const known = SECTIONS.map(s => s.id), p = App.profile || {};
+    const saved = Array.isArray(p.SekcjeKolejnosc) ? p.SekcjeKolejnosc.filter(id => known.includes(id)) : [];
+    const hidden = new Set(Array.isArray(p.SekcjeUkryte) ? p.SekcjeUkryte : []);
+    return [...new Set([...saved, ...known])].map(id => ({ id, on: !hidden.has(id) }));
+  }
+  App.mainSections = {   // używane przez Ustawienia
+    list: SECTIONS.map(({ id, label }) => ({ id, label })),
+    layout,
+    defaults: () => SECTIONS.map(s => ({ id: s.id, on: true }))
+  };
+
+  let appliedKey = null;
+  function applyLayout() {
+    const lay = layout(), key = lay.map(s => (s.on ? '' : '-') + s.id).join(',');
+    const root = document.getElementById('tab-main');
+    if (key !== appliedKey) {   // przestawiamy istniejące węzły tylko przy zmianie układu
+      lay.forEach(s => { const el = root.querySelector(`[data-section="${s.id}"]`); el.hidden = !s.on; root.append(el); });
+      const first = lay.find(s => s.on);
+      lay.forEach(s => { root.querySelector(`[data-section="${s.id}"]`).open = s === first; });
+      appliedKey = key;
+    }
+    $('mainEmpty').hidden = lay.some(s => s.on);
+    return lay;
+  }
+
   App.register('main', {
     init: initMuscles,
-    render() { renderWeight(); renderBody(); renderWorkouts(); renderMuscles(); renderCardio(); }
+    render() {
+      // rysujemy tylko widoczne sekcje – ukryte nie kosztują czasu
+      applyLayout().forEach(s => { if (s.on) SECTIONS.find(x => x.id === s.id).render(); });
+    }
   });
 })();
 </script>

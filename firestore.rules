@@ -35,17 +35,20 @@ service cloud.firestore {
     // Wpisz UID wszystkich dotychczasowych kont (Firebase Console → Authentication → Users → kolumna "User UID").
     // Każde inne konto zakłada się jako zwykły użytkownik, a rolę zmienia mu dopiero administrator.
     function isFounder() {
-      return request.auth.uid in ['UFpFqqSzaHSL0Lu1uLjto7hSl032', 'WPISZ_UID_KONTA_2'];
+      return request.auth.uid in ['WPISZ_UID_KONTA_1', 'WPISZ_UID_KONTA_2'];
     }
 
     // Poprawny kształt profilu (ogranicza pola i zakresy – nikt nie wpisze śmieci)
     function validProfile(d) {
-      return d.keys().hasOnly(['Email', 'Rola', 'Status', 'Wzrost', 'RokUrodzenia', 'Plec', 'Utworzono'])
+      return d.keys().hasOnly(['Email', 'Rola', 'Status', 'Wzrost', 'RokUrodzenia', 'Plec', 'Utworzono', 'SekcjeKolejnosc', 'SekcjeUkryte'])
         && d.Rola in ['admin', 'user']
         && d.get('Status', 'aktywny') in ['aktywny', 'usuniety']
         && (d.get('Wzrost', null) == null || (d.Wzrost is number && d.Wzrost >= 100 && d.Wzrost <= 250))
         && (d.get('RokUrodzenia', null) == null || (d.RokUrodzenia is int && d.RokUrodzenia >= 1900 && d.RokUrodzenia <= 2100))
-        && d.get('Plec', '') in ['', 'M', 'K', 'I'];
+        && d.get('Plec', '') in ['', 'M', 'K', 'I']
+        // układ strony głównej: listy id sekcji (ograniczona długość)
+        && d.get('SekcjeKolejnosc', []) is list && d.get('SekcjeKolejnosc', []).size() <= 12
+        && d.get('SekcjeUkryte', []) is list && d.get('SekcjeUkryte', []).size() <= 12;
     }
 
     // ---------- profile: profiles/{uid} ----------
