@@ -95,7 +95,7 @@
   function renderBody() {
     if (!D.bodyParts.length) return ($('mainBody').innerHTML = empty('Brak zdefiniowanych obwodów w bazie.'));
     const byPart = U.group(D.body, b => b.part.toLowerCase()); // jedno przejście zamiast filtra na każdą partię
-    $('mainBody').innerHTML = D.bodyParts.map(p => {
+    $('mainBody').innerHTML = App.sorted('body', D.bodyParts).map(p => {
       const m = byPart.get(p.name.toLowerCase()) || [];
       let last = '-', max = '-', diff = '-';
       if (m.length) {
@@ -115,7 +115,7 @@
   function renderWorkouts() {
     if (!D.exercises.length) return ($('mainWorkout').innerHTML = empty('Brak zdefiniowanych ćwiczeń w bazie.'));
     const byEx = U.group(D.workouts, w => w.exercise.toLowerCase());
-    $('mainWorkout').innerHTML = D.exercises.map(ex => {
+    $('mainWorkout').innerHTML = App.sorted('exercise', D.exercises).map(ex => {
       const list = byEx.get(ex.name.toLowerCase()) || [];
       let last = '-', record = '-';
       if (list.length) {
@@ -137,7 +137,7 @@
   function renderCardio() {
     if (!D.cardioTypes.length) return ($('mainCardio').innerHTML = empty('Brak zdefiniowanych rodzajów kardio w bazie.'));
     const byType = U.group(D.cardio, c => c.type.toLowerCase());
-    $('mainCardio').innerHTML = D.cardioTypes.map(t => {
+    $('mainCardio').innerHTML = App.sorted('cardio', D.cardioTypes).map(t => {
       const list = byType.get(t.name.toLowerCase()) || [];
       let last = '-', record = '-';
       if (list.length) {

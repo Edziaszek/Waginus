@@ -84,6 +84,14 @@
     <button class="btn-primary full mt" data-act="save-profile" data-done="Zapisano">Zapisz profil</button>
   </div>
   <div class="card">
+    <h2>Kolejność list</h2>
+    <div class="muted" style="font-size:.8rem">Jak układają się listy wyboru oraz ich zestawienia (w ustawieniach i na stronie głównej). Zapisuje się na koncie, więc jest taka sama na każdym urządzeniu.</div>
+    <div class="form-field mt"><label>Ćwiczenia</label><select id="sortExercise" data-sort="exercise"></select></div>
+    <div class="form-field mt"><label>Rodzaje kardio</label><select id="sortCardio" data-sort="cardio"></select></div>
+    <div class="form-field mt"><label>Partie ciała (obwody)</label><select id="sortBody" data-sort="body"></select></div>
+    <div class="muted mt" style="font-size:.8rem">„Ostatnio używane" układa wg daty ostatniego wpisu, „Najczęściej używane" wg liczby wpisów. Elementy dodane przed wprowadzeniem tej funkcji nie mają zapisanej daty dodania – układamy je wg daty ich pierwszego wpisu.</div>
+  </div>
+  <div class="card">
     <h2>Strona główna</h2>
     <div class="muted" style="font-size:.8rem">Wybierz, które sekcje widzisz na stronie głównej, i ustaw ich kolejność strzałkami. Pierwsza widoczna sekcja jest rozwinięta, pozostałe zwinięte. Układ zapisuje się na stałe na Twoim koncie.</div>
     <div id="layoutList" class="edit-list mt" style="max-height:none"></div>
@@ -197,7 +205,7 @@
     },
     workout() {
       renderPicker('exercise');
-      $('editExercisesList').innerHTML = D.exercises.map(e => item('exercise', e,
+      $('editExercisesList').innerHTML = App.sorted('exercise', D.exercises).map(e => item('exercise', e,
         `${U.esc(e.name)}<br>${muscleSummary(e)}`, muscleBoxes(e))).join('');
       const pending = D.exercises.filter(e => !(e.muscles?.length || e.muscles2?.length));
       const auto = pending.filter(e => App.muscles?.guess(e.name)), manual = pending.filter(e => !App.muscles?.guess(e.name));
@@ -212,7 +220,7 @@
     },
     cardio() {
       renderPicker('ctype');
-      $('editCardioTypesList').innerHTML = D.cardioTypes.map(c => item('ctype', c,
+      $('editCardioTypesList').innerHTML = App.sorted('cardio', D.cardioTypes).map(c => item('ctype', c,
         `${U.esc(c.name)}<br>${muscleSummary(c, 'ctype')}`, muscleBoxes(c, 'ctype'))).join('');
       const pending = D.cardioTypes.filter(c => !(c.muscles?.length || c.muscles2?.length));
       const auto = pending.filter(c => App.muscles?.guessCardio(c.name)), manual = pending.filter(c => !App.muscles?.guessCardio(c.name));
@@ -221,7 +229,7 @@
         : 'Wszystkie rodzaje mają zapisane mięśnie w bazie.';
       // lista rodzajów w edycji zawiera też rodzaj wpisu, który zniknął z bazy – żeby go nie zgubić przy zapisie
       const typeSelect = cur => {
-        const names = [...new Set([...D.cardioTypes.map(t => t.name), cur])];
+        const names = [...new Set([...App.sorted('cardio', D.cardioTypes).map(t => t.name), cur])];
         return `<div class="form-field"><label>Rodzaj</label><select data-f="type">${names.map(n =>
           `<option value="${U.esc(n)}" ${n === cur ? 'selected' : ''}>${U.esc(n)}</option>`).join('')}</select></div>`;
       };
@@ -234,7 +242,7 @@
         field('hr', 'number', r.heartRate, 'Średnie tętno (bpm)', 'step="1"'))).join('');
     },
     body() {
-      $('editBodyPartsList').innerHTML = D.bodyParts.map(p => `<div class="edit-item"><span>${U.esc(p.name)}</span>
+      $('editBodyPartsList').innerHTML = App.sorted('body', D.bodyParts).map(p => `<div class="edit-item"><span>${U.esc(p.name)}</span>
         <button class="btn-danger" data-act="delete-part" data-name="${U.esc(p.name)}">Usuń</button></div>`).join('');
       $('editBodyList').innerHTML = [...D.body].reverse().map(r => item('body', r,
         `${U.fmtDate(r.date)} - <strong>${U.esc(r.part)}</strong>: ${r.size} cm`,
@@ -250,6 +258,7 @@
       $('accUid').textContent = u?.uid ?? '-';
       renderLayoutList();
       renderAppearance();
+      renderSortSelects();
     },
     admin() { if (App.isAdmin()) { adminUsers ? renderAdminUsers() : loadAdminUsers(); } }
   };
@@ -334,9 +343,10 @@
     if (!name) return;
     const { main, aux } = readPicker('exercise');   // mięśnie wybrane (lub podpowiedziane z nazwy) w formularzu dodawania
     inp.value = ''; resetPicker('exercise');
-    const rec = { id: undefined, name, muscles: main, muscles2: aux };
+    const now = Date.now();   // data dodania – do sortowania „od najnowszych”
+    const rec = { id: undefined, name, muscles: main, muscles2: aux, created: now };
     D.exercises.push(rec); App.invalidate();
-    const fields = { Nazwa: name, ...((main.length || aux.length) && { Miesnie: main, MiesnieDodatkowe: aux }) };
+    const fields = { Nazwa: name, Dodano: now, ...((main.length || aux.length) && { Miesnie: main, MiesnieDodatkowe: aux }) };
     const id = await App.run(() => App.db.addData('Cwiczenia', fields), () => U.drop(D.exercises, rec), btn);
     if (id) rec.id = id;
   }
@@ -347,7 +357,9 @@
     for (const t of D.cardioTypes.filter(t => String(t.id).startsWith('default_'))) {
       const g = (t.muscles?.length || t.muscles2?.length) ? { primary: t.muscles, secondary: t.muscles2 || [] } : App.muscles?.guessCardio(t.name);
       if (g) { t.muscles = g.primary; t.muscles2 = g.secondary; }
-      t.id = await App.db.addData('KardioTypy', { Nazwa: t.name, ...(g && { Miesnie: g.primary, MiesnieDodatkowe: g.secondary }) });
+      const created = t.created > 0 ? t.created : Date.now();
+      t.id = await App.db.addData('KardioTypy', { Nazwa: t.name, Dodano: created, ...(g && { Miesnie: g.primary, MiesnieDodatkowe: g.secondary }) });
+      t.created = created;
     }
   }
 
@@ -371,9 +383,10 @@
     if (D.cardioTypes.some(t => t.name.toLowerCase() === name.toLowerCase())) { alert('Taki rodzaj już istnieje.'); return; }
     const { main, aux } = readPicker('ctype');
     inp.value = ''; resetPicker('ctype');
-    const rec = { id: undefined, name, muscles: main, muscles2: aux };
+    const now = Date.now();
+    const rec = { id: undefined, name, muscles: main, muscles2: aux, created: now };
     D.cardioTypes.push(rec); App.invalidate();
-    const fields = { Nazwa: name, ...((main.length || aux.length) && { Miesnie: main, MiesnieDodatkowe: aux }) };
+    const fields = { Nazwa: name, Dodano: now, ...((main.length || aux.length) && { Miesnie: main, MiesnieDodatkowe: aux }) };
     const id = await App.run(async () => { await materializeTypes(); return App.db.addData('KardioTypy', fields); },
       () => U.drop(D.cardioTypes, rec), btn);
     if (id) rec.id = id;
@@ -396,9 +409,10 @@
     if (!name) return;
     if (D.bodyParts.some(p => p.name.toLowerCase() === name.toLowerCase())) { alert('Taki obwód już istnieje.'); return; }
     inp.value = '';
-    const part = { id: 'part_' + Date.now(), name, docIds: [], legacyIds: [] };
+    const now = Date.now();
+    const part = { id: 'part_' + now, name, docIds: [], legacyIds: [], created: now };
     D.bodyParts.push(part); App.invalidate();
-    const id = await App.run(() => App.db.addData('Obwody', { Partia: name, Wymiar: 0 }), () => U.drop(D.bodyParts, part), btn);
+    const id = await App.run(() => App.db.addData('Obwody', { Partia: name, Wymiar: 0, Dodano: now }), () => U.drop(D.bodyParts, part), btn);
     if (id) part.docIds.push(id);
   }
 
@@ -446,6 +460,14 @@
     Object.assign(App.profile, fields);
     App.invalidate();
     await App.run(() => App.db.updateProfile(window.firebaseAuth.user.uid, fields), () => Object.assign(App.profile, old), btn);
+  }
+
+  // ---------- kolejność list ----------
+  function renderSortSelects() {
+    for (const [id, kind] of [['sortExercise', 'exercise'], ['sortCardio', 'cardio'], ['sortBody', 'body']]) {
+      const cur = App.sortMode(kind);
+      $(id).innerHTML = App.sortOptions.map(o => `<option value="${o.id}" ${o.id === cur ? 'selected' : ''}>${o.label}</option>`).join('');
+    }
   }
 
   // ---------- wygląd: motyw i kolory akcentu ----------
@@ -642,7 +664,10 @@
   }
 
   function init() {
-    root.addEventListener('input', e => {   // podpowiedź mięśni z nazwy, dopóki nie wybrano ich ręcznie
+    root.addEventListener('input', e => {
+      const kind = e.target?.dataset?.sort;   // zmiana kolejności listy (zapis na koncie)
+      if (kind) return App.setSort(kind, e.target.value);
+      // podpowiedź mięśni z nazwy, dopóki nie wybrano ich ręcznie
       for (const k of Object.keys(PICK)) if (PICK[k].input === e.target?.id) renderPicker(k);
     });
     root.addEventListener('click', e => {

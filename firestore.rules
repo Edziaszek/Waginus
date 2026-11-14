@@ -41,7 +41,8 @@ service cloud.firestore {
     // Poprawny kształt profilu (ogranicza pola i zakresy – nikt nie wpisze śmieci)
     function validProfile(d) {
       return d.keys().hasOnly(['Email', 'Rola', 'Status', 'Wzrost', 'RokUrodzenia', 'Plec', 'Utworzono', 'SekcjeKolejnosc', 'SekcjeUkryte',
-                              'Motyw', 'AkcentJasny', 'AkcentCiemny'])
+                              'Motyw', 'AkcentJasny', 'AkcentCiemny',
+                              'SortCwiczenia', 'SortKardio', 'SortObwody'])
         && d.Rola in ['admin', 'user']
         && d.get('Status', 'aktywny') in ['aktywny', 'usuniety']
         && (d.get('Wzrost', null) == null || (d.Wzrost is number && d.Wzrost >= 100 && d.Wzrost <= 250))
@@ -53,7 +54,11 @@ service cloud.firestore {
         // wygląd: motyw i identyfikatory kolorów akcentu
         && d.get('Motyw', 'light') in ['light', 'dark']
         && d.get('AkcentJasny', '') is string && d.get('AkcentJasny', '').size() <= 20
-        && d.get('AkcentCiemny', '') is string && d.get('AkcentCiemny', '').size() <= 20;
+        && d.get('AkcentCiemny', '') is string && d.get('AkcentCiemny', '').size() <= 20
+        // kolejność list: az / za / new / old / recent / freq
+        && d.get('SortCwiczenia', 'az') in ['az', 'za', 'new', 'old', 'recent', 'freq']
+        && d.get('SortKardio', 'az') in ['az', 'za', 'new', 'old', 'recent', 'freq']
+        && d.get('SortObwody', 'az') in ['az', 'za', 'new', 'old', 'recent', 'freq'];
     }
 
     // ---------- profile: profiles/{uid} ----------

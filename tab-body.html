@@ -62,14 +62,18 @@
     const parts = new Map();
     const part = name => {
       const k = name.toLowerCase();
-      if (!parts.has(k)) parts.set(k, { id: 'part_' + parts.size, name, docIds: [], legacyIds: [] });
+      if (!parts.has(k)) parts.set(k, { id: 'part_' + parts.size, name, docIds: [], legacyIds: [], created: 0 });
       return parts.get(k);
     };
     raw.Cwiczenia.forEach(i => { const n = String(i.ObwodyBaza ?? '').trim(); if (n) part(n).legacyIds.push(i.id); });
 
     const items = raw.Obwody.map(i => {
       const name = String(U.pick(i, 'Partia', 'part', 'Part', 'name') ?? '').trim();
-      if (name) part(name).docIds.push(i.id);
+      if (name) {
+        const p = part(name), d = Number(i.Dodano);   // data dodania partii zapisana w jej dokumencie definicji
+        p.docIds.push(i.id);
+        if (d > 0 && (!p.created || d < p.created)) p.created = d;
+      }
       return { i, name };
     });
 
@@ -90,7 +94,7 @@
 
   function fillSelects() {
     const opts = '<option value="">Wybierz obwód...</option>' +
-      D.bodyParts.map(p => `<option value="${U.esc(p.name)}">${U.esc(p.name)}</option>`).join('');
+      App.sorted('body', D.bodyParts).map(p => `<option value="${U.esc(p.name)}">${U.esc(p.name)}</option>`).join('');
     for (const id of ['bodySelect', 'statBodySelect']) {
       const el = $(id), cur = el.value;
       el.innerHTML = opts;

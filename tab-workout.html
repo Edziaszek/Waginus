@@ -66,7 +66,8 @@
         id: i.id, name: String(U.pick(i, 'Nazwa', 'Cwiczenie', 'exercise') ?? '').trim(),
         // mięśnie zapisane w bazie: główne (Miesnie) i pomocnicze (MiesnieDodatkowe)
         muscles: Array.isArray(i.Miesnie) ? i.Miesnie.filter(x => typeof x === 'string') : [],
-        muscles2: Array.isArray(i.MiesnieDodatkowe) ? i.MiesnieDodatkowe.filter(x => typeof x === 'string') : []
+        muscles2: Array.isArray(i.MiesnieDodatkowe) ? i.MiesnieDodatkowe.filter(x => typeof x === 'string') : [],
+        created: Number(i.Dodano) || 0   // kiedy dodano ćwiczenie (sortowanie „od najnowszych”); starsze bez daty = 0
       }))
       .filter(e => e.name);
 
@@ -90,7 +91,7 @@
   // ---------- formularz serii ----------
   function fillSelects() {
     const opts = '<option value="">Wybierz ćwiczenie...</option>' +
-      D.exercises.map(e => `<option value="${U.esc(e.name)}">${U.esc(e.name)}</option>`).join('');
+      App.sorted('exercise', D.exercises).map(e => `<option value="${U.esc(e.name)}">${U.esc(e.name)}</option>`).join('');
     for (const id of ['exerciseSelect', 'statExerciseSelect']) {
       const el = $(id), cur = el.value;
       el.innerHTML = opts;

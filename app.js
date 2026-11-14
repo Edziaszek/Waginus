@@ -132,6 +132,55 @@
     syncThemeIcon();
   }
 
+  // ---------- kolejność list: ćwiczenia, rodzaje kardio, partie ciała ----------
+  // Wybór użytkownika zapisany w profilu (SortCwiczenia / SortKardio / SortObwody). Dotyczy wszystkich list wyboru
+  // oraz zestawień tych samych elementów (ustawienia, strona główna).
+  const SORTS = [
+    { id: 'az',     label: 'Alfabetycznie (A → Z)' },
+    { id: 'za',     label: 'Odwrotnie alfabetycznie (Z → A)' },
+    { id: 'new',    label: 'Od najnowszych (ostatnio dodane)' },
+    { id: 'old',    label: 'Od najstarszych (najdawniej dodane)' },
+    { id: 'recent', label: 'Ostatnio używane' },
+    { id: 'freq',   label: 'Najczęściej używane' }
+  ];
+  const SORT_KEY = { exercise: 'SortCwiczenia', cardio: 'SortKardio', body: 'SortObwody' };
+  const collator = new Intl.Collator('pl', { sensitivity: 'base', numeric: true });   // poprawna kolejność polskich liter (Ł, Ś, Ż…)
+
+  // Użycie elementów liczone z danych: ile wpisów, kiedy pierwszy i ostatni. Wynik jest pamiętany do następnej zmiany danych.
+  let usageVersion = 0;
+  const usageMemo = {};
+  function usageOf(kind) {
+    const memo = usageMemo[kind];
+    if (memo?.v === usageVersion) return memo.map;
+    const D = App.data, map = new Map();
+    const [rows, nameOf] = kind === 'exercise' ? [D.workouts, r => r.exercise] : kind === 'cardio' ? [D.cardio, r => r.type] : [D.body, r => r.part];
+    for (const r of rows) {
+      const k = String(nameOf(r)).toLowerCase(), u = map.get(k) || map.set(k, { count: 0, first: Infinity, last: -Infinity }).get(k);
+      u.count++; u.first = Math.min(u.first, r.ts); u.last = Math.max(u.last, r.ts);
+    }
+    usageMemo[kind] = { v: usageVersion, map };
+    return map;
+  }
+
+  // Zwraca NOWĄ, posortowaną listę elementów { name, created? } wg wyboru użytkownika dla danego rodzaju listy.
+  // "Data dodania" to pole created; dla starszych elementów bez niej przyjmujemy datę pierwszego użycia.
+  function sortedList(kind, items) {
+    const mode = App.profile?.[SORT_KEY[kind]] || 'az', use = usageOf(kind);
+    const u = x => use.get(String(x.name).toLowerCase());
+    const created = x => x.created > 0 ? x.created : (u(x)?.first ?? 0);
+    const last = x => u(x)?.last ?? -1, count = x => u(x)?.count ?? 0;
+    const byName = (a, b) => collator.compare(a.name, b.name);
+    const cmp = {
+      az: byName,
+      za: (a, b) => byName(b, a),
+      new: (a, b) => created(b) - created(a) || byName(a, b),
+      old: (a, b) => created(a) - created(b) || byName(a, b),
+      recent: (a, b) => last(b) - last(a) || byName(a, b),
+      freq: (a, b) => count(b) - count(a) || last(b) - last(a) || byName(a, b)
+    }[mode] || byName;
+    return [...items].sort(cmp);
+  }
+
   const tabs = {};
   const dirty = new Set();
   let conn = { msg: 'Łączenie z Firebase…', kind: 'busy', detail: '', syncedAt: null };
@@ -148,6 +197,7 @@
 
     // Dane się zmieniły: oznacz wszystkie zakładki jako „do odświeżenia”, narysuj aktywną.
     invalidate() {
+      usageVersion++;   // dane mogły się zmienić – przelicz użycie elementów (sortowanie)
       Object.keys(tabs).forEach(n => dirty.add(n));
       renderActive();
     },
@@ -208,6 +258,19 @@
 
     theme: () => root.dataset.theme === 'dark' ? 'dark' : 'light',
     palettes: { accents: ACCENTS, defaults: DEFAULT_ACCENT, textOn },
+    sortOptions: SORTS,
+    sorted: sortedList,
+    sortMode: kind => App.profile?.[SORT_KEY[kind]] || 'az',
+    // Zmiana kolejności listy: od razu widoczna, zapisana na koncie, a przy błędzie cofnięta
+    async setSort(kind, mode) {
+      const key = SORT_KEY[kind];
+      if (!App.profile || !key || !SORTS.some(x => x.id === mode)) return;
+      const old = App.profile[key];
+      App.profile[key] = mode;
+      App.invalidate();
+      await App.run(() => App.db.updateProfile(window.firebaseAuth.user.uid, { [key]: mode }),
+        () => { App.profile[key] = old; });
+    },
 
     // Zmiana wyglądu (Motyw / AkcentJasny / AkcentCiemny): działa od razu, zapisuje się na koncie, a przy błędzie wraca.
     async setAppearance(fields) {

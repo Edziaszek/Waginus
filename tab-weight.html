@@ -55,6 +55,10 @@
     <div><span>Mediana</span><strong id="customMed">-</strong></div>
     <div><span>Pomiary</span><strong id="customCount">-</strong></div>
   </div>
+  <div class="filter-result-box">
+    <div><span>Najniższa waga</span><strong id="customMin">-</strong><small id="customMinDate"></small></div>
+    <div><span>Najwyższa waga</span><strong id="customMax">-</strong><small id="customMaxDate"></small></div>
+  </div>
 </div>
 
 <div class="card">
@@ -66,6 +70,10 @@
     <button data-range="all" aria-pressed="false">Wszystko</button>
   </div>
   <div class="chart-box"><canvas id="weightChart"></canvas></div>
+  <div class="filter-result-box">
+    <div><span>Najniższa waga</span><strong id="chartMin">-</strong><small id="chartMinDate"></small></div>
+    <div><span>Najwyższa waga</span><strong id="chartMax">-</strong><small id="chartMaxDate"></small></div>
+  </div>
 </div>
 
 <div class="card">
@@ -87,7 +95,27 @@
     }).filter(r => r.date && !isNaN(r.ts) && !isNaN(r.weight)).sort(U.byTs);
   }
 
-  const inRange = (from, to = Infinity) => D.weight.filter(r => r.ts >= from && r.ts <= to).map(r => r.weight);
+  const rowsIn = (from, to = Infinity) => D.weight.filter(r => r.ts >= from && r.ts <= to);
+  const inRange = (from, to = Infinity) => rowsIn(from, to).map(r => r.weight);
+
+  // Najniższa i najwyższa waga z listy pomiarów (przy remisie – ten nowszy). Dane są posortowane rosnąco po dacie.
+  const extremes = rows => {
+    let lo = null, hi = null;
+    for (const r of rows) {
+      if (!lo || r.weight <= lo.weight) lo = r;
+      if (!hi || r.weight >= hi.weight) hi = r;
+    }
+    return { lo, hi };
+  };
+  // wpisuje najniższą/najwyższą wagę wraz z datą do pól <prefix>Min / <prefix>Max
+  const showExtremes = (prefix, rows) => {
+    const { lo, hi } = extremes(rows);
+    $(prefix + 'Min').textContent = lo ? lo.weight.toFixed(1) + ' kg' : '-';
+    $(prefix + 'MinDate').textContent = lo ? U.fmtDate(lo.date) : '';
+    $(prefix + 'Max').textContent = hi ? hi.weight.toFixed(1) + ' kg' : '-';
+    $(prefix + 'MaxDate').textContent = hi ? U.fmtDate(hi.date) : '';
+  };
+  const chartRows = () => state.range === 'all' ? D.weight : D.weight.filter(r => r.ts >= U.daysAgo(+state.range - 1));
   const show = (prefix, vals) => {
     $(prefix + 'Avg').textContent = U.f1(U.avg(vals), 'kg');
     $(prefix + 'Med').textContent = U.f1(U.median(vals), 'kg');
@@ -106,21 +134,23 @@
   function customStats() {
     const f = U.ts($('customFrom').value), t = U.ts($('customTo').value);
     if (isNaN(f) || isNaN(t)) return;
-    const vals = inRange(f, U.endOfDay(t));
+    const rows = rowsIn(f, U.endOfDay(t)), vals = rows.map(r => r.weight);
     show('custom', vals);
     $('customCount').textContent = vals.length;
+    showExtremes('custom', rows);
   }
 
-  // ---------- wykres wagi: linia po osi czasu, siatka, linia średniej, podpis ostatniego punktu ----------
+  // ---------- wykres wagi: linia po osi czasu, siatka, linia średniej, oznaczona najwyższa i najniższa waga ----------
   function drawChart() {
     const canvas = $('weightChart'), w = canvas.parentElement.clientWidth;
     if (!w) return;
     const h = 200, dpr = window.devicePixelRatio || 1, ctx = canvas.getContext('2d');
     canvas.width = w * dpr; canvas.height = h * dpr; canvas.style.height = h + 'px';
     ctx.scale(dpr, dpr);
-    const c = { line: U.css('--primary'), muted: U.css('--text-muted'), grid: U.css('--card-border') };
+    const c = { line: U.css('--primary'), muted: U.css('--text-muted'), grid: U.css('--card-border'), text: U.css('--text-main'), card: U.css('--card-bg') };
 
-    const rows = state.range === 'all' ? D.weight : D.weight.filter(r => r.ts >= U.daysAgo(+state.range - 1));
+    const rows = chartRows();
+    showExtremes('chart', rows);   // pola pod wykresem aktualizujemy zawsze, także gdy punktów jest za mało na linię
     ctx.font = '11px sans-serif';
     ctx.fillStyle = c.muted;
     if (rows.length < 2) { ctx.textAlign = 'center'; ctx.fillText('Za mało danych w okresie', w / 2, h / 2); return; }
@@ -148,9 +178,24 @@
     ctx.fillStyle = c.line;
     if (rows.length <= 60) rows.forEach(r => { ctx.beginPath(); ctx.arc(X(r.ts), Y(r.weight), 3, 0, 7); ctx.fill(); });
 
+    // najwyższa (▲) i najniższa (▼) waga w wybranym zakresie – obrysowany punkt i podpis
+    const { lo: low, hi: high } = extremes(rows);
+    const mark = (r, above) => {
+      const x = X(r.ts), y = Y(r.weight);
+      ctx.beginPath(); ctx.arc(x, y, 5.5, 0, 7); ctx.fillStyle = c.card; ctx.fill();
+      ctx.lineWidth = 2.5; ctx.strokeStyle = c.text; ctx.stroke();
+      ctx.font = 'bold 12px sans-serif'; ctx.fillStyle = c.text; ctx.textBaseline = above ? 'bottom' : 'top';
+      ctx.textAlign = x < L + 34 ? 'left' : x > w - R - 34 ? 'right' : 'center';   // podpis nie wychodzi poza wykres
+      ctx.fillText((above ? '▲ ' : '▼ ') + r.weight.toFixed(1), x, y + (above ? -9 : 9));
+    };
+    mark(high, true);
+    if (low.weight !== high.weight) mark(low, false);
+
     const last = rows[rows.length - 1];
-    ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-    ctx.fillText(last.weight.toFixed(1), X(last.ts), Y(last.weight) - 6);
+    if (last !== low && last !== high) {   // ostatni pomiar podpisujemy tylko, gdy nie jest już oznaczony jako skrajny
+      ctx.fillStyle = c.line; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+      ctx.fillText(last.weight.toFixed(1), X(last.ts), Y(last.weight) - 6);
+    }
 
     ctx.fillStyle = c.muted; ctx.font = '11px sans-serif'; ctx.textBaseline = 'top';
     ctx.textAlign = 'left'; ctx.fillText(U.fmtDate(rows[0].date).slice(0, 5), L, h - B + 6);

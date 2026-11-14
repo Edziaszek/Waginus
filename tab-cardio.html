@@ -64,9 +64,10 @@
         id: i.id, name: String(U.pick(i, 'Nazwa', 'Typ', 'type') ?? '').trim(),
         // mięśnie zapisane w bazie: główne (Miesnie) i pomocnicze (MiesnieDodatkowe) – pokazują się na manekinie
         muscles: Array.isArray(i.Miesnie) ? i.Miesnie.filter(x => typeof x === 'string') : [],
-        muscles2: Array.isArray(i.MiesnieDodatkowe) ? i.MiesnieDodatkowe.filter(x => typeof x === 'string') : []
+        muscles2: Array.isArray(i.MiesnieDodatkowe) ? i.MiesnieDodatkowe.filter(x => typeof x === 'string') : [],
+        created: Number(i.Dodano) || 0   // kiedy dodano rodzaj (sortowanie „od najnowszych”)
       })).filter(t => t.name);
-    if (!D.cardioTypes.length) D.cardioTypes = ['Bieżnia', 'Rowerek', 'Orbitrek', 'Spacer'].map((name, i) => ({ id: 'default_' + i, name, muscles: [], muscles2: [] }));
+    if (!D.cardioTypes.length) D.cardioTypes = ['Bieżnia', 'Rowerek', 'Orbitrek', 'Spacer'].map((name, i) => ({ id: 'default_' + i, name, muscles: [], muscles2: [], created: 0 }));
 
     D.cardio = raw.Kardio.map(i => {
       const date = U.pick(i, 'Data', 'date') || '', rawTime = String(U.pick(i, 'Czas', 'duration') ?? '');
@@ -84,7 +85,7 @@
 
   function fillSelects() {
     const opts = '<option value="">Wybierz aktywność...</option>' +
-      D.cardioTypes.map(t => `<option value="${U.esc(t.name)}">${U.esc(t.name)}</option>`).join('');
+      App.sorted('cardio', D.cardioTypes).map(t => `<option value="${U.esc(t.name)}">${U.esc(t.name)}</option>`).join('');
     for (const id of ['cardioTypeSelect', 'statCardioSelect']) {
       const el = $(id), cur = el.value;
       el.innerHTML = opts;
