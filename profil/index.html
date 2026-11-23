@@ -1,1 +1,37 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Profil</title>
+  <!-- Profil publiczny: dostępny tylko przez bezpośredni link, nie jest indeksowany -->
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <script>try{const r=document.documentElement;r.dataset.theme=localStorage.getItem('pub_theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){}</script>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore-lite.js">
+  <link rel="stylesheet" href="../style.css?v=14">
+  <link rel="stylesheet" href="profil.css?v=14">
+  <script src="../shared.js?v=14" defer></script>
+  <script src="view.js?v=14" defer></script>
+  <script type="module" src="profil.js?v=14"></script>
+</head>
+<body class="public">
 
+<div class="container" id="pub">
+  <header class="top-bar">
+    <div class="top-bar-title" id="pubTitle">Profil</div>
+    <div class="top-controls">
+      <button class="icon-btn" id="pubTheme" aria-label="Zmień motyw"><span id="pubThemeIcon">🌙</span></button>
+    </div>
+  </header>
+  <div id="pubMsg" class="card muted center">Ładowanie profilu…</div>
+  <main id="pubTabs"></main>
+  <div id="pubFoot" class="muted center" style="font-size:.75rem"></div>
+</div>
+
+<nav class="bottom-nav" id="pubNav" hidden></nav>
+
+</body>
+</html>
