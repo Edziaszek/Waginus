@@ -1,0 +1,381 @@
+<!-- Panel „Udostępnianie” (Ustawienia). Wczytywany na żądanie przez App.loadFragment – dopiero po wejściu w zakładkę
+     albo, w tle, gdy użytkownik ma już profil publiczny (żeby migawka danych była zawsze aktualna). -->
+<div id="shareRoot"></div>
+
+<script>
+(() => {
+  const { util: U, data: D } = App;
+  const $ = id => document.getElementById(id);
+  const esc = U.esc;
+  const uid = () => window.firebaseAuth.user.uid;
+  const MODES = { off: 'Ukryty', summary: 'Tylko podsumowanie', history: 'Pełna historia z wykresem' };
+  const HISTORY = { last: 'Tylko ostatni trening', month: 'Bieżący miesiąc', all: 'Cała historia' };
+  const WEIGHT_OPTS = [
+    ['current', 'Aktualna waga'], ['max', 'Najwyższa waga w bazie'], ['lost', 'Ile kg schudnięte (od najwyższej wagi)'],
+    ['bmi', 'BMI'], ['state', 'Stan wg BMI'], ['toNext', 'Ile kg brakuje do kolejnego stopnia']
+  ];
+  const SEX = { M: 'mężczyzna', K: 'kobieta', I: 'inna / nie podaję' };
+
+  let pub = null, cfg = null, loaded = false, syncing = false, again = false, saveTimer = 0, syncTimer = 0, status = { text: '', bad: false };
+
+  // =====================================================================
+  //  USTAWIENIA: co dokładnie jest udostępniane (zapisane w dokumencie publicProfiles/{uid}.Ustawienia)
+  // =====================================================================
+  // Domyślnie WSZYSTKIE zakładki są ukryte – nic nie jest widoczne, dopóki właściciel sam tego nie włączy.
+  const defaults = () => ({
+    tabs: { weight: false, body: false, training: false },
+    weight: { current: true, max: true, lost: true, bmi: true, state: true, toNext: true },
+    body: { parts: [] },
+    training: { mannequin: true, records: true, history: 'last' }
+  });
+
+  // Dopełnia brakujące klucze i dopasowuje listę partii ciała do aktualnych (nowe partie są domyślnie ukryte)
+  function normalize(c) {
+    const d = defaults(), o = c || {};
+    const out = {
+      tabs: { ...d.tabs, ...(o.tabs || {}) },
+      weight: { ...d.weight, ...(o.weight || {}) },
+      training: { ...d.training, ...(o.training || {}) },
+      body: { parts: [] }
+    };
+    if (!HISTORY[out.training.history]) out.training.history = 'last';
+    const saved = new Map((o.body?.parts || []).map(p => [String(p.n).toLowerCase(), p.m]));
+    out.body.parts = App.sorted('body', D.bodyParts).map(p => {
+      const m = saved.get(p.name.toLowerCase());
+      return { n: p.name, m: MODES[m] ? m : 'off' };
+    });
+    return out;
+  }
+
+  // =====================================================================
+  //  MIGAWKA DANYCH: wyłącznie to, co zaznaczono. Dane prywatne nie opuszczają konta – profil publiczny czyta
+  //  tylko te dokumenty (publicProfiles/{uid}/data/*), a nie kolekcje użytkownika.
+  // =====================================================================
+  const r1 = x => Math.round(x * 10) / 10;
+  const startOfDay = (now, back = 0) => { const d = new Date(now); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - back); return d.getTime(); };
+
+  function build(c, data, profile, now = Date.now()) {
+    const docs = {};
+
+    // ---- waga: tylko włączone opcje ----
+    if (c.tabs.weight) {
+      const out = {}, o = c.weight, w = data.weight;
+      if (w.length) {
+        const since = startOfDay(now, 6), last7 = w.filter(r => r.ts >= since).map(r => r.weight);
+        const cur = last7.length ? U.avg(last7) : w[w.length - 1].weight;   // jak na stronie głównej: średnia z 7 dni
+        const max = Math.max(...w.map(r => r.weight));
+        if (o.current) out.cur = r1(cur);
+        if (o.max) out.max = r1(max);
+        if (o.lost) out.lost = r1(max - cur);
+        const b = window.Bmi.info(cur, profile.Wzrost);   // wzrost nie jest nigdzie publikowany – tylko wynik
+        if (b) {
+          if (o.bmi) out.bmi = b.shown;
+          if (o.state) out.state = b.name;
+          if (o.toNext) { out.bi = b.index; out.lo = b.toLower; out.up = b.toUpper; }
+        }
+      }
+      docs.weight = out;
+    }
+
+    // ---- obwody: tylko wybrane partie; historia tylko tam, gdzie zezwolono ----
+    if (c.tabs.body) {
+      const parts = [];
+      for (const p of c.body.parts) {
+        if (p.m === 'off') continue;
+        const rows = data.body.filter(b => b.part.toLowerCase() === p.n.toLowerCase());
+        const e = { n: p.n };
+        if (rows.length) {
+          const last = rows[rows.length - 1], mx = Math.max(...rows.map(r => r.size));
+          e.last = last.size; e.ld = last.ts; e.max = mx; e.diff = r1(mx - last.size);
+        }
+        if (p.m === 'history') e.h = rows.map(r => [r.ts, r.size]);
+        parts.push(e);
+      }
+      docs.body = { parts };
+    }
+
+    // ---- mięśnie i treningi ----
+    if (c.tabs.training) {
+      const t = c.training, M = App.muscles;
+      const mus = (fn, name) => { if (!t.mannequin) return undefined; const r = fn(name); return r ? [r.primary, r.secondary] : undefined; };
+      const dayMap = new Map();
+      const day = ts => dayMap.get(ts) || dayMap.set(ts, { t: ts, w: [], c: [] }).get(ts);
+      for (const x of data.workouts) {
+        const e = { e: x.exercise, s: x.weights.map((kg, i) => [kg, x.reps[i] || 8]), a: r1(x.avgWeight) };
+        const m = mus(M.resolve, x.exercise); if (m) e.m = m;
+        day(x.ts).w.push(e);
+      }
+      for (const x of data.cardio) {
+        const e = { n: x.type, d: x.duration, k: x.distance, p: x.pace, h: x.heartRate };
+        const m = mus(M.resolveCardio, x.type); if (m) e.m = m;
+        day(x.ts).c.push(e);
+      }
+      let days = [...dayMap.values()].sort((a, b) => a.t - b.t);
+      if (t.history === 'last') days = days.slice(-1);
+      else if (t.history === 'month') {
+        const n = new Date(now);
+        days = days.filter(d => { const dt = new Date(d.t); return dt.getFullYear() === n.getFullYear() && dt.getMonth() === n.getMonth(); });
+      }
+      for (let i = 0; i < days.length; i += 400) docs['train_' + i / 400] = { days: days.slice(i, i + 400) };   // porcjami po 400 dni (limit 1 MB na dokument; mało dokumentów = mało zapisów)
+
+      if (t.records) {   // rekordy i ostatnie wyniki (jak „Rekordy” na stronie głównej)
+        const wr = [], cr = [], byEx = U.group(data.workouts, x => x.exercise.toLowerCase()), byType = U.group(data.cardio, x => x.type.toLowerCase());
+        for (const ex of App.sorted('exercise', data.exercises)) {
+          const list = byEx.get(ex.name.toLowerCase());
+          if (!list?.length) continue;
+          const lw = list[list.length - 1], lmax = lw.weights.length ? Math.max(...lw.weights) : 0;
+          let best = 0, bestReps = 8;
+          for (const x of list) x.weights.forEach((kg, i) => { if (kg > best) { best = kg; bestReps = x.reps[i] || 8; } });
+          wr.push({ n: ex.name, l: lmax ? [lmax, lw.reps[lw.weights.indexOf(lmax)] || 8] : null, b: best ? [best, bestReps] : null });
+        }
+        for (const ty of App.sorted('cardio', data.cardioTypes)) {
+          const list = byType.get(ty.name.toLowerCase());
+          if (!list?.length) continue;
+          const l = list[list.length - 1];
+          cr.push({ n: ty.name, l: [l.distance, l.duration, l.ts], b: Math.max(...list.map(x => x.distance)) });
+        }
+        docs.trainrec = { w: wr, c: cr };
+      }
+    }
+    return { docs, Nick: profile.Pseudonim || '', Plec: profile.Plec || '' };
+  }
+
+  // krótki odcisk treści – żeby zapisywać tylko dokumenty, które faktycznie się zmieniły
+  const hash = o => {
+    const s = JSON.stringify(o);
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    return h.toString(36) + s.length.toString(36);
+  };
+
+  // =====================================================================
+  //  SYNCHRONIZACJA (jedna paczka: ustawienia + zmienione dokumenty + usunięcie nieaktualnych)
+  // =====================================================================
+  function setStatus(text, bad = false) {
+    status = { text, bad };
+    const el = $('shareStatus');
+    if (el) { el.textContent = text; el.className = 'mt ' + (bad ? 'hint-bad' : 'muted'); }
+  }
+
+  async function sync(force = false) {
+    if (!pub) return;
+    if (syncing) { again = true; return; }
+    syncing = true;
+    try {
+      cfg = normalize(cfg);
+      const snap = build(cfg, D, App.profile);
+      if (!snap.Nick) { setStatus('Ustaw pseudonim (Ustawienia → Ogólne), aby profil mógł się zsynchronizować.', true); return; }
+      const H = pub.H || {}, newH = {}, upserts = {}, deletes = [];
+      for (const [id, data] of Object.entries(snap.docs)) {
+        newH[id] = hash(data);
+        if (force || H[id] !== newH[id]) upserts[id] = data;
+      }
+      for (const id of Object.keys(H)) if (!(id in snap.docs)) deletes.push(id);
+      const meta = { Nick: snap.Nick, Plec: snap.Plec, Ustawienia: cfg }, HM = hash(meta);
+      if (!force && !Object.keys(upserts).length && !deletes.length && pub.HM === HM) return;   // nic się nie zmieniło
+
+      const main = { ...meta, H: newH, HM, Zaktualizowano: Date.now() };
+      setStatus('Synchronizuję…');
+      await App.db.syncPublic(uid(), main, upserts, deletes);
+      pub = { ...pub, ...main };
+      setStatus('Zsynchronizowano: ' + new Date(main.Zaktualizowano).toLocaleString('pl-PL'));
+    } catch (e) {
+      console.error(e);
+      setStatus('Nie udało się zsynchronizować profilu publicznego. Spróbuj ponownie.', true);
+    } finally {
+      syncing = false;
+      if (again) { again = false; schedule(); }
+    }
+  }
+
+  function schedule(delay = 2500) {   // zmiany danych wywołują synchronizację z opóźnieniem (zbiera serię zmian w jedną)
+    if (!pub) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => sync(), delay);
+  }
+
+  // =====================================================================
+  //  INTERFEJS
+  // =====================================================================
+  const linkFor = nick => new URL(`profil/?u=${encodeURIComponent(nick)}`, location.href).href;
+
+  const toggleRow = (label, on, path, note = '') => `
+    <div class="edit-item">
+      <span style="flex:1">${label}${note ? `<br><small class="muted">${note}</small>` : ''}</span>
+      <button class="m-chip ${on ? 's2' : 's0'}" style="min-width:96px" data-sh="toggle" data-path="${path}">${on ? 'Widoczna' : 'Ukryta'}</button>
+    </div>`;
+  const options = (map, cur) => Object.entries(map).map(([v, l]) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${l}</option>`).join('');
+
+  function renderCreate(root) {
+    const nick = App.profile.Pseudonim;
+    root.innerHTML = `
+      <div class="card">
+        <h2>Profil publiczny</h2>
+        <p class="muted" style="margin:0 0 10px">Profil publiczny to strona, którą możesz wysłać komukolwiek – nie wymaga konta ani aplikacji. Na początku niczego nie udostępnia: sam wybierasz zakładki i szczegóły, które mają być widoczne. Tworzone jest wyłącznie to, co zaznaczysz; Twoje dane w koncie pozostają prywatne.</p>
+        ${nick
+          ? `<p style="margin:0 0 10px">Adres profilu będzie zawierał Twój pseudonim: <strong>${esc(nick)}</strong>.</p>
+             <button class="btn-primary full" data-sh="create">Utwórz profil publiczny</button>`
+          : '<p class="hint-bad" style="margin:0">Najpierw ustaw pseudonim w Ustawienia → Ogólne – jest częścią linku do profilu.</p>'}
+      </div>`;
+  }
+
+  function renderManage(root) {
+    cfg = normalize(cfg);
+    const url = linkFor(pub.Nick || App.profile.Pseudonim), p = App.profile, t = cfg.tabs;
+    const needBmi = ['bmi', 'state', 'toNext'].some(k => cfg.weight[k]) && !(p.Wzrost > 0);
+    const dim = on => on ? '' : 'zakładka jest ukryta na profilu';
+    root.innerHTML = `
+      <div class="card">
+        <h2>Twój link do profilu</h2>
+        <input type="text" readonly id="shareUrl" value="${esc(url)}" style="width:100%">
+        <div class="btn-row mt">
+          <button class="btn-secondary" style="flex:1" data-sh="copy" data-done="Skopiowano">Kopiuj</button>
+          <button class="btn-secondary" style="flex:1" data-sh="open">Otwórz</button>
+          <button class="btn-secondary" style="flex:1" data-sh="share">Udostępnij</button>
+        </div>
+        <div class="muted mt" style="font-size:.8rem">Link działa dla każdego – bez konta i bez aplikacji. Strona nie jest indeksowana przez wyszukiwarki.</div>
+      </div>
+
+      <div class="card">
+        <h2>Zakładki profilu</h2>
+        <div class="muted" style="font-size:.8rem">Cała zakładka może być widoczna albo ukryta. Ukryta w ogóle nie trafia do bazy publicznej.</div>
+        <div class="edit-list mt" style="max-height:none">
+          ${toggleRow('Waga', t.weight, 'tabs.weight')}
+          ${toggleRow('Obwody', t.body, 'tabs.body')}
+          ${toggleRow('Mięśnie i treningi', t.training, 'tabs.training')}
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Waga</h2>
+        <div class="edit-list" style="max-height:none">
+          ${WEIGHT_OPTS.map(([k, l]) => toggleRow(l, cfg.weight[k], 'weight.' + k, dim(t.weight))).join('')}
+        </div>
+        ${needBmi ? '<div class="hint-bad mt" style="font-size:.8rem">BMI i opcje z nim związane wymagają wzrostu – uzupełnij go w Ustawienia → Ogólne → Twój profil. Wzrost nie jest publikowany.</div>' : ''}
+      </div>
+
+      <div class="card">
+        <h2>Obwody</h2>
+        <div class="muted" style="font-size:.8rem">Dla każdego obwodu wybierz: ukryty, tylko podsumowanie (ostatni, najwyższy, różnica) albo pełna historia z wykresem. ${dim(t.body) ? '<br>Zakładka jest ukryta na profilu.' : ''}</div>
+        <div class="edit-list mt" style="max-height:none">
+          ${cfg.body.parts.map((pt, i) => `
+            <div class="edit-item">
+              <span style="flex:1">${esc(pt.n)}</span>
+              <select data-sel="part" data-i="${i}" style="flex:none;width:auto;max-width:60%">${options(MODES, pt.m)}</select>
+            </div>`).join('') || '<div class="muted center">Brak partii ciała – dodaj je w Ustawienia → Obwody.</div>'}
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Mięśnie i treningi</h2>
+        <div class="edit-list" style="max-height:none">
+          ${toggleRow('Manekin z pracującymi mięśniami', cfg.training.mannequin, 'training.mannequin', dim(t.training))}
+          ${toggleRow('Rekordy i ostatnie wyniki', cfg.training.records, 'training.records', dim(t.training))}
+          <div class="edit-item">
+            <span style="flex:1">Historia treningów<br><small class="muted">siłowych i kardio</small></span>
+            <select data-sel="history" style="flex:none;width:auto;max-width:60%">${options(HISTORY, cfg.training.history)}</select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Stan profilu</h2>
+        <div class="muted" style="font-size:.8rem">Teksty na profilu są odmieniane według płci z Twojego profilu (obecnie: <strong>${esc(SEX[p.Plec] || 'nie podano – formy neutralne')}</strong>). Zmienisz ją w Ustawienia → Ogólne → Twój profil; profil zaktualizuje się sam.</div>
+        <div id="shareStatus" class="mt ${status.bad ? 'hint-bad' : 'muted'}" style="font-size:.8rem">${esc(status.text || (pub.Zaktualizowano ? 'Ostatnia synchronizacja: ' + new Date(pub.Zaktualizowano).toLocaleString('pl-PL') : ''))}</div>
+        <button class="btn-secondary full mt" data-sh="sync">Synchronizuj teraz</button>
+        <button class="btn-danger full mt" data-sh="del">Usuń profil publiczny</button>
+      </div>`;
+  }
+
+  async function render() {
+    const root = $('shareRoot');
+    if (!root) return;
+    if (!loaded) { root.innerHTML = '<div class="card muted center">Ładowanie…</div>'; await ready; }
+    pub ? renderManage(root) : renderCreate(root);
+  }
+
+  // zmiana ustawień: od razu w widoku, zapis do bazy po chwili (zbiera kilka kliknięć w jeden zapis)
+  function changed() {
+    cfg = normalize(cfg);
+    renderManage($('shareRoot'));
+    setStatus('Zapisywanie zmian…');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => sync(), 900);
+  }
+
+  async function create() {
+    const now = Date.now(), nick = App.profile.Pseudonim;
+    cfg = normalize(null);
+    const main = { Nick: nick, Plec: App.profile.Plec || '', Utworzono: now, Zaktualizowano: now, Ustawienia: cfg, H: {}, HM: '' };
+    const ok = await App.run(async () => {   // wpis w bazie opisujący, co jest udostępniane + znacznik w profilu użytkownika
+      await App.db.createPublic(uid(), main);
+      await App.db.updateProfile(uid(), { ProfilPubliczny: true });
+      return true;
+    });
+    if (!ok) return;
+    App.profile.ProfilPubliczny = true;
+    pub = main;
+    render();
+    schedule(300);
+  }
+
+  async function remove() {
+    if (!confirm('Usunąć profil publiczny? Link przestanie działać, a udostępniona treść zostanie skasowana z bazy publicznej. Twoje dane w koncie nie ulegną zmianie.')) return;
+    const ok = await App.run(async () => {
+      await App.db.deletePublic(uid());
+      await App.db.updateProfile(uid(), { ProfilPubliczny: false });
+      return true;
+    });
+    if (!ok) return;
+    clearTimeout(syncTimer); clearTimeout(saveTimer);
+    App.profile.ProfilPubliczny = false;
+    pub = null; cfg = null;
+    render();
+  }
+
+  async function copy(btn) {
+    const url = $('shareUrl').value;
+    try { await navigator.clipboard.writeText(url); }
+    catch { $('shareUrl').select(); document.execCommand?.('copy'); }
+    App.flash(btn, 'Skopiowano');
+  }
+
+  const setPath = (path) => { const [a, b] = path.split('.'); cfg[a][b] = !cfg[a][b]; changed(); };
+
+  // ---------- zdarzenia (jedna delegacja na cały panel) ----------
+  const rootEl = $('shareRoot');
+  rootEl.addEventListener('click', e => {
+    const b = e.target.closest('[data-sh]');
+    if (!b) { if (e.target.id === 'shareUrl') e.target.select(); return; }
+    const act = b.dataset.sh;
+    if (act === 'toggle') setPath(b.dataset.path);
+    else if (act === 'create') create();
+    else if (act === 'copy') copy(b);
+    else if (act === 'open') window.open($('shareUrl').value, '_blank', 'noopener');
+    else if (act === 'share') navigator.share ? navigator.share({ title: 'Mój profil treningowy', url: $('shareUrl').value }).catch(() => {}) : copy(b);
+    else if (act === 'sync') sync(true);
+    else if (act === 'del') remove();
+  });
+  rootEl.addEventListener('change', e => {
+    const sel = e.target.dataset?.sel;
+    if (sel === 'part') { cfg.body.parts[+e.target.dataset.i].m = e.target.value; changed(); }
+    else if (sel === 'history') { cfg.training.history = e.target.value; changed(); }
+  });
+
+  // ---------- start: wczytaj profil publiczny, jeśli istnieje, i pilnuj aktualności migawki ----------
+  const ready = (async () => {
+    if (App.profile?.ProfilPubliczny) {
+      try { pub = await App.db.getPublic(uid()); } catch (e) { console.error(e); }
+      if (pub) { cfg = normalize(pub.Ustawienia); schedule(1500); }
+    }
+    loaded = true;
+  })();
+  App.onChange(() => schedule());
+
+  App.share = {
+    render, schedule, sync, build, normalize, defaults, hash,
+    // po zmianie pseudonimu profil publiczny dostaje nowy pseudonim (i link)
+    async afterNickChange() { if (pub) { await sync(); if ($('shareRoot')?.children.length) render(); } }
+  };
+})();
+</script>

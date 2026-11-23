@@ -15,20 +15,20 @@ service cloud.firestore {
     function profilePath(id) {
       return /databases/$(database)/documents/profiles/$(id);
     }
-    function me() {
-      return get(profilePath(request.auth.uid)).data;
+    // Uwaga na limity: reguły mogą wykonać tylko ograniczoną liczbę odczytów pomocniczych (get/exists) – 10 na operację
+    // i 20 na całą paczkę zapisów. Dlatego rola i status są sprawdzane JEDNYM odczytem profilu na operację
+    // (profil jest przekazywany do funkcji, a nie pobierany wielokrotnie).
+    function adminProfile(p) {
+      return p.Rola == 'admin' && p.get('Status', 'aktywny') == 'aktywny';
     }
-    // Administrator = ma profil z Rola == 'admin' i konto nie jest usunięte
+    // Administrator = profil z Rola == 'admin' i konto nie jest usunięte (brak profilu = nie administrator)
     function isAdmin() {
-      return signedIn()
-        && exists(profilePath(request.auth.uid))
-        && me().Rola == 'admin'
-        && me().get('Status', 'aktywny') == 'aktywny';
+      return signedIn() && adminProfile(get(profilePath(request.auth.uid)).data);
     }
-    // Konto aktywne (nie usunięte przez administratora). Brak profilu = nowe konto, które dopiero go tworzy.
+    // Konto aktywne (nie usunięte przez administratora). Profil tworzy się przy pierwszym uruchomieniu aplikacji,
+    // zanim zapisane zostaną jakiekolwiek dane.
     function active() {
-      return !exists(profilePath(request.auth.uid))
-        || me().get('Status', 'aktywny') != 'usuniety';
+      return get(profilePath(request.auth.uid)).data.get('Status', 'aktywny') != 'usuniety';
     }
 
     // KONTA ZAŁOŻYCIELSKIE – jedyne, które mogą od razu dostać rolę administratora.
@@ -38,11 +38,20 @@ service cloud.firestore {
       return request.auth.uid in ['WPISZ_UID_KONTA_1', 'WPISZ_UID_KONTA_2'];
     }
 
+    function nickPath(n) {
+      return /databases/$(database)/documents/nicks/$(n.lower());
+    }
+    // Pseudonim wpisany do profilu musi być FAKTYCZNIE zajęty przez tego użytkownika (w tej samej paczce zapisów)
+    function ownsNick(n) {
+      return n != '' && getAfter(nickPath(n)).data.uid == request.auth.uid;
+    }
+
     // Poprawny kształt profilu (ogranicza pola i zakresy – nikt nie wpisze śmieci)
     function validProfile(d) {
       return d.keys().hasOnly(['Email', 'Rola', 'Status', 'Wzrost', 'RokUrodzenia', 'Plec', 'Utworzono', 'SekcjeKolejnosc', 'SekcjeUkryte',
                               'Motyw', 'AkcentJasny', 'AkcentCiemny',
-                              'SortCwiczenia', 'SortKardio', 'SortObwody'])
+                              'SortCwiczenia', 'SortKardio', 'SortObwody',
+                              'Pseudonim', 'ProfilPubliczny'])
         && d.Rola in ['admin', 'user']
         && d.get('Status', 'aktywny') in ['aktywny', 'usuniety']
         && (d.get('Wzrost', null) == null || (d.Wzrost is number && d.Wzrost >= 100 && d.Wzrost <= 250))
@@ -58,7 +67,10 @@ service cloud.firestore {
         // kolejność list: az / za / new / old / recent / freq
         && d.get('SortCwiczenia', 'az') in ['az', 'za', 'new', 'old', 'recent', 'freq']
         && d.get('SortKardio', 'az') in ['az', 'za', 'new', 'old', 'recent', 'freq']
-        && d.get('SortObwody', 'az') in ['az', 'za', 'new', 'old', 'recent', 'freq'];
+        && d.get('SortObwody', 'az') in ['az', 'za', 'new', 'old', 'recent', 'freq']
+        // pseudonim (opcjonalny): 3–20 znaków a–z, A–Z, 0–9, _ i -
+        && d.get('Pseudonim', '').matches('^([A-Za-z0-9_-]{3,20})?$')
+        && d.get('ProfilPubliczny', false) is bool;
     }
 
     // ---------- profile: profiles/{uid} ----------
@@ -80,7 +92,9 @@ service cloud.firestore {
                       || (request.auth.uid == uid && active()
                           && request.resource.data.Rola == resource.data.Rola
                           && request.resource.data.Email == resource.data.Email
-                          && request.resource.data.get('Status', 'aktywny') == resource.data.get('Status', 'aktywny'))
+                          && request.resource.data.get('Status', 'aktywny') == resource.data.get('Status', 'aktywny')
+                          && (request.resource.data.get('Pseudonim', '') == resource.data.get('Pseudonim', '')
+                              || ownsNick(request.resource.data.get('Pseudonim', ''))))
                     );
       // usuwanie profili jest zablokowane – "usunięcie" użytkownika to Status == 'usuniety'
     }
@@ -96,6 +110,42 @@ service cloud.firestore {
       allow create, update: if signedIn() && known(coll)
                             && request.auth.uid == uid && active()
                             && request.resource.data.size() <= 15;
+    }
+
+    // ---------- pseudonimy: nicks/{pseudonim_małymi_literami} = { uid } ----------
+    // Dokument można UTWORZYĆ tylko raz, więc dwie osoby nie zajmą tego samego pseudonimu (nawet równocześnie).
+    // Odczyt tylko pojedynczego dokumentu (sprawdzenie dostępności i adres profilu) – bez wylistowania wszystkich pseudonimów.
+    match /nicks/{nick} {
+      allow get: if true;
+      allow create: if signedIn() && active()
+                    && nick.matches('^[a-z0-9_-]{3,20}$')
+                    && request.resource.data.keys().hasOnly(['uid'])
+                    && request.resource.data.uid == request.auth.uid
+                    && getAfter(profilePath(request.auth.uid)).data.get('Pseudonim', '').lower() == nick;
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());   // zmiana pseudonimu zwalnia stary
+    }
+
+    // ---------- profil publiczny: publicProfiles/{uid} (ustawienia) i /data/* (udostępniana treść) ----------
+    // Czyta KTOKOLWIEK (także bez konta) – dlatego trafia tu wyłącznie to, co właściciel świadomie udostępnił.
+    // Dane prywatne (users/...) pozostają niedostępne. Zapisuje wyłącznie właściciel.
+    function validPublic(d) {
+      return d.keys().hasOnly(['Nick', 'Plec', 'Utworzono', 'Zaktualizowano', 'Ustawienia', 'H', 'HM'])
+        && d.Nick is string && d.Nick.size() >= 3 && d.Nick.size() <= 20
+        && d.get('Plec', '') in ['', 'M', 'K', 'I'];
+    }
+    match /publicProfiles/{uid} {
+      allow get: if true;   // bez list – nie da się wylistować wszystkich profili
+      allow create, update: if signedIn() && request.auth.uid == uid && active()
+                            && validPublic(request.resource.data)
+                            && request.resource.data.Nick == get(profilePath(uid)).data.get('Pseudonim', '');
+      allow delete: if signedIn() && (request.auth.uid == uid || isAdmin());
+
+      match /data/{docId} {
+        allow read: if true;
+        allow create, update: if signedIn() && request.auth.uid == uid && active()
+                              && request.resource.data.size() <= 10;
+        allow delete: if signedIn() && (request.auth.uid == uid || isAdmin());
+      }
     }
 
     // Wszystko inne jest domyślnie zablokowane.

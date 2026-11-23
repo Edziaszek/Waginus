@@ -1,0 +1,12 @@
+/* Style wyłącznie profilu publicznego (reszta pochodzi ze wspólnego ../style.css) */
+body.public .tab-content { gap: 14px; }
+body.public .hist-row { cursor: pointer; }
+body.public .hist-row.sel { border-left: 3px solid var(--primary); }
+body.public .hist-row:active { filter: brightness(.95); }
+body.public .part-card { display: flex; flex-direction: column; gap: 8px; }
+body.public .part-stats { display: flex; justify-content: space-between; gap: 8px; font-size: .9rem; }
+body.public .part-stats span { color: var(--text-muted); }
+body.public .day-nav { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+body.public .day-nav button:disabled { opacity: .35; }
+body.public .chart-box canvas { height: 170px; }
+body.public .pub-head { margin: 4px 2px 0; font-size: 1rem; }

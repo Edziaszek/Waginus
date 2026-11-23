@@ -181,6 +181,7 @@
     return [...items].sort(cmp);
   }
 
+  const changeListeners = [];   // wywoływane przy każdej zmianie danych (App.onChange)
   const tabs = {};
   const dirty = new Set();
   let conn = { msg: 'Łączenie z Firebase…', kind: 'busy', detail: '', syncedAt: null };
@@ -198,6 +199,7 @@
     // Dane się zmieniły: oznacz wszystkie zakładki jako „do odświeżenia”, narysuj aktywną.
     invalidate() {
       usageVersion++;   // dane mogły się zmienić – przelicz użycie elementów (sortowanie)
+      changeListeners.forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
       Object.keys(tabs).forEach(n => dirty.add(n));
       renderActive();
     },
@@ -258,6 +260,8 @@
 
     theme: () => root.dataset.theme === 'dark' ? 'dark' : 'light',
     palettes: { accents: ACCENTS, defaults: DEFAULT_ACCENT, textOn },
+    onChange: fn => changeListeners.push(fn),
+    loadFragment: (file, elId) => loadFragment(file, elId),
     sortOptions: SORTS,
     sorted: sortedList,
     sortMode: kind => App.profile?.[SORT_KEY[kind]] || 'az',
@@ -352,22 +356,36 @@
     if (!LAZY.has(n)) fetchTab(n);
   });
 
+  // Wstawia HTML do elementu i uruchamia jego skrypty (wstawione przez innerHTML się nie wykonują)
+  function mountHtml(el, html) {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = html;
+    const scripts = [...tpl.content.querySelectorAll('script')].map(s => { s.remove(); return s.textContent; });
+    el.append(tpl.content);
+    scripts.forEach(code => {
+      const s = document.createElement('script');
+      s.textContent = code;
+      el.append(s);
+      s.remove();
+    });
+  }
+
+  // Dodatkowy fragment (HTML + skrypt) wczytywany raz, na żądanie – np. panel udostępniania profilu publicznego
+  const fragments = {};
+  function loadFragment(file, elId) {
+    return fragments[file] ||= fetch(file, { cache: 'no-cache' })
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then(html => { const el = document.getElementById(elId); el.textContent = ''; mountHtml(el, html); })
+      .catch(e => { console.error(`Nie załadowano ${file}`, e); delete fragments[file]; });
+  }
+
   // Wstawia HTML zakładki do jej sekcji i uruchamia jej skrypty (rejestracja przez App.register)
   function injectTab(n) {
     return injecting[n] ||= (async () => {
       const el = document.getElementById(`tab-${n}`), html = await fetchTab(n);
       if (html === null) { el.textContent = 'Nie udało się załadować zakładki.'; delete injecting[n]; return; }
-      const tpl = document.createElement('template');
-      tpl.innerHTML = html;
-      const scripts = [...tpl.content.querySelectorAll('script')].map(s => { s.remove(); return s.textContent; });
       el.textContent = '';
-      el.append(tpl.content);
-      scripts.forEach(code => {
-        const s = document.createElement('script');
-        s.textContent = code;
-        el.append(s);
-        s.remove();
-      });
+      mountHtml(el, html);
     })();
   }
 
@@ -400,6 +418,11 @@
       // Klient tylko próbuje; jeśli reguły odmówią, zakłada zwykłe konto.
       try { p = await fb.createProfile(u.uid, { ...base, Rola: 'admin' }); }
       catch { p = await fb.createProfile(u.uid, { ...base, Rola: 'user' }); }
+    }
+    // Pseudonim wybrany przy rejestracji czeka w displayName konta – zajmujemy go po potwierdzeniu e-maila
+    if (!p.Pseudonim && u.displayName && !window.Nick.check(u.displayName)) {
+      try { await fb.setNickname(u.uid, u.displayName, ''); p.Pseudonim = u.displayName; }
+      catch (e) { console.error(e); App.nickProblem = u.displayName; }   // zajęty w międzyczasie lub brak uprawnień
     }
     App.profile = p;
   }
@@ -440,7 +463,15 @@
       App.status('Błąd połączenia z Firebase', 'err', data.reason?.message || String(data.reason));
     }
     // dopiero po pierwszym narysowaniu: zakładki LAZY (np. Ustawienia) w czasie bezczynności przeglądarki
-    (window.requestIdleCallback || (f => setTimeout(f, 1500)))(() => LAZY.forEach(injectTab));
+    if (App.nickProblem && localStorage.getItem('nick_alert') !== App.nickProblem) {   // jednorazowo na dany pseudonim
+      localStorage.setItem('nick_alert', App.nickProblem);
+      setTimeout(() => alert(`Nie udało się zająć pseudonimu „${App.nickProblem}” (jest już zajęty albo wystąpił błąd). Ustaw nowy w Ustawieniach → Ogólne.`), 400);
+    }
+    (window.requestIdleCallback || (f => setTimeout(f, 1500)))(async () => {
+      await Promise.all([...LAZY].map(injectTab));
+      // własny profil publiczny: moduł udostępniania pilnuje, by publiczna migawka danych była aktualna
+      if (App.profile.ProfilPubliczny) loadFragment('share-panel.html', 'sharePanel');
+    });
   }
 
   // Nawigacja i górny pasek – jedna delegacja zdarzeń zamiast inline onclick

@@ -4,6 +4,7 @@
   <button class="subtab-btn" data-sub="cardio">Kardio</button>
   <button class="subtab-btn" data-sub="body">Obwody</button>
   <button class="subtab-btn" data-sub="general">Ogólne</button>
+  <button class="subtab-btn" data-sub="share">Udostępnianie</button>
   <button class="subtab-btn" data-sub="admin" hidden>Admin</button>
 </div>
 
@@ -71,6 +72,13 @@
     </div>
   </div>
   <div class="card">
+    <h2>Pseudonim</h2>
+    <div class="muted" style="font-size:.8rem">Unikalny i publiczny. Jest częścią linku do Twojego profilu publicznego (zakładka Udostępnianie). Dozwolone: litery a–z, cyfry, _ i -, 3–20 znaków.</div>
+    <input type="text" id="nickInput" maxlength="20" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="np. Jan_Kowalski" style="width:100%" class="mt">
+    <div id="nickHint" class="mt muted" style="font-size:.8rem"></div>
+    <button class="btn-primary full mt" data-act="save-nick" data-done="Zapisano">Zapisz pseudonim</button>
+  </div>
+  <div class="card">
     <h2>Twój profil</h2>
     <div class="form-field">
       <label>Wzrost (do obliczania BMI)</label>
@@ -106,6 +114,10 @@
     <button class="btn-secondary full mt" data-act="reset-pass">Wyślij e-mail ze zmianą hasła</button>
     <button class="btn-danger full mt" data-act="logout">Wyloguj</button>
   </div>
+</div>
+
+<div class="subtab-content" data-panel="share">
+  <div id="sharePanel"><div class="card muted center">Ładowanie…</div></div>
 </div>
 
 <div class="subtab-content" data-panel="admin">
@@ -259,6 +271,11 @@
       renderLayoutList();
       renderAppearance();
       renderSortSelects();
+      $('nickInput').value = p.Pseudonim ?? '';
+      checkNick();
+    },
+    share() {   // panel udostępniania to osobny plik wczytywany dopiero po wejściu w zakładkę
+      App.loadFragment('share-panel.html', 'sharePanel').then(() => App.share?.render());
     },
     admin() { if (App.isAdmin()) { adminUsers ? renderAdminUsers() : loadAdminUsers(); } }
   };
@@ -462,6 +479,42 @@
     await App.run(() => App.db.updateProfile(window.firebaseAuth.user.uid, fields), () => Object.assign(App.profile, old), btn);
   }
 
+  // ---------- pseudonim ----------
+  let nickSeq = 0, nickTimer;
+  const nickHint = (text, cls = 'muted') => { const h = $('nickHint'); h.textContent = text; h.className = 'mt ' + cls; };
+
+  async function checkNick() {   // format i dostępność na żywo
+    const n = $('nickInput').value.trim(), mine = ++nickSeq, cur = App.profile?.Pseudonim ?? '';
+    if (!n || n === cur) return nickHint(cur ? `Aktualny pseudonim: ${cur}` : 'Nie masz jeszcze pseudonimu.');
+    const err = window.Nick.check(n);
+    if (err) return nickHint(err, 'hint-bad');
+    nickHint('Sprawdzam dostępność…');
+    try {
+      const owner = await App.db.nickOwner(n);
+      if (mine !== nickSeq) return;
+      if (!owner || owner === window.firebaseAuth.user.uid) nickHint('✓ Pseudonim jest wolny.', 'hint-ok');
+      else nickHint('✗ Ten pseudonim jest już zajęty.', 'hint-bad');
+    } catch (e) { console.error(e); if (mine === nickSeq) nickHint('Nie udało się sprawdzić dostępności.'); }
+  }
+
+  async function saveNick(_, btn) {
+    const n = $('nickInput').value.trim(), cur = App.profile.Pseudonim ?? '', uid = window.firebaseAuth.user.uid;
+    const err = window.Nick.check(n);
+    if (err) { nickHint(err, 'hint-bad'); return; }
+    if (n === cur) return;
+    if (App.profile.ProfilPubliczny && window.Nick.key(n) !== window.Nick.key(cur) &&
+        !confirm('Masz profil publiczny. Zmiana pseudonimu zmieni jego link – dotychczasowy przestanie działać. Kontynuować?')) return;
+    const owner = await App.db.nickOwner(n).catch(() => null);
+    if (owner && owner !== uid) { nickHint('✗ Ten pseudonim jest już zajęty.', 'hint-bad'); return; }
+    // profil + zajęcie nowego + zwolnienie starego w jednej paczce; unikalność i tak pilnują reguły bazy
+    const ok = await App.run(async () => { await App.db.setNickname(uid, n, cur); return true; }, null, btn);
+    if (!ok) { nickHint('Nie udało się zapisać pseudonimu (mógł zostać zajęty w międzyczasie).', 'hint-bad'); return; }
+    App.profile.Pseudonim = n;
+    App.invalidate();
+    nickHint(`Zapisano. Twój pseudonim: ${n}`, 'hint-ok');
+    await App.share?.afterNickChange?.();   // profil publiczny dostaje nowy pseudonim (i nowy link)
+  }
+
   // ---------- kolejność list ----------
   function renderSortSelects() {
     for (const [id, kind] of [['sortExercise', 'exercise'], ['sortCardio', 'cardio'], ['sortBody', 'body']]) {
@@ -540,7 +593,7 @@
     $('adminUsers').innerHTML = list.map(u => {
       const self = u.id === me, gone = u.Status === 'usuniety';
       const info = [ROLE[u.Rola] ?? u.Rola, u.Wzrost ? u.Wzrost + ' cm' : 'wzrost –',
-                    u.RokUrodzenia ? `${year - u.RokUrodzenia} l.` : 'wiek –', SEX[u.Plec || '']].join(' · ');
+                    u.RokUrodzenia ? `${year - u.RokUrodzenia} l.` : 'wiek –', SEX[u.Plec || ''], u.Pseudonim ? '@' + u.Pseudonim : 'brak pseudonimu'].join(' · ');
       const buttons = gone
         ? `<button class="btn-secondary" data-act="admin-restore" data-uid="${u.id}">Przywróć</button>
            <button class="btn-danger" data-act="admin-wipe" data-uid="${u.id}">Wyczyść dane</button>`
@@ -604,6 +657,8 @@
     await App.run(async () => {
       await App.db.updateProfile(uid, { Status: 'usuniety' });
       await App.db.wipeUserData(uid);
+      await App.db.deletePublic(uid, 5).catch(console.error);   // profil publiczny znika razem z kontem
+      if (u.Pseudonim) await App.db.releaseNick(u.Pseudonim).catch(console.error);   // pseudonim wraca do puli
     }, () => { u.Status = old; renderAdminUsers(); });
   }
 
@@ -641,6 +696,7 @@
     'set-accent': d => App.setAppearance(d.theme === 'dark' ? { AkcentCiemny: d.id } : { AkcentJasny: d.id }),
     font: d => App.changeFont(+d.d),
     'save-profile': saveProfile,
+    'save-nick': saveNick,
     'sec-move': d => moveSection(d.id, +d.d),
     'sec-toggle': d => toggleSection(d.id),
     'save-layout': saveLayout,
@@ -665,6 +721,7 @@
 
   function init() {
     root.addEventListener('input', e => {
+      if (e.target?.id === 'nickInput') { clearTimeout(nickTimer); nickTimer = setTimeout(checkNick, 450); return; }
       const kind = e.target?.dataset?.sort;   // zmiana kolejności listy (zapis na koncie)
       if (kind) return App.setSort(kind, e.target.value);
       // podpowiedź mięśni z nazwy, dopóki nie wybrano ich ręcznie

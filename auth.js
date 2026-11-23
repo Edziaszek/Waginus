@@ -49,6 +49,9 @@
         <form id="authForm">
           <div class="form-field"><label for="authEmail">E-mail</label>
             <input type="email" id="authEmail" autocomplete="email" inputmode="email" required></div>
+          ${reg ? `<div class="form-field"><label for="authNick">Pseudonim (publiczny, unikalny)</label>
+            <input type="text" id="authNick" autocomplete="nickname" maxlength="20" autocapitalize="none" spellcheck="false" required></div>
+            <div class="muted auth-hint" id="authNickHint">3–20 znaków: litery a–z, cyfry, _ i -. Będzie częścią linku do Twojego profilu publicznego.</div>` : ''}
           <div class="form-field"><label for="authPass">Hasło</label>
             <input type="password" id="authPass" data-pass autocomplete="${reg ? 'new-password' : 'current-password'}" minlength="${MIN_PASS}" required></div>
           ${reg ? `<div class="form-field"><label for="authPass2">Powtórz hasło</label>
@@ -64,6 +67,26 @@
     $('authEmail').value = email;
     const msg = $('authMsg');
 
+    // Pseudonim: sprawdzanie formatu i dostępności na żywo (jeszcze przed założeniem konta)
+    if (reg) {
+      const nickEl = $('authNick'), hint = $('authNickHint'), base = hint.textContent;
+      let seq = 0, timer;
+      const setHint = (text, cls = '') => { hint.textContent = text; hint.className = 'auth-hint ' + (cls || 'muted'); };
+      const verify = async () => {
+        const n = nickEl.value.trim(), mine = ++seq;
+        if (!n) return setHint(base);
+        const err = window.Nick.check(n);
+        if (err) return setHint(err, 'hint-bad');
+        setHint('Sprawdzam dostępność…');
+        try {
+          const owner = await window.firebaseFunctions.nickOwner(n);
+          if (mine !== seq) return;   // w międzyczasie wpisano coś nowszego
+          owner ? setHint('✗ Ten pseudonim jest już zajęty.', 'hint-bad') : setHint('✓ Pseudonim jest wolny.', 'hint-ok');
+        } catch (e) { if (mine === seq) setHint('Nie udało się sprawdzić dostępności – sprawdzimy ją po zalogowaniu.'); }
+      };
+      nickEl.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(verify, 450); });
+    }
+
     root.querySelectorAll('[data-mode]').forEach(b =>
       b.addEventListener('click', () => showAuth(b.dataset.mode, $('authEmail').value)));
     $('authShow').addEventListener('change', e =>
@@ -73,11 +96,17 @@
       e.preventDefault();
       const mail = $('authEmail').value.trim(), pass = $('authPass').value;
       const btn = e.submitter || $('authForm').querySelector('[type=submit]'), label = btn.textContent;
+      const nick = reg ? $('authNick').value.trim() : '';
+      if (reg) { const nickErr = window.Nick.check(nick); if (nickErr) return say(msg, nickErr); }
       if (reg && pass.length < MIN_PASS) return say(msg, `Hasło musi mieć co najmniej ${MIN_PASS} znaków.`);
       if (reg && pass !== $('authPass2').value) return say(msg, 'Hasła nie są takie same.');
       btn.disabled = true; btn.textContent = 'Chwileczkę…'; msg.hidden = true;
       try {
-        await (reg ? fa().register(mail, pass) : fa().login(mail, pass));
+        if (reg) {   // ostatnie sprawdzenie tuż przed założeniem konta (brak dostępu do sprawdzenia nie blokuje – rozstrzygnie baza)
+          const taken = await window.firebaseFunctions.nickOwner(nick).catch(() => null);
+          if (taken) { say(msg, 'Ten pseudonim jest już zajęty. Wybierz inny.'); btn.disabled = false; btn.textContent = label; return; }
+        }
+        await (reg ? fa().register(mail, pass, nick) : fa().login(mail, pass));
         // sukces: zmianę ekranu załatwia nasłuch stanu logowania (gate)
       } catch (err) {
         console.error(err);
