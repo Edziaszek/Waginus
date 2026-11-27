@@ -78,14 +78,14 @@
   function bodyHtml(g, d, open = new Set()) {
     const t = k => tx(g, k), parts = d?.parts || [];
     const cards = parts.map((p, i) => {
-      const hist = Array.isArray(p.h), isOpen = hist && open.has(i);
+      const hist = Array.isArray(p.ht), isOpen = hist && open.has(i);
       return `<div class="card part-card">
         <div class="between"><strong>${esc(p.n)}</strong>${hist ? `<button class="btn-secondary" data-part="${i}">${isOpen ? t('hideHist') : t('showHist')}</button>` : ''}</div>
         ${p.last != null
           ? `<div class="part-stats"><span>${t('last')}: <strong>${p.last.toFixed(1)} cm</strong></span><span>${t('hi')}: <strong>${p.max.toFixed(1)} cm</strong></span><span>${t('diff')}: <strong class="accent">${p.diff.toFixed(1)} cm</strong></span></div>`
           : `<div class="muted">${t('noMeas')}</div>`}
         ${isOpen ? `<div class="chart-box"><canvas data-chart="${i}"></canvas></div>
-          <div class="history" style="max-height:220px">${[...p.h].reverse().map(([ts, v]) => `<div class="data-item"><span>${fmtDate(ts)}</span><strong>${v.toFixed(1)} cm</strong></div>`).join('')}</div>` : ''}
+          <div class="history" style="max-height:220px">${histOf(p).reverse().map(([ts, v]) => `<div class="data-item"><span>${fmtDate(ts)}</span><strong>${v.toFixed(1)} cm</strong></div>`).join('')}</div>` : ''}
       </div>`;
     });
     return `<h3 class="pub-head">📏 ${t('bodyHead')}</h3>` + (cards.join('') || `<div class="card muted center">${t('noData')}</div>`);
@@ -93,7 +93,7 @@
 
   function dayDetailHtml(g, day) {
     const t = k => tx(g, k);
-    const w = day.w.map(e => `<div class="data-item"><div><strong>${esc(e.e)}</strong><br><small>${e.s.map(([k, r]) => `${k} kg x ${repsText(r)}`).join('<br>')}</small></div><strong>śr. ${Number(e.a).toFixed(1)} kg</strong></div>`).join('');
+    const w = day.w.map(e => `<div class="data-item"><div><strong>${esc(e.e)}</strong><br><small>${e.s.map(({ k, r }) => `${k} kg x ${repsText(r)}`).join('<br>')}</small></div><strong>śr. ${Number(e.a).toFixed(1)} kg</strong></div>`).join('');
     const c = day.c.map(e => `<div class="data-item"><div><strong>🏃 ${esc(e.n)}</strong><br><small class="muted">${[e.d && esc(e.d), e.k != null && `${e.k} km`, e.p && `tempo ${esc(e.p)} min/km`, e.h && `tętno ${e.h} bpm`].filter(Boolean).join(' · ')}</small></div></div>`).join('');
     return `<div class="card"><h3>${t('dayTitle')} ${fmtDate(day.t)}</h3><div class="muted" style="margin-bottom:6px">${t('didToday')}</div><div class="stack">${w}${c}</div></div>`;
   }
@@ -104,6 +104,9 @@
     const c = (rec.c || []).map(x => `<div class="data-item"><div><strong>🏃 ${esc(x.n)}</strong><br><small class="muted">${t('lastLbl')}: ${x.l[0]} km${x.l[1] ? ' · ' + esc(x.l[1]) : ''} (${fmtDate(x.l[2]).slice(0, 5)})</small></div><div style="text-align:right">${t('recLbl')}: <strong class="accent">${x.b} km</strong></div></div>`);
     return `<div class="card"><h3>🏆 ${t('recHead')}</h3><div class="stack">${[...w, ...c].join('') || `<div class="muted">${t('noData')}</div>`}</div></div>`;
   }
+
+  // Historia obwodu jest zapisana jako dwie płaskie tablice (daty ht i wartości hv) – składamy z nich pary [data, cm]
+  const histOf = p => (p.ht || []).map((t, i) => [t, p.hv[i]]);
 
   // Wykres historii obwodu: linia po osi czasu z wypełnieniem, podpisane minimum i maksimum
   function drawChart(canvas, hist) {
@@ -157,7 +160,7 @@
     function renderBody() {
       const el = $('pub-body'), parts = docs.body?.parts || [];
       el.innerHTML = bodyHtml(g, docs.body, st.open);
-      el.querySelectorAll('canvas[data-chart]').forEach(cv => drawChart(cv, parts[+cv.dataset.chart].h));
+      el.querySelectorAll('canvas[data-chart]').forEach(cv => drawChart(cv, histOf(parts[+cv.dataset.chart])));
     }
 
     function renderTraining() {
@@ -172,7 +175,7 @@
           const level = new Map(), by = new Map();
           for (const e of st.chip ? entries.filter(x => x.key === st.chip) : entries) {
             if (!e.m) continue;
-            for (const [ids, tier] of [[e.m[0], 2], [e.m[1], 1]]) for (const id of ids) {
+            for (const [ids, tier] of [[e.m.p, 2], [e.m.s, 1]]) for (const id of ids) {
               level.set(id, Math.max(level.get(id) || 0, tier));
               (by.get(id) || by.set(id, []).get(id)).push({ name: e.name, tier });
             }
